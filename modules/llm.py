@@ -26,6 +26,9 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     Generate a professional stock analysis report using Gemini 1.5 Pro.
     Falls back to mock if unavailable.
     """
+    if enhanced_metrics is None:
+        enhanced_metrics = {}
+        
     if not configure_genai():
         # Enhanced Mock Fallback
         time.sleep(2)

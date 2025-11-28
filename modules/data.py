@@ -48,6 +48,8 @@ def get_stock_data(ticker_code, period="1y", interval="1d"):
                     'name': info.get('longName', ticker_code)
                 }
         except Exception as e:
+            import streamlit as st
+            st.error(f"データ取得エラー: {e}") # Show error to user
             print(f"Error fetching stock data: {e}, falling back to mock.")
     
     # Mock Data Generation
@@ -63,6 +65,7 @@ def get_stock_data(ticker_code, period="1y", interval="1d"):
     df['Open'] = [p * (1 + random.uniform(-0.01, 0.01)) for p in prices]
     df['High'] = [max(o, c) * (1 + random.uniform(0, 0.01)) for o, c in zip(df['Open'], df['Close'])]
     df['Low'] = [min(o, c) * (1 - random.uniform(0, 0.01)) for o, c in zip(df['Open'], df['Close'])]
+    df['Volume'] = [int(random.uniform(100000, 1000000)) for _ in range(250)] # Add Mock Volume
     
     current_price = prices[-1]
     prev_close = prices[-2]

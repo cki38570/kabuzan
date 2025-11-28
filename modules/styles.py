@@ -68,7 +68,7 @@ def get_custom_css():
         /* Hide Streamlit Branding */
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
-        header {visibility: hidden;}
+        /* header {visibility: hidden;}  <-- Removed to show hamburger menu on mobile */
         
         /* Mobile adjustments */
         @media (max-width: 640px) {
