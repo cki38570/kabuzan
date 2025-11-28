@@ -59,6 +59,22 @@ def create_main_chart(df, ticker_name, strategic_data=None):
                 bgcolor="#ff0000", font=dict(color="#ffffff", size=11),
                 row=1, col=1
             )
+        
+        # Add Entry Point Indicator
+        entry_price = strategic_data.get('entry_price')
+        if entry_price:
+            # Entry point horizontal line
+            fig.add_hline(y=entry_price, line_dash="dot", line_color="#00ffff", 
+                          line_width=2, row=1, col=1)
+            # Entry point annotation with icon
+            fig.add_annotation(
+                x=df.index[-1], y=entry_price,
+                text=f"🎯 エントリー: ¥{entry_price:,}",
+                showarrow=True, arrowhead=2,
+                ax=-40, ay=0,
+                bgcolor="#00ffff", font=dict(color="#000000", size=12, family="Arial Black"),
+                row=1, col=1
+            )
 
     # RSI
     fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], 

@@ -181,6 +181,9 @@ def generate_ai_report(df, credit_data, ticker_name, price_info=None):
     stop_loss = support_level - (1.5 * atr)
     target_price = resistance_level
     
+    # Calculate optimal entry price (middle of buy zone)
+    entry_price = int((buy_zone_min + buy_zone_max) / 2)
+    
     risk = buy_zone_max - stop_loss
     reward = target_price - buy_zone_max
     rr_ratio = reward / risk if risk > 0 else 0
@@ -188,13 +191,13 @@ def generate_ai_report(df, credit_data, ticker_name, price_info=None):
     strategy_msg = ""
     if trend_score >= 1:
         strategy_msg = "🐂 押し目買い戦略"
-        action_msg = f"上昇トレンド継続中。{int(buy_zone_min):,}円 〜 {int(buy_zone_max):,}円 付近までの調整を待ってエントリーを検討。"
+        action_msg = f"上昇トレンド継続中。**¥{entry_price:,}円付近**でエントリーを検討してください。"
     elif trend_score <= -1:
         strategy_msg = "🐻 戻り売り/様子見"
         action_msg = "下落トレンド中。無理なエントリーは控え、底打ちシグナルを待つべきです。"
     else:
         strategy_msg = "⚖️ レンジ戦略"
-        action_msg = f"方向感が乏しい展開。下限 {int(bb_low):,}円 で買い、上限 {int(bb_up):,}円 で売りを検討。"
+        action_msg = f"方向感が乏しい展開。**¥{entry_price:,}円付近**まで待ってからエントリーを検討。"
 
     # --- Prepare Data for LLM ---
     indicators_data = {
@@ -210,6 +213,7 @@ def generate_ai_report(df, credit_data, ticker_name, price_info=None):
         'action_msg': action_msg,
         'target_price': int(target_price),
         'stop_loss': int(stop_loss),
+        'entry_price': entry_price,  # Added entry price
         'strategy_msg': strategy_msg,
         'risk_reward': rr_ratio
     }

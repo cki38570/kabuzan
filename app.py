@@ -12,9 +12,9 @@ from modules.enhanced_metrics import calculate_advanced_metrics, format_metrics_
 
 # Page Config
 st.set_page_config(
-    page_title="株価AI分析ダッシュボード",
+    page_title="株価AI分析",
     layout="centered", 
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"  # Changed from "collapsed" to "expanded" for mobile
 )
 
 # PWA Meta Tags
@@ -86,11 +86,11 @@ with st.sidebar:
         st.rerun()
 
 # --- Main Content ---
-st.title("株価AI分析ダッシュボード")
+# Title removed per user request
 
-# Search Input (Sync with Sidebar)
-default_ticker = selected_from_list if selected_from_list else "7203"
-ticker_input = st.text_input("🔍 銘柄コード検索 (例: 7203)", value=default_ticker)
+# Search Input (No default ticker)
+default_ticker = selected_from_list if selected_from_list else ""
+ticker_input = st.text_input("🔍 銘柄コード検索 (例: 7203)", value=default_ticker, placeholder="銘柄コードを入力")
 
 # Comparison Mode
 if st.session_state.comparison_mode:
