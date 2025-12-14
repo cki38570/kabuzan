@@ -240,28 +240,5 @@ def generate_ai_report(df, credit_data, ticker_name, price_info=None):
     if llm_report:
         return llm_report, strategic_data
 
-    # Fallback to Heuristic Report
-    signal_bullet = "\n".join([f"- {s}" for s in signals]) if signals else "- 特になし"
-    
-    report = f"""
-### 🧠 Deep AI Market Insight (Heuristic)
-
-**1. 戦略的トレードシナリオ**
-{strategy_msg}
-- {action_msg}
-- **🎯 利確目標**: {int(target_price):,} 円
-- **🛡️ 損切ライン**: {int(stop_loss):,} 円
-- **⚖️ リスクリワード比**: {rr_ratio:.2f}
-
-**2. トレンド構造**
-{trend_desc}
-
-**3. テクニカル・シグナル**
-{signal_bullet}
-- {volatility_msg}
-- {rsi_msg}
-
-**4. 需給分析**
-- {credit_msg}
-    """
-    return report.strip(), strategic_data
+    # Fallback only if LLM completely fails
+    return "⚠️ AI分析レポートの生成に失敗しました。APIキーまたは通信状況を確認してください。", strategic_data

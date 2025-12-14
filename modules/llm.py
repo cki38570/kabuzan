@@ -30,92 +30,49 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
         enhanced_metrics = {}
         
     if not configure_genai():
-        # Enhanced Mock Fallback
-        time.sleep(2)
+        # Enhanced Mock Fallback (Strict Format)
+        time.sleep(1)
+        
+        # Calculate Mock Values based on data
+        trend_status = "MONITOR (監視)"
+        conclusion = "方向感が乏しため、明確なシグナルが出るまで静観を推奨します。"
+        
+        if enhanced_metrics.get('roc_5d', 0) > 2 and indicators.get('rsi', 50) < 70:
+             trend_status = "BUY ENTRY"
+             conclusion = "短期上昇モメンタムが発生しており、押し目でのエントリーが有効です。"
+        elif enhanced_metrics.get('roc_5d', 0) < -2:
+             trend_status = "NO TRADE"
+             conclusion = "下落トレンド中につき、底打ちを確認するまで様子見を推奨。"
+
         return f"""
-### 🧠 Gemini AI Analyst Report (Enhanced Mock)
+<!-- MOCK REPORT due to missing API Key -->
+## 📊 戦略判定: 🛡️ {trend_status}
 
-**総合判断**: **{strategic_data.get('trend_desc', '').split(':')[0].replace('**', '')}** 
+**【結論】**
+{conclusion}
 
-#### 📊 市場ポジション分析
-現在の株価は52週レンジの**{enhanced_metrics.get('price_position', 50):.1f}%**の位置にあり、{
-'高値圏で推移しています。利益確定の動きに注意が必要です' if enhanced_metrics.get('price_position', 50) > 70 else
-'安値圏で推移しています。反発の可能性を探るべきタイミングです' if enhanced_metrics.get('price_position', 50) < 30 else
-'中間レンジで推移しており、方向感を見極める局面です'
-}。
+**【トレードセットアップ】**
+- **エントリー推奨値**: ¥{strategic_data.get('entry_price', 0):,.0f}
+  - (根拠: アルゴリズム算出値に基づく参考価格)
+- **利確目標 (TP)**: ¥{strategic_data.get('target_price', 0):,.0f}
+  - (根拠: ボリンジャーバンド+2σ付近)
+- **損切目安 (SL)**: ¥{strategic_data.get('stop_loss', 0):,.0f}
+  - (根拠: 直近サポートライン割れ)
+- **リスクリワード比**: {strategic_data.get('risk_reward', 0):.2f}
 
-52週高値（¥{enhanced_metrics.get('52w_high', 0):,.0f}）からは**{enhanced_metrics.get('52w_high_pct', 0):.1f}%**、
-52週安値（¥{enhanced_metrics.get('52w_low', 0):,.0f}）からは**{enhanced_metrics.get('52w_low_pct', 0):+.1f}%**の位置です。
+**【テクニカル詳細分析】**
+1. **トレンド環境**:
+   - SMA判定: {strategic_data.get('trend_desc', 'N/A')}
+   - トレンド強度: {enhanced_metrics.get('trend_strength', 0):.1f}
 
-#### 🔥 モメンタム評価
-- **短期（5日）**: {enhanced_metrics.get('roc_5d', 0):+.2f}% - {'強い上昇モメンタム' if enhanced_metrics.get('roc_5d', 0) > 2 else '弱い動き' if abs(enhanced_metrics.get('roc_5d', 0)) < 1 else '下落圧力'}
-- **中期（10日）**: {enhanced_metrics.get('roc_10d', 0):+.2f}%
-- **長期（20日）**: {enhanced_metrics.get('roc_20d', 0):+.2f}%
+2. **オシレーター評価**:
+   - RSI(14): {indicators.get('rsi', 50):.1f} ({indicators.get('rsi_status', '')})
+   - MACD: {indicators.get('macd_status', '')}
+   - ボリンジャーバンド: {indicators.get('bb_status', '')}
 
-モメンタムの方向性から判断すると、{
-'短期的な過熱感が見られます。調整局面に入る可能性があります' if enhanced_metrics.get('roc_5d', 0) > 5 else
-'安定したトレンドが継続しています' if abs(enhanced_metrics.get('roc_5d', 0) - enhanced_metrics.get('roc_10d', 0)) < 2 else
-'モメンタムの減速が見られます。トレンド転換の兆候に注意してください'
-}。
-
-#### 📈 テクニカル詳細分析
-**RSI**: {indicators.get('rsi', 50):.1f} ({enhanced_metrics.get('rsi_trend', 'N/A')})
-- RSIは{
-'70を超えており、買われ過ぎの水準です。短期的な調整リスクが高まっています' if indicators.get('rsi', 50) > 70 else
-'30を下回っており、売られ過ぎの水準です。反発の可能性が高まっています' if indicators.get('rsi', 50) < 30 else
-'50付近で中立的な水準です。明確な方向感は出ていません' if 45 < indicators.get('rsi', 50) < 55 else
-'健全な範囲内で推移しています'
-}。
-
-**MACD**: {enhanced_metrics.get('macd_cross', 'none')}
-- {
-'ゴールデンクロスが発生しました。買いシグナルとして注目すべきポイントです' if enhanced_metrics.get('macd_cross') == 'golden' else
-'デッドクロスが発生しました。売りシグナルとして警戒が必要です' if enhanced_metrics.get('macd_cross') == 'dead' else
-'クロスは発生していません。現在のトレンドが継続する可能性が高いです'
-}。
-
-**ボリンジャーバンド**: 幅{enhanced_metrics.get('bb_width', 0):.2f}%
-- BB幅から判断すると、{
-'ボラティリティが拡大しています。大きな値動きが予想されます' if enhanced_metrics.get('bb_width', 0) > 10 else
-'ボラティリティが縮小しています（スクイーズ）。ブレイクアウトが近い可能性があります' if enhanced_metrics.get('bb_width', 0) < 5 else
-'通常のボラティリティ範囲です'
-}。
-
-#### 💹 出来高分析
-当日出来高は平均の**{enhanced_metrics.get('volume_ratio', 1):.2f}倍**で、{
-'異常な出来高急増が見られます。重要な転換点の可能性があります' if enhanced_metrics.get('volume_ratio', 1) > 2 else
-'出来高が減少しています。トレンドの勢いが弱まっている兆候です' if enhanced_metrics.get('volume_ratio', 1) < 0.7 else
-'平均的な出来高で推移しています'
-}。
-
-#### 🎯 戦略的推奨
-{strategic_data.get('action_msg', '')}
-
-**🎯 推奨エントリー価格**: ¥{strategic_data.get('entry_price', 0):,.0f}
-- この価格帯は、サポートラインとテクニカル指標から算出した最適なエントリーポイントです。
-
-**利確目標**: ¥{strategic_data.get('target_price', 0):,.0f}
-- この目標は{
-'ボリンジャーバンドの上限付近に設定されており、妥当な水準です' if enhanced_metrics.get('bb_position', 50) < 80 else
-'やや楽観的な設定です。段階的な利益確定を推奨します'
-}。
-
-**損切ライン**: ¥{strategic_data.get('stop_loss', 0):,.0f}
-- ATR（¥{enhanced_metrics.get('atr', 0):,.0f}）を考慮すると、{
-'適切な損切位置です。このラインは厳守してください' if enhanced_metrics.get('atr_pct', 0) < 3 else
-'ボラティリティが高いため、損切幅を広めに取ることも検討してください'
-}。
-
-#### ⚠️ リスク要因
-- 年率ボラティリティ: **{enhanced_metrics.get('volatility_annual', 0):.1f}%**
-- トレンド強度: **{enhanced_metrics.get('trend_strength', 0):.1f}**
-
-{
-'ボラティリティが高く、リスクの高い銘柄です。ポジションサイズを抑えることを推奨します' if enhanced_metrics.get('volatility_annual', 0) > 40 else
-'ボラティリティは標準的な範囲です' if enhanced_metrics.get('volatility_annual', 0) > 20 else
-'ボラティリティが低く、安定した値動きが期待できます'
-}。
-        """
+3. **需給・ファンダ**:
+   - {credit_data}
+"""
 
     # Construct Enhanced Prompt with Strict Persona
     prompt = f"""
