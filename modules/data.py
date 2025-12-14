@@ -164,3 +164,6 @@ def get_market_sentiment():
             return "Neutral"
     except Exception:
         return "Neutral"
+
+# Trigger deployment refresh 
+
