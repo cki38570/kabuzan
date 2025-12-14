@@ -1,42 +1,47 @@
 import pandas as pd
 import numpy as np
 
-def calculate_indicators(df):
+def calculate_indicators(df, params=None):
     """
     Add technical indicators to the DataFrame.
-    - SMA: 5, 25, 75
-    - RSI: 14
-    - MACD: 12, 26, 9
-    - Bollinger Bands: 20, 2sigma
-    - Volume MA: 5
-    - ATR: 14 (for volatility-based stop loss)
     """
+    if params is None:
+        params = {
+            'sma_short': 5, 'sma_mid': 25, 'sma_long': 75,
+            'rsi_period': 14,
+            'macd_fast': 12, 'macd_slow': 26, 'macd_signal': 9,
+            'bb_window': 20, 'bb_std': 2
+        }
+    
     df = df.copy()
     
     # Simple Moving Averages
-    df['SMA5'] = df['Close'].rolling(window=5).mean()
-    df['SMA25'] = df['Close'].rolling(window=25).mean()
-    df['SMA75'] = df['Close'].rolling(window=75).mean()
+    df['SMA5'] = df['Close'].rolling(window=params.get('sma_short', 5)).mean()
+    df['SMA25'] = df['Close'].rolling(window=params.get('sma_mid', 25)).mean()
+    df['SMA75'] = df['Close'].rolling(window=params.get('sma_long', 75)).mean()
     
-    # RSI (14)
+    # RSI
+    period = params.get('rsi_period', 14)
     delta = df['Close'].diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
     rs = gain / loss
     df['RSI'] = 100 - (100 / (1 + rs))
     
     # MACD
-    ema12 = df['Close'].ewm(span=12, adjust=False).mean()
-    ema26 = df['Close'].ewm(span=26, adjust=False).mean()
+    ema12 = df['Close'].ewm(span=params.get('macd_fast', 12), adjust=False).mean()
+    ema26 = df['Close'].ewm(span=params.get('macd_slow', 26), adjust=False).mean()
     df['MACD'] = ema12 - ema26
-    df['MACD_Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
+    df['MACD_Signal'] = df['MACD'].ewm(span=params.get('macd_signal', 9), adjust=False).mean()
     df['MACD_Hist'] = df['MACD'] - df['MACD_Signal']
     
-    # Bollinger Bands (20, 2std)
-    df['BB_Mid'] = df['Close'].rolling(window=20).mean()
-    df['BB_Std'] = df['Close'].rolling(window=20).std()
-    df['BB_Upper'] = df['BB_Mid'] + (2 * df['BB_Std'])
-    df['BB_Lower'] = df['BB_Mid'] - (2 * df['BB_Std'])
+    # Bollinger Bands
+    bb_window = params.get('bb_window', 20)
+    bb_std_dev = params.get('bb_std', 2)
+    df['BB_Mid'] = df['Close'].rolling(window=bb_window).mean()
+    df['BB_Std'] = df['Close'].rolling(window=bb_window).std()
+    df['BB_Upper'] = df['BB_Mid'] + (bb_std_dev * df['BB_Std'])
+    df['BB_Lower'] = df['BB_Mid'] - (bb_std_dev * df['BB_Std'])
     
     # Volume MA
     if 'Volume' in df.columns:

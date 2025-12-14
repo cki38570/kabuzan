@@ -1,0 +1,9 @@
+[
+  {
+    "code": "TEST",
+    "name": "TestStock",
+    "quantity": 100,
+    "avg_price": 1000,
+    "added_at": "2025-12-14 13:39:24"
+  }
+]

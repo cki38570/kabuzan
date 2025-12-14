@@ -1,98 +1,95 @@
 import streamlit as st
-from datetime import datetime
 
-def check_price_alerts(current_price, ticker_code, ticker_name):
-    """
-    Check if current price triggers any alerts.
-    Returns list of triggered alerts.
-    """
-    if 'price_alerts' not in st.session_state:
-        st.session_state.price_alerts = []
+def show_notification_settings():
+    """Display notification settings UI in sidebar."""
+    st.markdown("### 🔔 通知設定 (シミュレーション)")
     
-    triggered = []
-    for alert in st.session_state.price_alerts:
-        if alert['ticker'] != ticker_code:
-            continue
-            
-        if alert['type'] == 'above' and current_price >= alert['price']:
-            triggered.append({
-                'message': f"🔔 {ticker_name} が目標価格 ¥{alert['price']:,} を突破しました！ (現在: ¥{current_price:,.1f})",
-                'alert': alert
-            })
-        elif alert['type'] == 'below' and current_price <= alert['price']:
-            triggered.append({
-                'message': f"⚠️ {ticker_name} が警戒価格 ¥{alert['price']:,} を下回りました！ (現在: ¥{current_price:,.1f})",
-                'alert': alert
-            })
+    notify_line = st.checkbox("LINE通知", value=st.session_state.get('notify_line', False))
+    if notify_line:
+        st.session_state.line_token = st.text_input("LINE Notify Token", type="password", 
+                                                  value=st.session_state.get('line_token', ''),
+                                                  placeholder="トークンを入力 (任意)")
+        
+    notify_email = st.checkbox("メール通知", value=st.session_state.get('notify_email', False))
+    if notify_email:
+        st.session_state.email_addr = st.text_input("メールアドレス", 
+                                                  value=st.session_state.get('email_addr', ''),
+                                                  placeholder="example@mail.com")
+        
+    st.session_state.notify_line = notify_line
+    st.session_state.notify_email = notify_email
     
-    return triggered
+    if st.button("テスト通知を送信"):
+        send_test_notification()
 
-def add_price_alert(ticker_code, ticker_name, price, alert_type):
-    """
-    Add a price alert.
-    alert_type: 'above' or 'below'
-    """
-    if 'price_alerts' not in st.session_state:
-        st.session_state.price_alerts = []
+def send_test_notification():
+    """Simulate sending a notification."""
+    methods = []
+    if st.session_state.get('notify_line'):
+        methods.append("LINE")
+    if st.session_state.get('notify_email'):
+        methods.append("メール")
     
-    st.session_state.price_alerts.append({
-        'ticker': ticker_code,
-        'ticker_name': ticker_name,
-        'price': price,
-        'type': alert_type,
-        'created_at': datetime.now().strftime('%Y-%m-%d %H:%M')
-    })
-
-def remove_alert(alert):
-    """Remove a specific alert"""
-    if 'price_alerts' not in st.session_state:
+    if not methods:
+        st.warning("通知方法が選択されていません。")
         return
+        
+    st.toast(f"🔔 {'/'.join(methods)}にテスト通知を送信しました！", icon="✅")
     
-    st.session_state.price_alerts = [
-        a for a in st.session_state.price_alerts 
-        if not (a['ticker'] == alert['ticker'] and 
-                a['price'] == alert['price'] and 
-                a['type'] == alert['type'])
-    ]
+    # Simulation Logic
+    # In a real app, requests.post to LINE Notify API or smtplib for Email would go here.
 
-def show_alert_manager(ticker_code, ticker_name, current_price):
+def check_and_notify(ticker, price, alert_price, condition):
     """
-    Display alert management UI in sidebar or expander.
+    Check price condition and trigger notification if met.
+    Returns True if notification sent.
     """
-    st.markdown("### 🔔 価格アラート設定")
+    triggered = False
     
-    col1, col2 = st.columns(2)
-    with col1:
-        alert_price = st.number_input(
-            "目標価格 (円)", 
-            min_value=0.0, 
-            value=float(current_price * 1.05),
-            step=10.0,
-            key=f"alert_price_{ticker_code}"
-        )
-    with col2:
-        alert_type = st.selectbox(
-            "条件",
-            options=['above', 'below'],
-            format_func=lambda x: '以上になったら通知' if x == 'above' else '以下になったら通知',
-            key=f"alert_type_{ticker_code}"
-        )
+    if condition == 'above' and price >= alert_price:
+        triggered = True
+    elif condition == 'below' and price <= alert_price:
+        triggered = True
+        
+    if triggered:
+        msg = f"🔔 アラート: {ticker} が {alert_price}円 {'以上' if condition == 'above' else '以下'} になりました！ (現在: {price}円)"
+        st.toast(msg, icon="🚨")
+        # In real implementation: send_line(msg), send_email(msg)
+        return True
     
-    if st.button("アラート追加", key=f"add_alert_{ticker_code}"):
-        add_price_alert(ticker_code, ticker_name, alert_price, alert_type)
-        st.success(f"アラートを追加しました: ¥{alert_price:,}")
+    return False
+
+def check_price_alerts(price, ticker, name):
+    alerts = st.session_state.get('alerts', [])
+    triggered_alerts = []
+    for alert in alerts:
+        if alert['code'] == ticker:
+            if alert['condition'] == 'above' and price >= alert['price']:
+                triggered_alerts.append({'message': f"アラート: {name}が{alert['price']}円以上になりました", 'alert': alert})
+            elif alert['condition'] == 'below' and price <= alert['price']:
+                triggered_alerts.append({'message': f"アラート: {name}が{alert['price']}円以下になりました", 'alert': alert})
+    return triggered_alerts
+
+def remove_alert(alert_to_remove):
+    alerts = st.session_state.get('alerts', [])
+    st.session_state.alerts = [a for a in alerts if a != alert_to_remove]
+
+def show_alert_manager(ticker_input, name, current_price):
+    st.markdown("### 📈 価格アラート設定")
+    if 'alerts' not in st.session_state:
+        st.session_state.alerts = []
     
-    # Show existing alerts
-    if 'price_alerts' in st.session_state:
-        ticker_alerts = [a for a in st.session_state.price_alerts if a['ticker'] == ticker_code]
-        if ticker_alerts:
-            st.markdown("**設定中のアラート:**")
-            for i, alert in enumerate(ticker_alerts):
-                condition = "以上" if alert['type'] == 'above' else "以下"
-                col1, col2 = st.columns([3, 1])
-                with col1:
-                    st.text(f"¥{alert['price']:,} {condition}")
-                with col2:
-                    if st.button("削除", key=f"del_alert_{ticker_code}_{i}"):
-                        remove_alert(alert)
-                        st.rerun()
+    col1, col2, col3 = st.columns(3)
+    alert_price = col1.number_input("アラート価格", value=current_price)
+    condition = col2.selectbox("条件", ["以上", "以下"], index=0)
+    
+    if col3.button("アラート設定"):
+        cond_val = 'above' if condition == "以上" else 'below'
+        st.session_state.alerts.append({'code': ticker_input, 'price': alert_price, 'condition': cond_val, 'name': name})
+        st.success(f"{name} {alert_price}円 {condition} のアラートを設定")
+
+    if st.session_state.alerts:
+        st.markdown("設定中のアラート:")
+        for i, alert in enumerate(st.session_state.alerts):
+            if alert['code'] == ticker_input:
+                st.info(f"{alert['name']} {alert['price']}円 {'以上' if alert['condition'] == 'above' else '以下'}")

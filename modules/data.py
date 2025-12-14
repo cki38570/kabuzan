@@ -15,11 +15,15 @@ except Exception as e:
     YFINANCE_AVAILABLE = False
     print(f"yfinance failed to import: {e}, using mock data.")
 
+import streamlit as st
+
+@st.cache_data(ttl=900)
 def get_stock_data(ticker_code, period="1y", interval="1d"):
     """
     Fetch stock data from yfinance.
     Adds .T suffix if missing.
     Falls back to mock data if yfinance is unavailable.
+    Cached for 15 minutes.
     """
     if not str(ticker_code).endswith('.T'):
         ticker_code = f"{ticker_code}.T"
@@ -79,6 +83,7 @@ def get_stock_data(ticker_code, period="1y", interval="1d"):
         'name': f"Mock: {ticker_code}"
     }
 
+@st.cache_data(ttl=3600)  # Credit data updates less frequently
 def get_credit_data(ticker_code):
     """
     Scrape credit margin data from Kabutan.
