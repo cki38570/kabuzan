@@ -8,8 +8,17 @@ except ImportError:
 import os
 import time
 
-# API Key - Use environment variable for cloud deployment
-API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyDL-fH2-9ADc61okQm6WtRyHFunoH_tyP4")
+import streamlit as st
+
+# API Key - Load from secrets.toml (local) or Streamlit Cloud Secrets
+# PRIORITY: st.secrets > os.getenv > None
+try:
+    API_KEY = st.secrets["GEMINI_API_KEY"]
+except (FileNotFoundError, KeyError):
+    API_KEY = os.getenv("GEMINI_API_KEY")
+
+if not API_KEY:
+    print("Warning: GEMINI_API_KEY not found in secrets.toml or environment variables.")
 
 def configure_genai():
     if not GENAI_AVAILABLE:
