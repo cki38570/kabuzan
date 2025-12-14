@@ -29,51 +29,6 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     if enhanced_metrics is None:
         enhanced_metrics = {}
         
-    if not configure_genai():
-        # Enhanced Mock Fallback (Strict Format)
-        time.sleep(1)
-        
-        # Calculate Mock Values based on data
-        trend_status = "MONITOR (監視)"
-        conclusion = "方向感が乏しため、明確なシグナルが出るまで静観を推奨します。"
-        
-        if enhanced_metrics.get('roc_5d', 0) > 2 and indicators.get('rsi', 50) < 70:
-             trend_status = "BUY ENTRY"
-             conclusion = "短期上昇モメンタムが発生しており、押し目でのエントリーが有効です。"
-        elif enhanced_metrics.get('roc_5d', 0) < -2:
-             trend_status = "NO TRADE"
-             conclusion = "下落トレンド中につき、底打ちを確認するまで様子見を推奨。"
-
-        return f"""
-<!-- MOCK REPORT due to missing API Key -->
-## 📊 戦略判定: 🛡️ {trend_status}
-
-**【結論】**
-{conclusion}
-
-**【トレードセットアップ】**
-- **エントリー推奨値**: ¥{strategic_data.get('entry_price', 0):,.0f}
-  - (根拠: アルゴリズム算出値に基づく参考価格)
-- **利確目標 (TP)**: ¥{strategic_data.get('target_price', 0):,.0f}
-  - (根拠: ボリンジャーバンド+2σ付近)
-- **損切目安 (SL)**: ¥{strategic_data.get('stop_loss', 0):,.0f}
-  - (根拠: 直近サポートライン割れ)
-- **リスクリワード比**: {strategic_data.get('risk_reward', 0):.2f}
-
-**【テクニカル詳細分析】**
-1. **トレンド環境**:
-   - SMA判定: {strategic_data.get('trend_desc', 'N/A')}
-   - トレンド強度: {enhanced_metrics.get('trend_strength', 0):.1f}
-
-2. **オシレーター評価**:
-   - RSI(14): {indicators.get('rsi', 50):.1f} ({indicators.get('rsi_status', '')})
-   - MACD: {indicators.get('macd_status', '')}
-   - ボリンジャーバンド: {indicators.get('bb_status', '')}
-
-3. **需給・ファンダ**:
-   - {credit_data}
-"""
-
     # Construct Enhanced Prompt with Strict Persona
     prompt = f"""
     # Role
@@ -162,13 +117,59 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     ---
     """
     
+    if not configure_genai():
+        return _create_mock_report(strategic_data, enhanced_metrics, indicators, credit_data)
+
     try:
         model = genai.GenerativeModel('gemini-1.5-flash')
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
         print(f"Gemini generation failed: {e}")
-        return None
+        return _create_mock_report(strategic_data, enhanced_metrics, indicators, credit_data)
+
+def _create_mock_report(strategic_data, enhanced_metrics, indicators, credit_data):
+    """Helper to create strict format mock report."""
+    trend_status = "MONITOR (監視)"
+    conclusion = "方向感が乏しため、明確なシグナルが出るまで静観を推奨します。"
+    
+    # Simple logic to make mock dynamic
+    if enhanced_metrics.get('roc_5d', 0) > 2 and indicators.get('rsi', 50) < 70:
+            trend_status = "BUY ENTRY"
+            conclusion = "短期上昇モメンタムが発生しており、押し目でのエントリーが有効です。"
+    elif enhanced_metrics.get('roc_5d', 0) < -2:
+            trend_status = "NO TRADE"
+            conclusion = "下落トレンド中につき、底打ちを確認するまで様子見を推奨。"
+
+    return f"""
+<!-- MOCK REPORT due to API failure -->
+## 📊 戦略判定: 🛡️ {trend_status}
+
+**【結論】**
+{conclusion}
+
+**【トレードセットアップ】**
+- **エントリー推奨値**: ¥{strategic_data.get('entry_price', 0):,.0f}
+  - (根拠: アルゴリズム算出値に基づく参考価格)
+- **利確目標 (TP)**: ¥{strategic_data.get('target_price', 0):,.0f}
+  - (根拠: ボリンジャーバンド+2σ付近)
+- **損切目安 (SL)**: ¥{strategic_data.get('stop_loss', 0):,.0f}
+  - (根拠: 直近サポートライン割れ)
+- **リスクリワード比**: {strategic_data.get('risk_reward', 0):.2f}
+
+**【テクニカル詳細分析】**
+1. **トレンド環境**:
+   - SMA判定: {strategic_data.get('trend_desc', 'N/A')}
+   - トレンド強度: {enhanced_metrics.get('trend_strength', 0):.1f}
+
+2. **オシレーター評価**:
+   - RSI(14): {indicators.get('rsi', 50):.1f} ({indicators.get('rsi_status', '')})
+   - MACD: {indicators.get('macd_status', '')}
+   - ボリンジャーバンド: {indicators.get('bb_status', '')}
+
+3. **需給・ファンダ**:
+   - {credit_data}
+"""
 
 def _format_patterns_for_prompt(patterns):
     """Format detected patterns for inclusion in prompt."""
