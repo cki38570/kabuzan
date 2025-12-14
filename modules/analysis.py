@@ -61,7 +61,84 @@ from modules.llm import generate_gemini_analysis
 from modules.enhanced_metrics import calculate_advanced_metrics
 from modules.patterns import enhance_ai_analysis_with_patterns
 
-def generate_ai_report(df, credit_data, ticker_name, price_info=None):
+def calculate_trading_strategy(df):
+    """
+    Calculate trading strategy levels (Entry, TP, SL) and trend status.
+    Returns strategic_data dict.
+    """
+    if df is None or df.empty:
+        return {}
+
+    last = df.iloc[-1]
+    price = last['Close']
+    
+    # Check for necessary columns
+    needed = ['SMA5', 'SMA25', 'SMA75', 'BB_Upper', 'BB_Lower', 'ATR']
+    if not all(col in df.columns for col in needed):
+        return {}
+        
+    sma5, sma25, sma75 = last['SMA5'], last['SMA25'], last['SMA75']
+    bb_up, bb_low = last['BB_Upper'], last['BB_Lower']
+    atr = last['ATR']
+    
+    # 1. Trend Analysis
+    trend_score = 0
+    trend_desc = ""
+    
+    if sma5 > sma25 > sma75:
+        trend_desc = "🟢 パーフェクトオーダー（上昇）"
+        trend_score += 2
+    elif sma5 < sma25 < sma75:
+        trend_desc = "🔴 パーフェクトオーダー（下落）"
+        trend_score -= 2
+    else:
+        if price > sma25:
+            trend_desc = "📈 上昇基調"
+            trend_score += 1
+        else:
+            trend_desc = "📉 下落基調"
+            trend_score -= 1
+            
+    # 2. Strategy Levels
+    support_candidates = [l for l in [sma25, sma75, bb_low] if l < price]
+    support_level = max(support_candidates) if support_candidates else price * 0.95
+    resistance_level = bb_up
+    
+    buy_zone_min = support_level
+    buy_zone_max = support_level * 1.015
+    stop_loss = support_level - (1.5 * atr)
+    target_price = resistance_level
+    
+    entry_price = int((buy_zone_min + buy_zone_max) / 2)
+    
+    risk = buy_zone_max - stop_loss
+    reward = target_price - buy_zone_max
+    rr_ratio = reward / risk if risk > 0 else 0
+    
+    strategy_msg = ""
+    action_msg = ""
+    if trend_score >= 1:
+        strategy_msg = "🐂 押し目買い戦略"
+        action_msg = f"上昇トレンド継続中。**¥{entry_price:,}円付近**でエントリーを検討してください。"
+    elif trend_score <= -1:
+        strategy_msg = "🐻 戻り売り/様子見"
+        action_msg = "下落トレンド中。無理なエントリーは控え、底打ちシグナルを待つべきです。"
+    else:
+        strategy_msg = "⚖️ レンジ戦略"
+        action_msg = f"方向感が乏しい展開。**¥{entry_price:,}円付近**まで待ってからエントリーを検討。"
+
+    return {
+        'trend_desc': trend_desc,
+        'trend_score': trend_score,
+        'action_msg': action_msg,
+        'target_price': int(target_price),
+        'stop_loss': int(stop_loss),
+        'entry_price': entry_price,
+        'strategy_msg': strategy_msg,
+        'risk_reward': rr_ratio
+    }
+
+def generate_ai_report(df, credit_data, ticker_name, price_info=None, extra_context=None):
     """
     Generate a comprehensive 'Deep AI' analysis report with Strategic Scenarios.
     Uses Gemini if available, otherwise falls back to heuristic.
@@ -91,31 +168,14 @@ def generate_ai_report(df, credit_data, ticker_name, price_info=None):
     # Detect Patterns
     patterns = enhance_ai_analysis_with_patterns(df)
     
-    # --- 1. Trend Analysis ---
-    trend_score = 0
-    trend_desc = ""
-    
-    # Perfect Order Check
-    if sma5 > sma25 > sma75:
-        trend_desc = "🟢 パーフェクトオーダー（上昇）"
-        trend_score += 2
-    elif sma5 < sma25 < sma75:
-        trend_desc = "🔴 パーフェクトオーダー（下落）"
-        trend_score -= 2
-    else:
-        # General Trend
-        if price > sma25:
-            trend_desc = "📈 上昇基調"
-            trend_score += 1
-        else:
-            trend_desc = "📉 下落基調"
-            trend_score -= 1
+    # Strategy Calculation (if not provided/re-calc)
+    strategic_data = calculate_trading_strategy(df)
+    trend_desc = strategic_data.get('trend_desc', '')
 
-    # --- 2. Momentum & Volatility (MACD & BB) ---
+    # --- Momentum & Volatility (MACD & BB) ---
     signals = []
     macd_status = "中立"
     
-    # MACD
     if macd > macd_sig and prev['MACD'] <= prev['MACD_Signal']:
         signals.append("🚀 ゴールデンクロス (MACD)")
         macd_status = "ゴールデンクロス発生"
@@ -127,7 +187,6 @@ def generate_ai_report(df, credit_data, ticker_name, price_info=None):
     else:
         macd_status = "売りシグナル継続"
     
-    # Bollinger Bands
     bb_width = (bb_up - bb_low) / bb_mid
     volatility_msg = ""
     bb_status = "通常"
@@ -142,7 +201,6 @@ def generate_ai_report(df, credit_data, ticker_name, price_info=None):
         signals.append("💧 売られすぎ")
         bb_status = "売られすぎ（反発期待）"
 
-    # RSI
     rsi_msg = ""
     rsi_status = "中立"
     if rsi > 70:
@@ -154,9 +212,8 @@ def generate_ai_report(df, credit_data, ticker_name, price_info=None):
     else:
         rsi_msg = f"⚪ RSI {rsi:.1f} (中立)"
 
-    # --- 3. Supply/Demand (Credit) ---
+    # --- Supply/Demand (Credit) ---
     credit_msg = "データなし"
-    credit_score = 0
     if credit_data is not None and not credit_data.empty:
         try:
             ratio_col = [c for c in credit_data.columns if '倍率' in c]
@@ -164,45 +221,13 @@ def generate_ai_report(df, credit_data, ticker_name, price_info=None):
                 ratio = credit_data[ratio_col[0]].iloc[0]
                 if isinstance(ratio, str):
                     ratio = float(ratio.replace('倍', ''))
-                
                 credit_msg = f"信用倍率: {ratio}倍"
                 if ratio < 1.0:
                     credit_msg += " (売り長・好取組)"
-                    credit_score += 1
                 elif ratio > 8.0:
                     credit_msg += " (買い残多)"
-                    credit_score -= 1
         except:
             pass
-
-    # --- 4. Strategic Scenarios (New) ---
-    # Calculate Levels
-    support_candidates = [l for l in [sma25, sma75, bb_low] if l < price]
-    support_level = max(support_candidates) if support_candidates else price * 0.95
-    resistance_level = bb_up
-    
-    buy_zone_min = support_level
-    buy_zone_max = support_level * 1.015
-    stop_loss = support_level - (1.5 * atr)
-    target_price = resistance_level
-    
-    # Calculate optimal entry price (middle of buy zone)
-    entry_price = int((buy_zone_min + buy_zone_max) / 2)
-    
-    risk = buy_zone_max - stop_loss
-    reward = target_price - buy_zone_max
-    rr_ratio = reward / risk if risk > 0 else 0
-    
-    strategy_msg = ""
-    if trend_score >= 1:
-        strategy_msg = "🐂 押し目買い戦略"
-        action_msg = f"上昇トレンド継続中。**¥{entry_price:,}円付近**でエントリーを検討してください。"
-    elif trend_score <= -1:
-        strategy_msg = "🐻 戻り売り/様子見"
-        action_msg = "下落トレンド中。無理なエントリーは控え、底打ちシグナルを待つべきです。"
-    else:
-        strategy_msg = "⚖️ レンジ戦略"
-        action_msg = f"方向感が乏しい展開。**¥{entry_price:,}円付近**まで待ってからエントリーを検討。"
 
     # --- Prepare Data for LLM ---
     indicators_data = {
@@ -213,20 +238,10 @@ def generate_ai_report(df, credit_data, ticker_name, price_info=None):
         'atr': atr
     }
     
-    strategic_data = {
-        'trend_desc': trend_desc,
-        'action_msg': action_msg,
-        'target_price': int(target_price),
-        'stop_loss': int(stop_loss),
-        'entry_price': entry_price,  # Added entry price
-        'strategy_msg': strategy_msg,
-        'risk_reward': rr_ratio
-    }
-    
     if price_info is None:
         price_info = {'current_price': price, 'change_percent': 0.0}
 
-    # Call LLM with Enhanced Metrics and Patterns
+    # Call LLM with Enhanced Metrics, Patterns, and Extra Context
     llm_report = generate_gemini_analysis(
         ticker_name, 
         price_info, 
@@ -234,7 +249,8 @@ def generate_ai_report(df, credit_data, ticker_name, price_info=None):
         credit_msg, 
         strategic_data,
         enhanced_metrics=enhanced_metrics,
-        patterns=patterns
+        patterns=patterns,
+        extra_context=extra_context
     )
     
     if llm_report:

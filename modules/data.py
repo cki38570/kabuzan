@@ -104,3 +104,63 @@ def get_credit_data(ticker_code):
             '信用倍率': round(ratio, 2)
         })
     return pd.DataFrame(data)
+
+@st.cache_data(ttl=21600) # Cache for 6 hours
+def get_next_earnings_date(ticker_code):
+    """
+    Fetch the next earnings date for the ticker.
+    """
+    if not str(ticker_code).endswith('.T'):
+        ticker_code = f"{ticker_code}.T"
+        
+    if YFINANCE_AVAILABLE:
+        try:
+            ticker = yf.Ticker(ticker_code)
+            # Try getting calendar
+            cal = ticker.calendar
+            if cal is not None and not cal.empty:
+                # Calendar might be a DataFrame where index or columns are dates
+                # Often it has 'Earnings Date' or similar.
+                # yfinance structure varies, usually it returns a dict or DF with 'Earnings Date'
+                # For simplicity in this robust implementation:
+                earnings_date = cal.get('Earnings Date')
+                if earnings_date is not None:
+                     if isinstance(earnings_date, list):
+                         return earnings_date[0]
+                     return earnings_date
+                
+                # Fallback: check index if it is dates
+                return cal.iloc[0][0] # Crude attempt
+            
+        except Exception:
+            pass
+            
+    # Fallback or if no data found
+    return None
+
+@st.cache_data(ttl=3600)
+def get_market_sentiment():
+    """
+    Fetch Nikkei 225 (^N225) trend to determine market sentiment.
+    Returns: 'Bull', 'Bear', or 'Neutral'
+    """
+    if not YFINANCE_AVAILABLE:
+        return "Neutral"
+        
+    try:
+        ticker = yf.Ticker("^N225")
+        df = ticker.history(period="3mo", interval="1d")
+        if len(df) < 25:
+            return "Neutral"
+            
+        current_price = df['Close'].iloc[-1]
+        sma25 = df['Close'].rolling(window=25).mean().iloc[-1]
+        
+        if current_price > sma25 * 1.01:
+            return "Bull"
+        elif current_price < sma25 * 0.99:
+            return "Bear"
+        else:
+            return "Neutral"
+    except Exception:
+        return "Neutral"

@@ -30,7 +30,7 @@ def configure_genai():
         print(f"Failed to configure Gemini: {e}")
         return False
 
-def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strategic_data, enhanced_metrics=None, patterns=None):
+def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strategic_data, enhanced_metrics=None, patterns=None, extra_context=None):
     """
     Generate a professional stock analysis report using Gemini 1.5 Pro.
     Falls back to mock if unavailable.
@@ -95,7 +95,11 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     {_format_patterns_for_prompt(patterns)}
     
     ## 需給情報
+    ## 需給情報
     {credit_data}
+
+    ## その他の重要情報 (Context)
+    {_format_extra_context(extra_context)}
 
     # Output Format (出力形式)
 
@@ -192,3 +196,19 @@ def _format_patterns_for_prompt(patterns):
         result.append(f"- {p['name']}: {p['signal']}")
     
     return "\n".join(result) if result else "特になし"
+
+def _format_extra_context(context):
+    """Format extra context like Earnings and Market Trend."""
+    if not context:
+        return "特になし"
+    
+    lines = []
+    if 'earnings_date' in context and context['earnings_date']:
+        lines.append(f"- **次回決算日**: {context['earnings_date']} (決算またぎのリスクに注意)")
+    
+    if 'market_trend' in context:
+        trend = context['market_trend']
+        desc = "上昇トレンド（追い風）" if trend == "Bull" else "下落トレンド（向かい風）" if trend == "Bear" else "中立"
+        lines.append(f"- **市場全体の地合い (日経平均)**: {desc}")
+        
+    return "\n".join(lines) if lines else "特になし"

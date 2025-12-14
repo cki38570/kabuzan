@@ -1,8 +1,9 @@
 import streamlit as st
 import pandas as pd
 from modules.styles import get_custom_css
-from modules.data import get_stock_data, get_credit_data
-from modules.analysis import calculate_indicators, generate_ai_report
+from modules.data import get_stock_data, get_credit_data, get_next_earnings_date, get_market_sentiment
+from modules.analysis import calculate_indicators, generate_ai_report, calculate_trading_strategy
+import datetime
 from modules.charts import create_main_chart, create_credit_chart
 from modules.notifications import check_price_alerts, show_alert_manager, show_notification_settings
 from modules.recommendations import find_similar_stocks, get_recommendation_reason
@@ -94,11 +95,35 @@ with st.sidebar:
         st.rerun()
 
     st.markdown("---")
+    st.markdown("---")
     show_notification_settings()
 
 # --- Main Content ---
 default_ticker = selected_from_list if selected_from_list else ""
-ticker_input = st.text_input("🔍 銘柄コード検索 (例: 7203)", value=default_ticker, placeholder="銘柄コードを入力")
+
+# Feature 4: Quick Select UX
+st.markdown("### 🔍 銘柄検索")
+col_q1, col_q2, col_q3, col_q4, col_q5 = st.columns(5)
+quick_tickers = [
+    {'code': '7203', 'name': 'トヨタ'},
+    {'code': '9984', 'name': 'SBG'},
+    {'code': '6920', 'name': 'レーザー'},
+    {'code': '8306', 'name': 'UFJ'},
+    {'code': '1570', 'name': '日経レバ'}
+]
+
+clicked_quick = None
+# Create quick select buttons
+if col_q1.button(f"{quick_tickers[0]['name']}", type="primary"): clicked_quick = quick_tickers[0]['code']
+if col_q2.button(f"{quick_tickers[1]['name']}"): clicked_quick = quick_tickers[1]['code']
+if col_q3.button(f"{quick_tickers[2]['name']}"): clicked_quick = quick_tickers[2]['code']
+if col_q4.button(f"{quick_tickers[3]['name']}"): clicked_quick = quick_tickers[3]['code']
+if col_q5.button(f"{quick_tickers[4]['name']}"): clicked_quick = quick_tickers[4]['code']
+
+if clicked_quick:
+    default_ticker = clicked_quick
+
+ticker_input = st.text_input("コード入力", value=default_ticker, placeholder="例: 7203", label_visibility="collapsed")
 
 if st.session_state.comparison_mode:
     st.info("📊 比較モード: 複数の銘柄を同時に表示します")
@@ -136,8 +161,33 @@ if ticker_input and not st.session_state.comparison_mode:
                 if item['code'] == ticker_input:
                     item['name'] = info['name']
             
+            # Feature 3: Market Context
+            market_trend = get_market_sentiment()
+            market_badge_color = "red" if market_trend == "Bear" else "green" if market_trend == "Bull" else "gray"
+            market_text = "上昇トレンド" if market_trend == "Bull" else "下落トレンド" if market_trend == "Bear" else "中立"
+            st.markdown(f"**市場地合い (日経225)**: <span style='color:{market_badge_color}; font-weight:bold;'>{market_text}</span>", unsafe_allow_html=True)
+
+            # Feature 2: Earnings Alert
+            earnings_date = get_next_earnings_date(ticker_input)
+            if earnings_date:
+                # Calculate days until earnings
+                today = datetime.datetime.now().date()
+                if isinstance(earnings_date, datetime.datetime):
+                    e_date = earnings_date.date()
+                else:
+                    e_date = pd.to_datetime(earnings_date).date()
+                    
+                days_left = (e_date - today).days
+                if 0 <= days_left <= 7:
+                     st.error(f"⚠️ **決算発表が近いです！** (予定日: {e_date} / 残り{days_left}日) \n持ち越しには十分注意してください。")
+                else:
+                     st.caption(f"📅 次回決算予定: {e_date} (残り{days_left}日)")
+
             df = calculate_indicators(df, params) # Pass params
             credit_df = get_credit_data(ticker_input)
+            
+            # Feature 1: Fast Strategy Calculation
+            strategic_data = calculate_trading_strategy(df)
             
             # --- Tabs Layout ---
             tab_titles = ["📈 チャート", "🤖 AI分析", "💰 ポートフォリオ", "🔍 市場スキャン", "📊 データ"]
@@ -152,8 +202,8 @@ if ticker_input and not st.session_state.comparison_mode:
                 with col2:
                      price_color = "#00ff00" if info['change'] >= 0 else "#ff0000"
                      st.markdown(f"<div style='text-align:right; font-size: 1.5rem; color:{price_color}'>¥{info['current_price']:,.0f}</div>", unsafe_allow_html=True)
-
-                report, strategic_data = generate_ai_report(df, credit_df, info['name'], info)
+                
+                # Plot Chart with Strategy Lines IMMEDIATELY (Fast)
                 fig_main = create_main_chart(df, info['name'], strategic_data)
                 if fig_main:
                     st.plotly_chart(fig_main, use_container_width=True)
@@ -173,6 +223,14 @@ if ticker_input and not st.session_state.comparison_mode:
             # Tab 2: AI Analysis
             with tab2:
                 st.markdown("### 🤖 Gemini AI アナリスト")
+                
+                # Pass Extra Context to AI
+                extra_context = {
+                    'earnings_date': earnings_date,
+                    'market_trend': market_trend
+                }
+                
+                report, _ = generate_ai_report(df, credit_df, info['name'], info, extra_context=extra_context)
                 
                 # Export Button
                 last_row = df.iloc[-1]

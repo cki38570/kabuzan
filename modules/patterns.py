@@ -1,147 +1,96 @@
 import pandas as pd
 import numpy as np
 
-def detect_support_resistance(df, window=20):
+def identify_candlestick_patterns(df):
     """
-    Detect support and resistance levels using pivot points.
-    Returns dict with support and resistance levels.
+    Identify basic candlestick patterns from the DataFrame.
+    Returns a list of dictionaries with 'name' and 'signal'.
     """
-    if df is None or len(df) < window:
-        return {'support': [], 'resistance': []}
-    
-    recent = df.tail(window * 2)
-    
-    # Find local maxima (resistance)
-    resistance_levels = []
-    for i in range(window, len(recent) - window):
-        if recent['High'].iloc[i] == recent['High'].iloc[i-window:i+window].max():
-            resistance_levels.append(recent['High'].iloc[i])
-    
-    # Find local minima (support)
-    support_levels = []
-    for i in range(window, len(recent) - window):
-        if recent['Low'].iloc[i] == recent['Low'].iloc[i-window:i+window].min():
-            support_levels.append(recent['Low'].iloc[i])
-    
-    # Remove duplicates and sort
-    support_levels = sorted(list(set([round(s, 0) for s in support_levels])))
-    resistance_levels = sorted(list(set([round(r, 0) for r in resistance_levels])))
-    
-    return {
-        'support': support_levels[-3:] if len(support_levels) > 0 else [],  # Top 3
-        'resistance': resistance_levels[:3] if len(resistance_levels) > 0 else []  # Top 3
-    }
-
-def detect_candlestick_patterns(df):
-    """
-    Detect common candlestick patterns.
-    Returns list of detected patterns.
-    """
-    if df is None or len(df) < 3:
-        return []
-    
     patterns = []
-    last = df.iloc[-1]
+    if len(df) < 5:
+        return patterns
+
+    # Get latest data
+    latest = df.iloc[-1]
     prev = df.iloc[-2]
     
-    # Doji (Open ≈ Close)
-    body = abs(last['Close'] - last['Open'])
-    range_size = last['High'] - last['Low']
+    # Calculate body and shadows
+    body_size = abs(latest['Close'] - latest['Open'])
+    upper_shadow = latest['High'] - max(latest['Close'], latest['Open'])
+    lower_shadow = min(latest['Close'], latest['Open']) - latest['Low']
+    total_range = latest['High'] - latest['Low']
     
-    if range_size > 0 and body / range_size < 0.1:
-        patterns.append({
-            'name': '十字線 (Doji)',
-            'signal': '転換の可能性',
-            'type': 'neutral'
-        })
-    
-    # Hammer (Long lower shadow, small body at top)
-    lower_shadow = min(last['Open'], last['Close']) - last['Low']
-    upper_shadow = last['High'] - max(last['Open'], last['Close'])
-    
-    if range_size > 0 and lower_shadow > body * 2 and upper_shadow < body:
-        patterns.append({
-            'name': 'ハンマー (Hammer)',
-            'signal': '下落トレンドの反転示唆',
-            'type': 'bullish'
-        })
-    
-    # Engulfing Pattern
-    if last['Close'] > last['Open'] and prev['Close'] < prev['Open']:
-        if last['Open'] <= prev['Close'] and last['Close'] >= prev['Open']:
-            patterns.append({
-                'name': '強気の包み線 (Bullish Engulfing)',
-                'signal': '強い買いシグナル',
-                'type': 'bullish'
-            })
-    
-    if last['Close'] < last['Open'] and prev['Close'] > prev['Open']:
-        if last['Open'] >= prev['Close'] and last['Close'] <= prev['Open']:
-            patterns.append({
-                'name': '弱気の包み線 (Bearish Engulfing)',
-                'signal': '強い売りシグナル',
-                'type': 'bearish'
-            })
-    
+    # Avoid division by zero
+    if total_range == 0:
+        return patterns
+
+    # 1. Doji (十字足)
+    if body_size <= total_range * 0.1:
+        signal = "転換の可能性 (迷い)"
+        patterns.append({'name': '十字足 (Doji)', 'signal': signal})
+
+    # 2. Hammer (カラカサ/ハンマー) - Bullish Reversal
+    # Small body, long lower shadow, little upper shadow
+    if (lower_shadow >= body_size * 2) and (upper_shadow <= body_size * 0.5):
+        signal = "強気リバーサル (底打ち示唆)"
+        patterns.append({'name': 'カラカサ (Hammer)', 'signal': signal})
+
+    # 3. Shooting Star (流れ星) - Bearish Reversal
+    # Small body, long upper shadow, little lower shadow
+    if (upper_shadow >= body_size * 2) and (lower_shadow <= body_size * 0.5):
+        signal = "弱気リバーサル (天井示唆)"
+        patterns.append({'name': '流れ星 (Shooting Star)', 'signal': signal})
+
+    # 4. Engulfing (包み足)
+    # Previous candle body is engulfed by current candle body
+    prev_body_size = abs(prev['Close'] - prev['Open'])
+    if body_size > prev_body_size:
+        # Bullish Engulfing
+        if prev['Close'] < prev['Open'] and latest['Close'] > latest['Open'] and latest['Close'] > prev['Open'] and latest['Open'] < prev['Close']:
+             patterns.append({'name': '強気の包み足 (Bullish Engulfing)', 'signal': '強い買いシグナル'})
+        # Bearish Engulfing
+        elif prev['Close'] > prev['Open'] and latest['Close'] < latest['Open'] and latest['Close'] < prev['Open'] and latest['Open'] > prev['Close']:
+             patterns.append({'name': '弱気の包み足 (Bearish Engulfing)', 'signal': '強い売りシグナル'})
+
     return patterns
 
-def detect_chart_patterns(df):
+def identify_chart_patterns(df):
     """
-    Detect chart patterns like Head & Shoulders, Double Top/Bottom.
-    Returns list of detected patterns.
+    Identify broader chart patterns (trends, higher lows, etc.)
     """
-    if df is None or len(df) < 30:
-        return []
-    
     patterns = []
-    recent = df.tail(30)
+    if len(df) < 20:
+        return patterns
+
+    # Helper to find local minima/maxima
+    # Using a simple window approach for last 20 days
+    recent_df = df.tail(20).copy()
     
-    # Simplified Double Top detection
-    highs = recent['High'].values
-    peaks = []
-    for i in range(5, len(highs) - 5):
-        if highs[i] == max(highs[i-5:i+5]):
-            peaks.append((i, highs[i]))
+    # Check for Higher Lows (Uptrend Support)
+    # We look at the lowest low of the first 10 days vs last 10 days
+    first_half = recent_df.iloc[:10]
+    last_half = recent_df.iloc[10:]
     
-    if len(peaks) >= 2:
-        # Check if last two peaks are similar height
-        last_two = peaks[-2:]
-        if abs(last_two[0][1] - last_two[1][1]) / last_two[0][1] < 0.03:  # Within 3%
-            patterns.append({
-                'name': 'ダブルトップ (Double Top)',
-                'signal': '下落転換の可能性',
-                'type': 'bearish'
-            })
+    min1 = first_half['Low'].min()
+    min2 = last_half['Low'].min()
     
-    # Simplified Double Bottom detection
-    lows = recent['Low'].values
-    troughs = []
-    for i in range(5, len(lows) - 5):
-        if lows[i] == min(lows[i-5:i+5]):
-            troughs.append((i, lows[i]))
+    if min2 > min1 * 1.01: # 1% higher
+        patterns.append({'name': '切り上がる安値 (Higher Lows)', 'signal': '上昇トレンドの継続示唆'})
+        
+    # Check for Lower Highs (Downtrend Resistance)
+    max1 = first_half['High'].max()
+    max2 = last_half['High'].max()
     
-    if len(troughs) >= 2:
-        last_two = troughs[-2:]
-        if abs(last_two[0][1] - last_two[1][1]) / last_two[0][1] < 0.03:
-            patterns.append({
-                'name': 'ダブルボトム (Double Bottom)',
-                'signal': '上昇転換の可能性',
-                'type': 'bullish'
-            })
-    
+    if max2 < max1 * 0.99: # 1% lower
+        patterns.append({'name': '切り下がる高値 (Lower Highs)', 'signal': '下落圧力の継続'})
+
     return patterns
 
 def enhance_ai_analysis_with_patterns(df):
     """
-    Combine all pattern detection for enhanced AI analysis.
-    Returns comprehensive pattern analysis.
+    Main function to get all patterns for AI.
     """
-    sr_levels = detect_support_resistance(df)
-    candlestick = detect_candlestick_patterns(df)
-    chart_patterns = detect_chart_patterns(df)
-    
     return {
-        'support_resistance': sr_levels,
-        'candlestick_patterns': candlestick,
-        'chart_patterns': chart_patterns
+        'candlestick_patterns': identify_candlestick_patterns(df),
+        'chart_patterns': identify_chart_patterns(df)
     }
