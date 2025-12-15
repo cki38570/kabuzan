@@ -27,19 +27,19 @@ def identify_candlestick_patterns(df):
     # 1. Doji (十字足)
     if body_size <= total_range * 0.1:
         signal = "転換の可能性 (迷い)"
-        patterns.append({'name': '十字足 (Doji)', 'signal': signal})
+        patterns.append({'name': '十字足 (Doji)', 'signal': signal, 'type': 'neutral'})
 
     # 2. Hammer (カラカサ/ハンマー) - Bullish Reversal
     # Small body, long lower shadow, little upper shadow
     if (lower_shadow >= body_size * 2) and (upper_shadow <= body_size * 0.5):
         signal = "強気リバーサル (底打ち示唆)"
-        patterns.append({'name': 'カラカサ (Hammer)', 'signal': signal})
+        patterns.append({'name': 'カラカサ (Hammer)', 'signal': signal, 'type': 'bullish'})
 
     # 3. Shooting Star (流れ星) - Bearish Reversal
     # Small body, long upper shadow, little lower shadow
     if (upper_shadow >= body_size * 2) and (lower_shadow <= body_size * 0.5):
         signal = "弱気リバーサル (天井示唆)"
-        patterns.append({'name': '流れ星 (Shooting Star)', 'signal': signal})
+        patterns.append({'name': '流れ星 (Shooting Star)', 'signal': signal, 'type': 'bearish'})
 
     # 4. Engulfing (包み足)
     # Previous candle body is engulfed by current candle body
@@ -47,10 +47,10 @@ def identify_candlestick_patterns(df):
     if body_size > prev_body_size:
         # Bullish Engulfing
         if prev['Close'] < prev['Open'] and latest['Close'] > latest['Open'] and latest['Close'] > prev['Open'] and latest['Open'] < prev['Close']:
-             patterns.append({'name': '強気の包み足 (Bullish Engulfing)', 'signal': '強い買いシグナル'})
+             patterns.append({'name': '強気の包み足 (Bullish Engulfing)', 'signal': '強い買いシグナル', 'type': 'bullish'})
         # Bearish Engulfing
         elif prev['Close'] > prev['Open'] and latest['Close'] < latest['Open'] and latest['Close'] < prev['Open'] and latest['Open'] > prev['Close']:
-             patterns.append({'name': '弱気の包み足 (Bearish Engulfing)', 'signal': '強い売りシグナル'})
+             patterns.append({'name': '弱気の包み足 (Bearish Engulfing)', 'signal': '強い売りシグナル', 'type': 'bearish'})
 
     return patterns
 
@@ -75,14 +75,14 @@ def identify_chart_patterns(df):
     min2 = last_half['Low'].min()
     
     if min2 > min1 * 1.01: # 1% higher
-        patterns.append({'name': '切り上がる安値 (Higher Lows)', 'signal': '上昇トレンドの継続示唆'})
+        patterns.append({'name': '切り上がる安値 (Higher Lows)', 'signal': '上昇トレンドの継続示唆', 'type': 'bullish'})
         
     # Check for Lower Highs (Downtrend Resistance)
     max1 = first_half['High'].max()
     max2 = last_half['High'].max()
     
     if max2 < max1 * 0.99: # 1% lower
-        patterns.append({'name': '切り下がる高値 (Lower Highs)', 'signal': '下落圧力の継続'})
+        patterns.append({'name': '切り下がる高値 (Lower Highs)', 'signal': '下落圧力の継続', 'type': 'bearish'})
 
     return patterns
 

@@ -250,10 +250,14 @@ if ticker_input and not st.session_state.comparison_mode:
                 
                 # Display detected patterns
                 patterns = enhance_ai_analysis_with_patterns(df)
-                if patterns['candlestick_patterns'] or patterns['chart_patterns']:
+                all_patterns = patterns.get('candlestick_patterns', []) + patterns.get('chart_patterns', [])
+                
+                if all_patterns:
                     st.markdown("#### 🔍 検出されたパターン")
-                    for p in patterns['candlestick_patterns']:
-                        st.info(f"{'🟢' if p['type']=='bullish' else '🔴'} **{p['name']}**: {p['signal']}")
+                    for p in all_patterns:
+                        p_type = p.get('type', 'neutral')
+                        icon = '🟢' if p_type == 'bullish' else '🔴' if p_type == 'bearish' else '⚪'
+                        st.info(f"{icon} **{p['name']}**: {p['signal']}")
                 
                 st.markdown(f"<div style='background-color: #112240; padding: 15px; border-radius: 8px;'>{report}</div>", unsafe_allow_html=True)
                 
