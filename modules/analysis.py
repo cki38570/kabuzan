@@ -123,6 +123,7 @@ def calculate_trading_strategy(df):
     elif trend_score <= -1:
         strategy_msg = "🐻 戻り売り/様子見"
         action_msg = "下落トレンド中。無理なエントリーは控え、底打ちシグナルを待つべきです。"
+        entry_price = None # User requested: hide entry point in downtrend
     else:
         strategy_msg = "⚖️ レンジ戦略"
         action_msg = f"方向感が乏しい展開。**¥{entry_price:,}円付近**まで待ってからエントリーを検討。"
@@ -131,11 +132,11 @@ def calculate_trading_strategy(df):
         'trend_desc': trend_desc,
         'trend_score': trend_score,
         'action_msg': action_msg,
-        'target_price': int(target_price),
-        'stop_loss': int(stop_loss),
+        'target_price': int(target_price) if entry_price else None,
+        'stop_loss': int(stop_loss) if entry_price else None,
         'entry_price': entry_price,
         'strategy_msg': strategy_msg,
-        'risk_reward': rr_ratio
+        'risk_reward': rr_ratio if entry_price else 0
     }
 
 def generate_ai_report(df, credit_data, ticker_name, price_info=None, extra_context=None):

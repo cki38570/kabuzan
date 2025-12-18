@@ -13,6 +13,26 @@ from modules.enhanced_metrics import calculate_advanced_metrics, format_metrics_
 from modules.portfolio import add_to_portfolio, remove_from_portfolio, get_portfolio_df
 from modules.exports import generate_report_text
 from modules.screener import scan_market
+import json
+import os
+
+WATCHLIST_PATH = "watchlist.json"
+
+def load_watchlist():
+    if os.path.exists(WATCHLIST_PATH):
+        try:
+            with open(WATCHLIST_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            return []
+    return []
+
+def save_watchlist(watchlist):
+    try:
+        with open(WATCHLIST_PATH, "w", encoding="utf-8") as f:
+            json.dump(watchlist, f, ensure_ascii=False, indent=2)
+    except:
+        pass
 
 # Page Config
 st.set_page_config(
@@ -57,11 +77,13 @@ with st.sidebar:
 
 # --- Sidebar: Watchlist ---
 if 'watchlist' not in st.session_state:
-    st.session_state.watchlist = [
-        {'code': '7203', 'name': 'トヨタ自動車'}, 
-        {'code': '9984', 'name': 'ソフトバンクG'}, 
-        {'code': '6758', 'name': 'ソニーG'}
-    ]
+    st.session_state.watchlist = load_watchlist()
+    if not st.session_state.watchlist:
+        st.session_state.watchlist = [
+            {'code': '7203', 'name': 'トヨタ自動車'}, 
+            {'code': '9984', 'name': 'ソフトバンクG'}, 
+            {'code': '6758', 'name': 'ソニーG'}
+        ]
 
 if 'comparison_mode' not in st.session_state:
     st.session_state.comparison_mode = False
@@ -75,6 +97,7 @@ with st.sidebar:
             exists = any(item['code'] == new_ticker for item in st.session_state.watchlist)
             if not exists:
                 st.session_state.watchlist.append({'code': new_ticker, 'name': '読み込み中...'})
+                save_watchlist(st.session_state.watchlist)
     
     selected_from_list = None
     for item in st.session_state.watchlist:
@@ -84,7 +107,8 @@ with st.sidebar:
             
     if st.button("🗑️ リストをクリア"):
         st.session_state.watchlist = []
-        st.rerun()
+        save_watchlist(st.session_state.watchlist)
+        st.experimental_rerun()
     
     st.markdown("---")
     st.header("⚙️ 機能")
@@ -92,11 +116,15 @@ with st.sidebar:
     comparison_mode = st.checkbox("📊 銘柄比較モード", value=st.session_state.comparison_mode)
     if comparison_mode != st.session_state.comparison_mode:
         st.session_state.comparison_mode = comparison_mode
-        st.rerun()
+        st.experimental_rerun()
 
     st.markdown("---")
     st.markdown("---")
     show_notification_settings()
+
+# --- Global Data ---
+market_trend = get_market_sentiment()
+market_badge_color = "#00ff00" if market_trend == "Bull" else "#ff4b4b" if market_trend == "Bear" else "#808080"
 
 # --- Main Content ---
 default_ticker = selected_from_list if selected_from_list else ""
@@ -159,13 +187,17 @@ if ticker_input and not st.session_state.comparison_mode:
             
             for item in st.session_state.watchlist:
                 if item['code'] == ticker_input:
-                    item['name'] = info['name']
+                    if item['name'] != info['name']:
+                        item['name'] = info['name']
+                        save_watchlist(st.session_state.watchlist)
             
-            # Feature 3: Market Context
-            market_trend = get_market_sentiment()
-            market_badge_color = "red" if market_trend == "Bear" else "green" if market_trend == "Bull" else "gray"
             market_text = "上昇トレンド" if market_trend == "Bull" else "下落トレンド" if market_trend == "Bear" else "中立"
             st.markdown(f"**市場地合い (日経225)**: <span style='color:{market_badge_color}; font-weight:bold;'>{market_text}</span>", unsafe_allow_html=True)
+
+            # Feature: Mock Warning
+            from modules.llm import API_KEY, GENAI_AVAILABLE
+            if not API_KEY or not GENAI_AVAILABLE:
+                st.error("⚠️ **AI API未稼働**: APIキーが設定されていないか、制限によりモック（ダミーデータ）による分析を表示しています。")
 
             # Feature 2: Earnings Alert
             earnings_date = get_next_earnings_date(ticker_input)
@@ -259,7 +291,36 @@ if ticker_input and not st.session_state.comparison_mode:
                         icon = '🟢' if p_type == 'bullish' else '🔴' if p_type == 'bearish' else '⚪'
                         st.info(f"{icon} **{p['name']}**: {p['signal']}")
                 
-                st.markdown(f"<div style='background-color: #112240; padding: 15px; border-radius: 8px;'>{report}</div>", unsafe_allow_html=True)
+                # Feature: Technical Strength Meter
+                st.markdown("#### ⚖️ テクニカル強度スコア")
+                last_row = df.iloc[-1]
+                score = 0
+                # SMA Score (Trend)
+                if last_row['SMA5'] > last_row['SMA25']: score += 25
+                if last_row['SMA25'] > last_row['SMA75']: score += 25
+                # RSI Score (Momentum)
+                if 40 < last_row['RSI'] < 60: score += 25
+                elif 30 < last_row['RSI'] <= 40 or 60 <= last_row['RSI'] < 70: score += 15
+                # MACD Score
+                if last_row['MACD'] > last_row['MACD_Signal']: score += 25
+                
+                score_color = "green" if score >= 75 else "orange" if score >= 50 else "red"
+                st.markdown(f"""
+                <div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border-left: 5px solid {score_color};'>
+                    <span style='font-size: 1.2rem;'>総合スコア: <b>{score} / 100</b></span>
+                    <div style='background-color: #333; height: 10px; border-radius: 5px; margin-top: 5px;'>
+                        <div style='background-color: {score_color}; width: {score}%; height: 10px; border-radius: 5px;'></div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                st.markdown(f"<div style='background-color: #112240; padding: 15px; border-radius: 8px; margin-top: 15px;'>{report}</div>", unsafe_allow_html=True)
+                
+                # Feature: Backtest Integration
+                st.markdown("---")
+                st.markdown("### 📊 戦略バックテスト")
+                backtest_results = backtest_strategy(df, strategic_data)
+                st.markdown(format_backtest_results(backtest_results))
                 
                 st.markdown("---")
                 show_alert_manager(ticker_input, info['name'], info['current_price'])
@@ -268,6 +329,35 @@ if ticker_input and not st.session_state.comparison_mode:
             with tab3:
                 st.markdown("### 💰 ポートフォリオ管理")
                 
+                # Feature: Position Size Calculator
+                with st.expander("🧮 適正ポジショニング計算機"):
+                    col_calc1, col_calc2 = st.columns(2)
+                    total_capital = col_calc1.number_input("運用資金 (円)", min_value=0, value=1000000, step=100000)
+                    risk_per_trade = col_calc2.number_input("1トレードの許容損失 (%)", min_value=0.1, max_value=5.0, value=1.0, step=0.1)
+                    
+                    if strategic_data.get('entry_price') and strategic_data.get('stop_loss'):
+                        entry = strategic_data['entry_price']
+                        stop = strategic_data['stop_loss']
+                        risk_per_share = abs(entry - stop)
+                        
+                        if risk_per_share and risk_per_share > 0:
+                            allowed_loss = total_capital * (risk_per_trade / 100)
+                            suggested_qty = int(allowed_loss / risk_per_share)
+                            # Align to 100 shares (Standard in Japan)
+                            suggested_qty_standard = (suggested_qty // 100) * 100
+                            
+                            st.info(f"""
+                            **計算結果:**
+                            - 1トレードの許容損失額: ¥{allowed_loss:,.0f}
+                            - 1株あたりのリスク: ¥{risk_per_share:,.0f}
+                            - 推奨購入株数: **{suggested_qty:,}株** (単元株ベース: {suggested_qty_standard:,}株)
+                            - 想定投資額: ¥{suggested_qty * entry:,.0f}
+                            """)
+                        else:
+                            st.warning("損切り価格とエントリー価格が同一です。")
+                    else:
+                        st.warning("戦略データ（エントリー・損切価格）が取得できないため計算できません。")
+
                 # Input Form
                 with st.form("portfolio_add"):
                     col1, col2, col3 = st.columns(3)
@@ -277,7 +367,7 @@ if ticker_input and not st.session_state.comparison_mode:
                     if submitted and p_qty > 0:
                         add_to_portfolio(ticker_input, info['name'], p_qty, p_price)
                         st.success(f"{info['name']} をポートフォリオに追加しました")
-                        st.rerun()
+                        st.experimental_rerun()
 
                 # Display Logic
                 current_prices = {ticker_input: info['current_price']}
@@ -297,20 +387,23 @@ if ticker_input and not st.session_state.comparison_mode:
                     if st.button("選択した銘柄を削除"):
                         remove_from_portfolio(del_code)
                         st.warning(f"{del_code} を削除しました")
-                        st.rerun()
+                        st.experimental_rerun()
                 else:
                     st.info("ポートフォリオは空です。上部のフォームから追加してください。")
 
             # Tab 4: Screener (NEW)
             with tab4:
-                 st.markdown("### 🔍 市場スクリーニング (主要銘柄)")
-                 st.caption("対象: 日経225採用銘柄など流動性の高い主要銘柄")
+                 st.markdown("### 🔍 市場スクリーニング")
+                 st.caption("対象となる銘柄群を選択してスキャンを実行します。")
                  
-                 if st.button("🚀 スキャン開始 (約30秒かかります)"):
-                     progress_text = "スキャン中..."
+                 from modules.screener import CATEGORIES
+                 category = st.selectbox("銘柄カテゴリ", list(CATEGORIES.keys()))
+                 
+                 if st.button("🚀 スキャン開始"):
+                     progress_text = f"{category} をスキャン中..."
                      my_bar = st.progress(0, text=progress_text)
                      
-                     scan_result = scan_market(progress_bar=my_bar)
+                     scan_result = scan_market(category_name=category, progress_bar=my_bar)
                      my_bar.empty()
                      
                      if not scan_result.empty:
@@ -321,7 +414,7 @@ if ticker_input and not st.session_state.comparison_mode:
                          )
                          st.info("💡 コードをコピーして検索バーに入力すると詳細分析が可能です。")
                      else:
-                         st.warning("現在、特定のシグナル条件（GC、売られすぎなど）に合致する主要銘柄はありませんでした。")
+                         st.warning("現在、特定のシグナル条件に合致する銘柄はありませんでした。")
 
             # Tab 5: Data
             with tab5:

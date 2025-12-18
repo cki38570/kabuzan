@@ -17,10 +17,10 @@ def generate_report_text(ticker, name, report_content, strategic_data, indicator
 判断: {strategic_data.get('trend_desc', 'N/A')}
 推奨アクション: {strategic_data.get('action_msg', 'N/A')}
 --------------------------------------------------
-エントリー推奨: ¥{strategic_data.get('entry_price', 0):,}
-利確目標:       ¥{strategic_data.get('target_price', 0):,}
-損切目安:       ¥{strategic_data.get('stop_loss', 0):,}
-リスクリワード: {strategic_data.get('risk_reward', 0):.2f}
+エントリー推奨: ¥{strategic_data.get('entry_price') or 0:,}
+利確目標:       ¥{strategic_data.get('target_price') or 0:,}
+損切目安:       ¥{strategic_data.get('stop_loss') or 0:,}
+リスクリワード: {strategic_data.get('risk_reward') or 0:.2f}
 --------------------------------------------------
 
 【テクニカル指標】
