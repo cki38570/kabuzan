@@ -35,25 +35,25 @@ def create_main_chart(df, ticker_name, strategic_data=None):
         target = strategic_data.get('target_price')
         stop = strategic_data.get('stop_loss')
         
-        if target:
+        if target and not pd.isna(target):
             fig.add_hline(y=target, line_dash="dash", line_color="#00ff00", 
                           line_width=2, row=1, col=1)
             # Add annotation with price
             fig.add_annotation(
                 x=df.index[-1], y=target,
-                text=f"利確目標: ¥{target:,}",
+                text=f"利確目標: ¥{target:,.0f}",
                 showarrow=True, arrowhead=2,
                 ax=40, ay=-30,
                 bgcolor="#00ff00", font=dict(color="#000000", size=11),
                 row=1, col=1
             )
-        if stop:
+        if stop and not pd.isna(stop):
             fig.add_hline(y=stop, line_dash="dash", line_color="#ff0000", 
                           line_width=2, row=1, col=1)
             # Add annotation with price
             fig.add_annotation(
                 x=df.index[-1], y=stop,
-                text=f"損切: ¥{stop:,}",
+                text=f"損切: ¥{stop:,.0f}",
                 showarrow=True, arrowhead=2,
                 ax=40, ay=30,
                 bgcolor="#ff0000", font=dict(color="#ffffff", size=11),
@@ -62,14 +62,14 @@ def create_main_chart(df, ticker_name, strategic_data=None):
         
         # Add Entry Point Indicator
         entry_price = strategic_data.get('entry_price')
-        if entry_price:
+        if entry_price and not pd.isna(entry_price):
             # Entry point horizontal line
             fig.add_hline(y=entry_price, line_dash="dot", line_color="#00ffff", 
                           line_width=2, row=1, col=1)
             # Entry point annotation with icon
             fig.add_annotation(
                 x=df.index[-1], y=entry_price,
-                text=f"🎯 エントリー: ¥{entry_price:,}",
+                text=f"🎯 エントリー: ¥{entry_price:,.0f}",
                 showarrow=True, arrowhead=2,
                 ax=-40, ay=0,
                 bgcolor="#00ffff", font=dict(color="#000000", size=12, family="Arial Black"),

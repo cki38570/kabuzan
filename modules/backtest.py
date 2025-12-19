@@ -43,13 +43,13 @@ def backtest_strategy(df, strategic_data, days=30):
             exit_price = current_price
             
             # Take profit
-            if current_price >= target_price:
+            if target_price and target_price > 0 and current_price >= target_price:
                 exit_triggered = True
                 exit_reason = "利確"
                 exit_price = target_price
             
             # Stop loss
-            elif current_price <= stop_loss:
+            elif stop_loss and stop_loss > 0 and current_price <= stop_loss:
                 exit_triggered = True
                 exit_reason = "損切"
                 exit_price = stop_loss

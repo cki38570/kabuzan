@@ -73,23 +73,23 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
 
     # Input Data (市場データ)
     - 銘柄: {ticker}
-    - 現在値: ¥{price_info.get('current_price', 0):,.1f}
-    - 変化率: {price_info.get('change_percent', 0):+.2f}%
-    - 52週高値位置: {enhanced_metrics.get('price_position', 50):.1f}% (高値: ¥{enhanced_metrics.get('52w_high', 0):,.0f})
+    - 現在値: ¥{price_info.get('current_price') or 0:,.1f}
+    - 変化率: {price_info.get('change_percent') or 0:+.2f}%
+    - 52週高値位置: {enhanced_metrics.get('price_position') or 50:.1f}% (高値: ¥{enhanced_metrics.get('52w_high') or 0:,.0f})
     
     ## テクニカル指標
     - トレンド (SMA): {strategic_data.get('trend_desc', '')}
-    - RSI(14): {indicators.get('rsi', 50):.1f} ({indicators.get('rsi_status', '')})
+    - RSI(14): {indicators.get('rsi') or 50:.1f} ({indicators.get('rsi_status', '')})
     - MACD: {indicators.get('macd_status', '')}
-    - ボリンジャーバンド: {indicators.get('bb_status', '')} (幅: {enhanced_metrics.get('bb_width', 0):.2f}%)
-    - ATR(14): ¥{indicators.get('atr', 0):.0f}
+    - ボリンジャーバンド: {indicators.get('bb_status', '')} (幅: {enhanced_metrics.get('bb_width') or 0:.2f}%)
+    - ATR(14): ¥{indicators.get('atr') or 0:.0f}
     
     ## アルゴリズム提案値 (参考)
     ※以下の値はあくまで参考値です。プロの視点で再評価・修正してください。
     - 提案トレンド: {strategic_data.get('strategy_msg', '')}
-    - 算出エントリー: ¥{strategic_data.get('entry_price', 0):,.0f}
-    - 算出ターゲット: ¥{strategic_data.get('target_price', 0):,.0f}
-    - 算出損切: ¥{strategic_data.get('stop_loss', 0):,.0f}
+    - 算出エントリー: ¥{strategic_data.get('entry_price') or 0:,.0f}
+    - 算出ターゲット: ¥{strategic_data.get('target_price') or 0:,.0f}
+    - 算出損切: ¥{strategic_data.get('stop_loss') or 0:,.0f}
     
     ## 検出パターン
     {_format_patterns_for_prompt(patterns)}
@@ -162,13 +162,13 @@ def _create_mock_report(strategic_data, enhanced_metrics, indicators, credit_dat
 {conclusion}
 
 **【トレードセットアップ】**
-- **エントリー推奨値**: ¥{strategic_data.get('entry_price', 0):,.0f}
+- **エントリー推奨値**: ¥{strategic_data.get('entry_price') or 0:,.0f}
   - (根拠: アルゴリズム算出値に基づく参考価格)
-- **利確目標 (TP)**: ¥{strategic_data.get('target_price', 0):,.0f}
+- **利確目標 (TP)**: ¥{strategic_data.get('target_price') or 0:,.0f}
   - (根拠: ボリンジャーバンド+2σ付近)
-- **損切目安 (SL)**: ¥{strategic_data.get('stop_loss', 0):,.0f}
+- **損切目安 (SL)**: ¥{strategic_data.get('stop_loss') or 0:,.0f}
   - (根拠: 直近サポートライン割れ)
-- **リスクリワード比**: {strategic_data.get('risk_reward', 0):.2f}
+- **リスクリワード比**: {strategic_data.get('risk_reward') or 0:.2f}
 
 **【テクニカル詳細分析】**
 1. **トレンド環境**:
@@ -176,7 +176,7 @@ def _create_mock_report(strategic_data, enhanced_metrics, indicators, credit_dat
    - トレンド強度: {enhanced_metrics.get('trend_strength', 0):.1f}
 
 2. **オシレーター評価**:
-   - RSI(14): {indicators.get('rsi', 50):.1f} ({indicators.get('rsi_status', '')})
+   - RSI(14): {indicators.get('rsi') or 50:.1f} ({indicators.get('rsi_status', '')})
    - MACD: {indicators.get('macd_status', '')}
    - ボリンジャーバンド: {indicators.get('bb_status', '')}
 
