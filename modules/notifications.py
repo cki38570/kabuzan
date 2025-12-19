@@ -3,6 +3,8 @@ import requests
 import datetime
 import os
 import json
+from modules.news import get_stock_news
+from modules.llm import analyze_news_impact
 
 # LINE Messaging API Credentials
 LINE_CHANNEL_ACCESS_TOKEN = st.secrets.get("LINE_CHANNEL_ACCESS_TOKEN", "")
