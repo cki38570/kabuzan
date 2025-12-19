@@ -1,9 +1,19 @@
 try:
-    import google.generativeai as genai
-    GENAI_AVAILABLE = True
+    from google import genai
+    from google.genai import types
+    GENAI_V1_AVAILABLE = True
+    print("google-genai (V1 SDK) available.")
 except ImportError:
-    GENAI_AVAILABLE = False
-    print("google-generativeai not available (Python < 3.9?). Using mock.")
+    GENAI_V1_AVAILABLE = False
+    print("google-genai (V1 SDK) not available.")
+
+try:
+    import google.generativeai as old_genai
+    GENAI_LEGACY_AVAILABLE = True
+    print("google-generativeai (Legacy SDK) available.")
+except ImportError:
+    GENAI_LEGACY_AVAILABLE = False
+    print("google-generativeai (Legacy SDK) not available.")
 
 import os
 import time
@@ -20,25 +30,26 @@ except (FileNotFoundError, KeyError):
 if not API_KEY:
     print("Warning: GEMINI_API_KEY not found in secrets.toml or environment variables.")
 
-def configure_genai():
-    if not GENAI_AVAILABLE:
-        return False
+def get_gemini_client():
+    """Returns a V1 Client if available."""
+    if not GENAI_V1_AVAILABLE or not API_KEY:
+        return None
     try:
-        genai.configure(api_key=API_KEY)
-        return True
+        client = genai.Client(api_key=API_KEY)
+        return client
     except Exception as e:
-        print(f"Failed to configure Gemini: {e}")
-        return False
+        print(f"Failed to initialize Gemini Client: {e}")
+        return None
 
 def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strategic_data, enhanced_metrics=None, patterns=None, extra_context=None):
     """
-    Generate a professional stock analysis report using Gemini 1.5 Pro.
-    Falls back to mock if unavailable.
+    Generate a professional stock analysis report using Gemini 1.5 Flash.
+    Falls back to legacy SDK or mock if unavailable.
     """
     if enhanced_metrics is None:
         enhanced_metrics = {}
         
-    # Construct Enhanced Prompt with Strict Persona
+    # [Prompt construction - same as before]
     prompt = f"""
     # Role
     あなたは「リスク管理を最優先するプロの機関投資家」兼「熟練のスイングトレーダー」です。
@@ -95,7 +106,6 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     {_format_patterns_for_prompt(patterns)}
     
     ## 需給情報
-    ## 需給情報
     {credit_data}
 
     ## その他の重要情報 (Context)
@@ -130,18 +140,40 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     ---
     """
     
-    if not configure_genai():
-        return _create_mock_report(strategic_data, enhanced_metrics, indicators, credit_data)
+    error_details = []
 
-    try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        response = model.generate_content(prompt)
-        return response.text
-    except Exception as e:
-        print(f"Gemini generation failed: {e}")
-        return _create_mock_report(strategic_data, enhanced_metrics, indicators, credit_data)
+    # Attempt 1: New SDK (V1)
+    client = get_gemini_client()
+    if client:
+        try:
+            response = client.models.generate_content(
+                model='gemini-1.5-flash',
+                contents=prompt
+            )
+            return response.text
+        except Exception as e:
+            error_details.append(f"V1 SDK Failed: {str(e)}")
+    else:
+        if not GENAI_V1_AVAILABLE:
+            error_details.append("V1 SDK (google-genai) not installed.")
+        if not API_KEY:
+            error_details.append("API Key missing.")
 
-def _create_mock_report(strategic_data, enhanced_metrics, indicators, credit_data):
+    # Attempt 2: Legacy SDK フォールバック
+    if GENAI_LEGACY_AVAILABLE and API_KEY:
+        try:
+            old_genai.configure(api_key=API_KEY)
+            model = old_genai.GenerativeModel('gemini-1.5-flash')
+            response = model.generate_content(prompt)
+            return response.text
+        except Exception as e:
+            error_details.append(f"Legacy SDK Failed: {str(e)}")
+    
+    # Fallback to Mock
+    debug_info = " | ".join(error_details) if error_details else "Unknown Error"
+    return _create_mock_report(strategic_data, enhanced_metrics, indicators, credit_data, error_info=debug_info)
+
+def _create_mock_report(strategic_data, enhanced_metrics, indicators, credit_data, error_info=None):
     """Helper to create strict format mock report."""
     trend_status = "MONITOR (監視)"
     conclusion = "方向感が乏しため、明確なシグナルが出るまで静観を推奨します。"
@@ -154,8 +186,11 @@ def _create_mock_report(strategic_data, enhanced_metrics, indicators, credit_dat
             trend_status = "NO TRADE"
             conclusion = "下落トレンド中につき、底打ちを確認するまで様子見を推奨。"
 
+    debug_tag = f"\n> [!CAUTION]\n> **AI Analysis Failure**: {error_info}\n" if error_info else ""
+
     return f"""
 <!-- MOCK REPORT due to API failure -->
+{debug_tag}
 ## 📊 戦略判定: 🛡️ {trend_status}
 
 **【結論】**

@@ -31,7 +31,7 @@ def backtest_strategy(df, strategic_data, days=30):
             support_level = strategic_data.get('stop_loss') or (current_price * 0.95)
             
             # Entry: Price is within 2% of support and RSI < 50
-            if 'RSI' in row and not pd.isna(row['RSI']):
+            if 'RSI' in row and not pd.isna(row['RSI']) and support_level is not None:
                 if current_price <= support_level * 1.02 and row['RSI'] < 50:
                     in_position = True
                     entry_price = current_price

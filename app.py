@@ -172,7 +172,7 @@ if st.session_state.comparison_mode:
                     'RSI': f"{last['RSI']:.1f}",
                 })
         if comparison_data:
-            st.dataframe(pd.DataFrame(comparison_data), use_container_width=True)
+            st.dataframe(pd.DataFrame(comparison_data), width='stretch')
 
 if ticker_input and not st.session_state.comparison_mode:
     with st.spinner('AIが市場データを分析中...'):
@@ -238,7 +238,7 @@ if ticker_input and not st.session_state.comparison_mode:
                 # Plot Chart with Strategy Lines IMMEDIATELY (Fast)
                 fig_main = create_main_chart(df, info['name'], strategic_data)
                 if fig_main:
-                    st.plotly_chart(fig_main, use_container_width=True)
+                    st.plotly_chart(fig_main, width='stretch')
                 
                 # Performance Metrics (Moved from Data tab for better view)
                 st.markdown("#### パフォーマンス概要")
@@ -381,7 +381,7 @@ if ticker_input and not st.session_state.comparison_mode:
                     m2.metric("評価額合計", f"¥{total_val:,.0f}")
                     m3.metric("総損益", f"¥{total_pl:,.0f}", delta=f"{(total_pl/total_inv)*100:.1f}%" if total_inv else "0%")
                     
-                    st.dataframe(port_df, use_container_width=True)
+                    st.dataframe(port_df, width='stretch')
                     
                     del_code = st.selectbox("削除する銘柄", port_df['コード'].tolist())
                     if st.button("選択した銘柄を削除"):
@@ -425,10 +425,10 @@ if ticker_input and not st.session_state.comparison_mode:
                 
                 if credit_df is not None:
                      st.markdown("#### 信用需給")
-                     st.dataframe(credit_df, use_container_width=True, height=150)
+                     st.dataframe(credit_df, width='stretch', height=150)
                 
                 st.markdown("#### 時系列データ")
-                st.dataframe(df.tail(10), use_container_width=True)
+                st.dataframe(df.tail(10), width='stretch')
 
         else:
             st.error("銘柄が見つかりません。")
