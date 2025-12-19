@@ -148,18 +148,28 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     """
     
     error_details = []
+    # Candidates for model name (tries from top)
+    MODEL_CANDIDATES = [
+        'gemini-1.5-flash',
+        'gemini-1.5-flash-latest',
+        'gemini-1.5-flash-001',
+        'gemini-2.0-flash-exp'
+    ]
 
     # Attempt 1: New SDK (V1)
     client = get_gemini_client()
     if client:
-        try:
-            response = client.models.generate_content(
-                model='gemini-1.5-flash',
-                contents=prompt
-            )
-            return response.text
-        except Exception as e:
-            error_details.append(f"V1 SDK Failed: {str(e)}")
+        for model_name in MODEL_CANDIDATES:
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt
+                )
+                if response and response.text:
+                    print(f"Success with V1 SDK: {model_name}")
+                    return response.text
+            except Exception as e:
+                error_details.append(f"V1 SDK ({model_name}) Failed: {str(e)}")
     else:
         if not GENAI_V1_AVAILABLE:
             error_details.append("V1 SDK (google-genai) not installed.")
@@ -170,12 +180,19 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     if GENAI_LEGACY_AVAILABLE and API_KEY:
         try:
             old_genai.configure(api_key=API_KEY)
-            # Use 'gemini-1.5-flash' without 'models/' prefix for legacy SDK
-            model = old_genai.GenerativeModel('gemini-1.5-flash')
-            response = model.generate_content(prompt)
-            return response.text
+            for model_name in MODEL_CANDIDATES:
+                try:
+                    # Some versions need 'models/' prefix, some don't. Try both if needed, 
+                    # but usually 'gemini-1.5-flash' works in Legacy.
+                    model = old_genai.GenerativeModel(model_name)
+                    response = model.generate_content(prompt)
+                    if response and response.text:
+                        print(f"Success with Legacy SDK: {model_name}")
+                        return response.text
+                except Exception as e:
+                    error_details.append(f"Legacy SDK ({model_name}) Failed: {str(e)}")
         except Exception as e:
-            error_details.append(f"Legacy SDK Failed: {str(e)}")
+            error_details.append(f"Legacy Setup Failed: {str(e)}")
     
     # Fallback to Mock
     debug_info = " | ".join(error_details) if error_details else "Unknown Error"
@@ -293,24 +310,38 @@ def analyze_news_impact(portfolio_items, news_data_map):
     - LINEで読みやすいよう、要点を箇条書きで短くまとめてください。
     """
 
+    MODEL_CANDIDATES = [
+        'gemini-1.5-flash',
+        'gemini-1.5-flash-latest',
+        'gemini-1.5-flash-001',
+        'gemini-2.0-flash-exp'
+    ]
+
     client = get_gemini_client()
     if client:
-        try:
-            response = client.models.generate_content(
-                model='gemini-1.5-flash',
-                contents=prompt
-            )
-            return response.text
-        except Exception as e:
-            print(f"News Analysis V1 Failed: {e}")
+        for model_name in MODEL_CANDIDATES:
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt
+                )
+                if response and response.text:
+                    return response.text
+            except Exception as e:
+                print(f"News Analysis V1 ({model_name}) Failed: {e}")
             
     if GENAI_LEGACY_AVAILABLE and API_KEY:
         try:
             old_genai.configure(api_key=API_KEY)
-            model = old_genai.GenerativeModel('gemini-1.5-flash')
-            response = model.generate_content(prompt)
-            return response.text
+            for model_name in MODEL_CANDIDATES:
+                try:
+                    model = old_genai.GenerativeModel(model_name)
+                    response = model.generate_content(prompt)
+                    if response and response.text:
+                        return response.text
+                except Exception as e:
+                    print(f"News Analysis Legacy ({model_name}) Failed: {e}")
         except Exception as e:
-            print(f"News Analysis Legacy Failed: {e}")
+            print(f"News Analysis Legacy Setup Failed: {e}")
 
-    return "ニュースのAI分析中にエラーが発生しました。"
+    return "ニュースのAI分析中にエラーが発生しました。接続可能なモデルが見つかりませんでした。"
