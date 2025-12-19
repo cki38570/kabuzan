@@ -1,30 +1,22 @@
-# LINE Messaging APIへの移行計画
+# LINE Messaging API 実装の柔軟性向上計画 (ID/Secret対応)
 
-LINE Notifyのサービス終了（2025年3月31日）に伴い、LINE Messaging APIを使用した通知機能へ移行します。
+ユーザーが取得可能な Channel ID と Channel Secret のみを使用して、自動的に通知が届く仕組みを構築します。
 
 ## ユーザーレビューが必要な事項
-- **必要な認証情報の取得 (最新手順対応)**: 
-  ご指摘の通り、現在は公式アカウント作成後に Messaging API を有効にする流れとなっています。その設定が完了している場合、以下の情報を LINE Developers コンソールから取得いただけます。
-  1. **Channel Access Token (long-lived)**: LINE Developers コンソールの対象チャネル内「Messaging API設定」タブの一番下にある「発行」ボタンで取得できます。
-  2. **Your User ID**: 同じく「Messaging API設定」タブ内の「Your user ID」項目に記載されている `U` から始まる文字列です。
-  ※これらの値が揃い次第、`modules/notifications.py` の実装と `secrets.toml` への設定を行います。
+- **ブロードキャスト配信の使用**:
+  - `User ID` を特定せずにメッセージを送るため、「公式アカウントをフォローしている全員（＝自分）」に一斉送信するエンドポイントを使用します。
+  - 自分一人で利用している場合はプッシュ通知と同じ感覚で利用可能です。
 
 ## 変更内容
 
-### 1. 通知機能の刷新
+### 1. 認証と送信ロジックの強化
 
-#### [MODIFY] [notifications.py](file:///c:/Users/GORO/Desktop/kabuzan/modules/notifications.py)
-- **新しい通知関数の追加**: `send_line_message(text)` を実装します。これは LINE Messaging API のプッシュメッセージエンドポイントを使用します。
-- **定数の定義**: `LINE_CHANNEL_ACCESS_TOKEN` と `LINE_USER_ID` をコード冒頭で設定（secretsから取得）します。
-- **既存処理の更新**: `process_morning_notifications` 内で、LINE Notify 用の `send_line_notification` を呼び出している箇所を、新しい `send_line_message` に置き換えます。
-
-### 2. メインアプリとの連携
-
-#### [MODIFY] [app.py](file:///c:/Users/GORO/Desktop/kabuzan/app.py)
-- **インポートの追加**: `modules.notifications` から `send_line_message` をインポートし、他で必要になった際に呼び出せるようにします。
+#### [MODIFY] [notifications.py](file:///c:/Users/GORO\Desktop\kabuzan\modules\notifications.py)
+- **トークン自動取得**: 毎回または一定期間ごとに Channel ID / Secret を用いて短期アクセストークンを取得する関数を追加します。
+- **ブロードキャスト方式の採用**: 送信先 (`to`) を指定せず、全フォロワーに届く `v2/bot/message/broadcast` を使用するように `send_line_message` を改良します。これにより `User ID` の設定が不要になります。
 
 ## 検証計画
 
 ### 手動検証
-1. 「テスト通知を送信」ボタンを Messaging API 用に更新し、実際にスマホの LINE アプリにメッセージが届くか確認します。
-2. 朝のニュース要約ロジックを走らせ、プッシュメッセージとして届くかを確認します。
+1. `secrets.toml` に ID と Secret を設定した状態で、「テスト通知」が届くか確認します。
+2. トークンの取得に失敗した場合、適切なエラーメッセージ（認証情報の不備など）が UI に表示されるか確認します。
