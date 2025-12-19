@@ -5,7 +5,13 @@ from modules.data import get_stock_data, get_credit_data, get_next_earnings_date
 from modules.analysis import calculate_indicators, generate_ai_report, calculate_trading_strategy
 import datetime
 from modules.charts import create_main_chart, create_credit_chart
-from modules.notifications import check_price_alerts, show_alert_manager, show_notification_settings, process_morning_notifications
+from modules.notifications import (
+    check_price_alerts, 
+    show_alert_manager, 
+    show_notification_settings, 
+    process_morning_notifications,
+    send_line_message
+)
 from modules.recommendations import find_similar_stocks, get_recommendation_reason
 from modules.backtest import backtest_strategy, format_backtest_results
 from modules.patterns import enhance_ai_analysis_with_patterns
