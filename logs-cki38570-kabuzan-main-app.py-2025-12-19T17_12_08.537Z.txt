@@ -1,0 +1,445 @@
+
+[     UTC     ] Logs for kabuzan-ai.streamlit.app/
+────────────────────────────────────────────────────────────────────────────────────────
+[16:56:42] 🚀 Starting up repository: 'kabuzan', branch: 'main', main module: 'app.py'
+[16:56:42] 🐙 Cloning repository...
+[16:56:43] 🐙 Cloning into '/mount/src/kabuzan'...
+
+[16:56:43] 🐙 Cloned repository!
+[16:56:43] 🐙 Pulling code changes from Github...
+[16:56:44] 📦 Processing dependencies...
+
+──────────────────────────────────────── uv ───────────────────────────────────────────
+
+Using uv pip install.
+Using Python 3.13.9 environment at /home/adminuser/venv
+Resolved 71 packages in 2.58s
+Prepared 71 packages in 2.68s
+Installed 71 packages in 211ms
+ + altair==6.0.0
+ + annotated-types==0.7.0
+ + attrs==25.4.0
+ + beautifulsoup4==4.14.3
+ + blinker==1.9.0
+ + cachetools==6.2.4
+ + certifi==2025.11.12
+ + cffi==2.0.0
+ + charset-normalizer==3.4.4
+ + click==8.3.1
+ + curl-cffi==0.14.0
+ + frozendict==2.4.7
+ + gitdb==4.0.12
+ + gitpython==[2025-12-19 16:56:50.015727] 3.1.45
+ + google-ai-generativelanguage==0.6.15
+ + google-api-core==2.28.1
+ + google-api-python-client==2.187.0
+ + google-auth==2.45.0
+ + google-auth-httplib2==0.3.0
+ + google-generativeai==0.8.6
+ + googleapis-common-protos==1.72.0
+ + grpcio==1.76.0
+ + grpcio-status==1.71.2
+ + httplib2==0.31.0
+ + [2025-12-19 16:56:50.015927] idna==3.11
+ + jinja2==3.1.6
+ + jsonschema==4.25.1
+ + jsonschema-specifications==2025.9.1
+ + lxml==6.0.2
+ + markupsafe==3.0.3
+ + multitasking==0.0.12
+ + narwhals==2.14.0
+ + numpy==2.3.5
+ + packaging==25.0
+ + pandas==2.3.3
+ + peewee==3.18.3
+ + [2025-12-19 16:56:50.016274] pillow==12.0.0
+ + platformdirs==4.5.1
+ + plotly==6.5.0
+ + proto-plus==1.27.0
+ + protobuf==5.29.5
+ + pyarrow==22.0.0
+ + pyasn1==0.6.1
+ + pyasn1-modules==0.4.2
+ + pycparser==2.23
+ + pydantic==2.12.5
+ + pydantic-core==2.41.5
+ + pydeck==0.9.1
+ + pyparsing==3.2.5[2025-12-19 16:56:50.016515] 
+ + python-dateutil==2.9.0.post0
+ + pytz==2025.2
+ + referencing==0.37.0
+ + requests==2.32.5
+ + rpds-py==0.30.0
+ + rsa==4.9.1
+ + six==1.17.0
+ + smmap==5.0.2
+ + [2025-12-19 16:56:50.016769] soupsieve==2.8.1
+ + streamlit==1.52.2
+ + tenacity==9.1.2
+ + toml==0.10.2
+ + tornado==6.5.4
+ + tqdm==4.67.1
+ + typing-extensions==4.15.0
+ + typing-inspection==0.4.2
+ + tzdata==2025.3
+ + uritemplate==4.2.0
+ + urllib3==2.6.2
+ + watchdog==6.0.0
+ + websockets==15.0.1[2025-12-19 16:56:50.016974] 
+ + yfinance==0.2.66
+Checking if Streamlit is installed
+Found Streamlit version 1.52.2 in the environment
+Installing rich for an improved exception logging
+Using uv pip install.
+Using Python 3.13.9 environment at /home/adminuser/venv
+Resolved 4 packages in 126ms
+Prepared 4 packages in 106ms
+Installed 4 packages in 12ms
+ + [2025-12-19 16:56:52.089934] markdown-it-py==4.0.0
+ + mdurl==0.1.2
+ + pygments==2.19.2
+ + rich==14.2.0
+
+────────────────────────────────────────────────────────────────────────────────────────
+
+[16:56:52] 🐍 Python dependencies were installed from /mount/src/kabuzan/requirements.txt using uv.
+Check if streamlit is installed
+Streamlit is already installed
+[16:56:53] 📦 Processed dependencies!
+
+
+
+/mount/src/kabuzan/modules/llm.py:2: FutureWarning: 
+
+All support for the `google.generativeai` package has ended. It will no longer be receiving 
+updates or bug fixes. Please switch to the `google.genai` package as soon as possible.
+See README for more details:
+
+https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/README.md
+
+  import google.generativeai as genai
+2025-12-19 16:58:37.575 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2025-12-19 16:58:38.007 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2025-12-19 16:58:38.041 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2025-12-19 16:58:38.044 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+Gemini generation failed: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+────────────────────── Traceback (most recent call last) ───────────────────────
+  /home/adminuser/venv/lib/python3.13/site-packages/streamlit/runtime/scriptru  
+  nner/exec_code.py:129 in exec_func_with_error_handling                        
+                                                                                
+  /home/adminuser/venv/lib/python3.13/site-packages/streamlit/runtime/scriptru  
+  nner/script_runner.py:671 in code_to_exec                                     
+                                                                                
+  /mount/src/kabuzan/app.py:239 in <module>                                     
+                                                                                
+    236 │   │   │   │   │    st.markdown(f"<div style='text-align:right; font-  
+    237 │   │   │   │                                                           
+    238 │   │   │   │   # Plot Chart with Strategy Lines IMMEDIATELY (Fast)     
+  ❱ 239 │   │   │   │   fig_main = create_main_chart(df, info['name'], strateg  
+    240 │   │   │   │   if fig_main:                                            
+    241 │   │   │   │   │   st.plotly_chart(fig_main, use_container_width=True  
+    242                                                                         
+                                                                                
+  /mount/src/kabuzan/modules/charts.py:38 in create_main_chart                  
+                                                                                
+     35 │   │   target = strategic_data.get('target_price')                     
+     36 │   │   stop = strategic_data.get('stop_loss')                          
+     37 │   │                                                                   
+  ❱  38 │   │   if target and not pd.isna(target):                              
+     39 │   │   │   fig.add_hline(y=target, line_dash="dash", line_color="#00f  
+     40 │   │   │   │   │   │     line_width=2, row=1, col=1)                   
+     41 │   │   │   # Add annotation with price                                 
+────────────────────────────────────────────────────────────────────────────────
+NameError: name 'pd' is not defined
+2025-12-19 17:03:07.019 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2025-12-19 17:03:07.329 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2025-12-19 17:03:07.338 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2025-12-19 17:03:07.339 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+Gemini generation failed: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+────────────────────── Traceback (most recent call last) ───────────────────────
+  /home/adminuser/venv/lib/python3.13/site-packages/streamlit/runtime/scriptru  
+  nner/exec_code.py:129 in exec_func_with_error_handling                        
+                                                                                
+  /home/adminuser/venv/lib/python3.13/site-packages/streamlit/runtime/scriptru  
+  nner/script_runner.py:671 in code_to_exec                                     
+                                                                                
+  /mount/src/kabuzan/app.py:239 in <module>                                     
+                                                                                
+    236 │   │   │   │   │    st.markdown(f"<div style='text-align:right; font-  
+    237 │   │   │   │                                                           
+    238 │   │   │   │   # Plot Chart with Strategy Lines IMMEDIATELY (Fast)     
+  ❱ 239 │   │   │   │   fig_main = create_main_chart(df, info['name'], strateg  
+    240 │   │   │   │   if fig_main:                                            
+    241 │   │   │   │   │   st.plotly_chart(fig_main, use_container_width=True  
+    242                                                                         
+                                                                                
+  /mount/src/kabuzan/modules/charts.py:38 in create_main_chart                  
+                                                                                
+     35 │   │   target = strategic_data.get('target_price')                     
+     36 │   │   stop = strategic_data.get('stop_loss')                          
+     37 │   │                                                                   
+  ❱  38 │   │   if target and not pd.isna(target):                              
+     39 │   │   │   fig.add_hline(y=target, line_dash="dash", line_color="#00f  
+     40 │   │   │   │   │   │     line_width=2, row=1, col=1)                   
+     41 │   │   │   # Add annotation with price                                 
+────────────────────────────────────────────────────────────────────────────────
+NameError: name 'pd' is not defined
+────────────────────── Traceback (most recent call last) ───────────────────────
+  /home/adminuser/venv/lib/python3.13/site-packages/streamlit/runtime/scriptru  
+  nner/exec_code.py:129 in exec_func_with_error_handling                        
+                                                                                
+  /home/adminuser/venv/lib/python3.13/site-packages/streamlit/runtime/scriptru  
+  nner/script_runner.py:671 in code_to_exec                                     
+                                                                                
+  /mount/src/kabuzan/app.py:239 in <module>                                     
+                                                                                
+    236 │   │   │   │   │    st.markdown(f"<div style='text-align:right; font-  
+    237 │   │   │   │                                                           
+    238 │   │   │   │   # Plot Chart with Strategy Lines IMMEDIATELY (Fast)     
+  ❱ 239 │   │   │   │   fig_main = create_main_chart(df, info['name'], strateg  
+    240 │   │   │   │   if fig_main:                                            
+    241 │   │   │   │   │   st.plotly_chart(fig_main, use_container_width=True  
+    242                                                                         
+                                                                                
+  /mount/src/kabuzan/modules/charts.py:38 in create_main_chart                  
+                                                                                
+     35 │   │   target = strategic_data.get('target_price')                     
+     36 │   │   stop = strategic_data.get('stop_loss')                          
+     37 │   │                                                                   
+  ❱  38 │   │   if target and not pd.isna(target):                              
+     39 │   │   │   fig.add_hline(y=target, line_dash="dash", line_color="#00f  
+     40 │   │   │   │   │   │     line_width=2, row=1, col=1)                   
+     41 │   │   │   # Add annotation with price                                 
+────────────────────────────────────────────────────────────────────────────────
+NameError: name 'pd' is not defined
+HTTP Error 404: {"quoteSummary":{"result":null,"error":{"code":"Not Found","description":"No fundamentals data found for symbol: 1570.T"}}}
+2025-12-19 17:04:20.539 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2025-12-19 17:04:20.851 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2025-12-19 17:04:20.863 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2025-12-19 17:04:20.866 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+[17:11:22] 🐙 Pulling code changes from Github...
+[17:11:22] 📦 Processing dependencies...
+[17:11:22] 📦 Processed dependencies!
+Gemini generation failed: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+google-genai (V1 SDK) not available.
+google-generativeai (Legacy SDK) available.
+────────────────────── Traceback (most recent call last) ───────────────────────
+  /home/adminuser/venv/lib/python3.13/site-packages/streamlit/runtime/scriptru  
+  nner/exec_code.py:129 in exec_func_with_error_handling                        
+                                                                                
+  /home/adminuser/venv/lib/python3.13/site-packages/streamlit/runtime/scriptru  
+  nner/script_runner.py:671 in code_to_exec                                     
+                                                                                
+  /mount/src/kabuzan/app.py:3 in <module>                                       
+                                                                                
+      1 import streamlit as st                                                  
+      2 import pandas as pd                                                     
+  ❱   3 from modules.styles import get_custom_css                               
+      4 from modules.data import get_stock_data, get_credit_data, get_next_ear  
+      5 from modules.analysis import calculate_indicators, generate_ai_report,  
+      6 import datetime                                                         
+  in _find_and_load:1360                                                        
+  in _find_and_load_unlocked:1331                                               
+  in _load_unlocked:946                                                         
+────────────────────────────────────────────────────────────────────────────────
+KeyError: 'modules.styles'
+google-genai (V1 SDK) not available.
+google-generativeai (Legacy SDK) available.
+────────────────────── Traceback (most recent call last) ───────────────────────
+  /home/adminuser/venv/lib/python3.13/site-packages/streamlit/runtime/scriptru  
+  nner/exec_code.py:129 in exec_func_with_error_handling                        
+                                                                                
+  /home/adminuser/venv/lib/python3.13/site-packages/streamlit/runtime/scriptru  
+  nner/script_runner.py:671 in code_to_exec                                     
+                                                                                
+  /mount/src/kabuzan/app.py:15 in <module>                                      
+                                                                                
+     12 from modules.enhanced_metrics import calculate_advanced_metrics, forma  
+     13 from modules.portfolio import add_to_portfolio, remove_from_portfolio,  
+     14 from modules.exports import generate_report_text                        
+  ❱  15 from modules.screener import scan_market                                
+     16 import json                                                             
+     17 import os                                                               
+     18                                                                         
+                                                                                
+  /mount/src/kabuzan/modules/screener.py:4 in <module>                          
+                                                                                
+      1 import pandas as pd                                                     
+      2 import streamlit as st                                                  
+      3 from modules.data import get_stock_data                                 
+  ❱   4 from modules.analysis import calculate_indicators                       
+      5 from concurrent.futures import ThreadPoolExecutor, as_completed         
+      6                                                                         
+      7 # Ticker Categories                                                     
+  in _find_and_load:1360                                                        
+  in _find_and_load_unlocked:1331                                               
+  in _load_unlocked:946                                                         
+────────────────────────────────────────────────────────────────────────────────
+KeyError: 'modules.analysis'
+google-genai (V1 SDK) not available.
+google-generativeai (Legacy SDK) available.
+────────────────────── Traceback (most recent call last) ───────────────────────
+  /home/adminuser/venv/lib/python3.13/site-packages/streamlit/runtime/scriptru  
+  nner/exec_code.py:129 in exec_func_with_error_handling                        
+                                                                                
+  /home/adminuser/venv/lib/python3.13/site-packages/streamlit/runtime/scriptru  
+  nner/script_runner.py:671 in code_to_exec                                     
+                                                                                
+  /mount/src/kabuzan/app.py:5 in <module>                                       
+                                                                                
+      2 import pandas as pd                                                     
+      3 from modules.styles import get_custom_css                               
+      4 from modules.data import get_stock_data, get_credit_data, get_next_ear  
+  ❱   5 from modules.analysis import calculate_indicators, generate_ai_report,  
+      6 import datetime                                                         
+      7 from modules.charts import create_main_chart, create_credit_chart       
+      8 from modules.notifications import check_price_alerts, show_alert_manag  
+  in _find_and_load:1360                                                        
+  in _find_and_load_unlocked:1331                                               
+  in _load_unlocked:946                                                         
+────────────────────────────────────────────────────────────────────────────────
+KeyError: 'modules.analysis'
+[17:11:23] 🔄 Updated app!
+────────────────────── Traceback (most recent call last) ───────────────────────
+  /home/adminuser/venv/lib/python3.13/site-packages/streamlit/runtime/scriptru  
+  nner/exec_code.py:129 in exec_func_with_error_handling                        
+                                                                                
+  /home/adminuser/venv/lib/python3.13/site-packages/streamlit/runtime/scriptru  
+  nner/script_runner.py:671 in code_to_exec                                     
+                                                                                
+  /mount/src/kabuzan/app.py:198 in <module>                                     
+                                                                                
+    195 │   │   │   st.markdown(f"**市場地合い (日経225)**: <span style='color  
+    196 │   │   │                                                               
+    197 │   │   │   # Feature: Mock Warning                                     
+  ❱ 198 │   │   │   from modules.llm import API_KEY, GENAI_AVAILABLE            
+    199 │   │   │   if not API_KEY or not GENAI_AVAILABLE:                      
+    200 │   │   │   │   st.error("⚠️ **AI API未稼働**: APIキーが設定されていな   
+    201                                                                         
+────────────────────────────────────────────────────────────────────────────────
+ImportError: cannot import name 'GENAI_AVAILABLE' from 'modules.llm' 
+(/mount/src/kabuzan/modules/llm.py)
+────────────────────── Traceback (most recent call last) ───────────────────────
+  /home/adminuser/venv/lib/python3.13/site-packages/streamlit/runtime/scriptru  
+  nner/exec_code.py:129 in exec_func_with_error_handling                        
+                                                                                
+  /home/adminuser/venv/lib/python3.13/site-packages/streamlit/runtime/scriptru  
+  nner/script_runner.py:671 in code_to_exec                                     
+                                                                                
+  /mount/src/kabuzan/app.py:198 in <module>                                     
+                                                                                
+    195 │   │   │   st.markdown(f"**市場地合い (日経225)**: <span style='color  
+    196 │   │   │                                                               
+    197 │   │   │   # Feature: Mock Warning                                     
+  ❱ 198 │   │   │   from modules.llm import API_KEY, GENAI_AVAILABLE            
+    199 │   │   │   if not API_KEY or not GENAI_AVAILABLE:                      
+    200 │   │   │   │   st.error("⚠️ **AI API未稼働**: APIキーが設定されていな   
+    201                                                                         
+────────────────────────────────────────────────────────────────────────────────
+ImportError: cannot import name 'GENAI_AVAILABLE' from 'modules.llm' 
+(/mount/src/kabuzan/modules/llm.py)
+────────────────────── Traceback (most recent call last) ───────────────────────
+  /home/adminuser/venv/lib/python3.13/site-packages/streamlit/runtime/scriptru  
+  nner/exec_code.py:129 in exec_func_with_error_handling                        
+                                                                                
+  /home/adminuser/venv/lib/python3.13/site-packages/streamlit/runtime/scriptru  
+  nner/script_runner.py:671 in code_to_exec                                     
+                                                                                
+  /mount/src/kabuzan/app.py:198 in <module>                                     
+                                                                                
+    195 │   │   │   st.markdown(f"**市場地合い (日経225)**: <span style='color  
+    196 │   │   │                                                               
+    197 │   │   │   # Feature: Mock Warning                                     
+  ❱ 198 │   │   │   from modules.llm import API_KEY, GENAI_AVAILABLE            
+    199 │   │   │   if not API_KEY or not GENAI_AVAILABLE:                      
+    200 │   │   │   │   st.error("⚠️ **AI API未稼働**: APIキーが設定されていな   
+    201                                                                         
+────────────────────────────────────────────────────────────────────────────────
+ImportError: cannot import name 'GENAI_AVAILABLE' from 'modules.llm' 
+(/mount/src/kabuzan/modules/llm.py)
+────────────────────── Traceback (most recent call last) ───────────────────────
+  /home/adminuser/venv/lib/python3.13/site-packages/streamlit/runtime/scriptru  
+  nner/exec_code.py:129 in exec_func_with_error_handling                        
+                                                                                
+  /home/adminuser/venv/lib/python3.13/site-packages/streamlit/runtime/scriptru  
+  nner/script_runner.py:671 in code_to_exec                                     
+                                                                                
+  /mount/src/kabuzan/app.py:198 in <module>                                     
+                                                                                
+    195 │   │   │   st.markdown(f"**市場地合い (日経225)**: <span style='color  
+    196 │   │   │                                                               
+    197 │   │   │   # Feature: Mock Warning                                     
+  ❱ 198 │   │   │   from modules.llm import API_KEY, GENAI_AVAILABLE            
+    199 │   │   │   if not API_KEY or not GENAI_AVAILABLE:                      
+    200 │   │   │   │   st.error("⚠️ **AI API未稼働**: APIキーが設定されていな   
+    201                                                                         
+────────────────────────────────────────────────────────────────────────────────
+ImportError: cannot import name 'GENAI_AVAILABLE' from 'modules.llm' 
+(/mount/src/kabuzan/modules/llm.py)
+────────────────────── Traceback (most recent call last) ───────────────────────
+  /home/adminuser/venv/lib/python3.13/site-packages/streamlit/runtime/scriptru  
+  nner/exec_code.py:129 in exec_func_with_error_handling                        
+                                                                                
+  /home/adminuser/venv/lib/python3.13/site-packages/streamlit/runtime/scriptru  
+  nner/script_runner.py:671 in code_to_exec                                     
+                                                                                
+  /mount/src/kabuzan/app.py:198 in <module>                                     
+                                                                                
+    195 │   │   │   st.markdown(f"**市場地合い (日経225)**: <span style='color  
+    196 │   │   │                                                               
+    197 │   │   │   # Feature: Mock Warning                                     
+  ❱ 198 │   │   │   from modules.llm import API_KEY, GENAI_AVAILABLE            
+    199 │   │   │   if not API_KEY or not GENAI_AVAILABLE:                      
+    200 │   │   │   │   st.error("⚠️ **AI API未稼働**: APIキーが設定されていな   
+    201                                                                         
+────────────────────────────────────────────────────────────────────────────────
+ImportError: cannot import name 'GENAI_AVAILABLE' from 'modules.llm' 
+(/mount/src/kabuzan/modules/llm.py)

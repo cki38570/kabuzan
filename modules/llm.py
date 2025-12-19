@@ -117,12 +117,16 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     # Output Format (出力形式)
 
     以下のフォーマットに従って出力してください。Markdownを使用してください。
+    **回答は必ず日本語で行ってください。**
 
     ---
     ## 📊 戦略判定: [ここにステータスを入れる (例: 🛡️ MONITOR / 🟢 BUY ENTRY)]
 
     **【結論】**
     (ここに、「なぜその判定なのか」を1行で要約。例:「下落トレンド継続中のため、直近安値での反発を確認するまで静観を推奨」)
+
+    **【アナリストの思考プロセス】**
+    (提供されたデータをどのように処理し、最終判断に至ったかのロジックを3ステップ程度で記述してください。**ここが分析の正確性の根拠となります。**)
 
     **【トレードセットアップ】**
     ※ステータスが「MONITOR」や「NO TRADE」の場合、以下の価格は「監視ライン」として提示すること。
@@ -136,8 +140,8 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     - **リスクリワード比**: [数値] (計算式に基づく正確な値)
 
     **【テクニカル詳細分析】**
-    1. **トレンド環境**: (パーフェクトオーダーの有無、ダウ理論によるトレンド判定)
-    2. **オシレーター評価**: (RSIやMACDが示す過熱感やダイバージェンスの有無)
+    1. **トレンド環境**: (パーフェクトオーダーの有無、ダウ理論によるトレンド判定。SMA5, 25, 75の関係性を考慮してください)
+    2. **オシレーター評価**: (RSIやMACDが示す過熱感やダイバージェンスの有無。RSIが70以上なら利益確定、30以下なら底打ちを意識してください)
     3. **需給・ファンダ**: (信用倍率や出来高から読み取れる相場心理)
 
     ---
@@ -166,6 +170,7 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     if GENAI_LEGACY_AVAILABLE and API_KEY:
         try:
             old_genai.configure(api_key=API_KEY)
+            # Use 'gemini-1.5-flash' without 'models/' prefix for legacy SDK
             model = old_genai.GenerativeModel('gemini-1.5-flash')
             response = model.generate_content(prompt)
             return response.text

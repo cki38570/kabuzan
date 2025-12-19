@@ -13,6 +13,7 @@ from modules.enhanced_metrics import calculate_advanced_metrics, format_metrics_
 from modules.portfolio import add_to_portfolio, remove_from_portfolio, get_portfolio_df
 from modules.exports import generate_report_text
 from modules.screener import scan_market
+from modules.llm import API_KEY, GENAI_AVAILABLE
 import json
 import os
 
@@ -196,7 +197,6 @@ if ticker_input and not st.session_state.comparison_mode:
             st.markdown(f"**市場地合い (日経225)**: <span style='color:{market_badge_color}; font-weight:bold;'>{market_text}</span>", unsafe_allow_html=True)
 
             # Feature: Mock Warning
-            from modules.llm import API_KEY, GENAI_AVAILABLE
             if not API_KEY or not GENAI_AVAILABLE:
                 st.error("⚠️ **AI API未稼働**: APIキーが設定されていないか、制限によりモック（ダミーデータ）による分析を表示しています。")
 

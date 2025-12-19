@@ -7,3 +7,4 @@ beautifulsoup4
 lxml
 typing_extensions
 google-generativeai
+google-genai
