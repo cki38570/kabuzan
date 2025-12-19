@@ -28,7 +28,7 @@ def backtest_strategy(df, strategic_data, days=30):
         if not in_position:
             # Check for entry signal (simplified: buy when price is near support)
             # In real scenario, this would be based on actual buy zone
-            support_level = strategic_data.get('stop_loss', current_price * 0.95)
+            support_level = strategic_data.get('stop_loss') or (current_price * 0.95)
             
             # Entry: Price is within 2% of support and RSI < 50
             if 'RSI' in row and not pd.isna(row['RSI']):
