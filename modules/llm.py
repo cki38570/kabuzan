@@ -149,10 +149,13 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     
     error_details = []
     # Candidates for model name (tries from top)
+    # Based on direct API check, 'gemini-flash-latest' and 'gemini-pro-latest' are confirmed available.
     MODEL_CANDIDATES = [
+        'gemini-flash-latest',
         'gemini-1.5-flash',
         'gemini-1.5-flash-latest',
-        'gemini-1.5-flash-001',
+        'gemini-pro-latest',
+        'gemini-2.0-flash',
         'gemini-2.0-flash-exp'
     ]
 
@@ -310,10 +313,13 @@ def analyze_news_impact(portfolio_items, news_data_map):
     - LINEで読みやすいよう、要点を箇条書きで短くまとめてください。
     """
 
+    # Based on direct API check, 'gemini-flash-latest' is confirmed available.
     MODEL_CANDIDATES = [
+        'gemini-flash-latest',
         'gemini-1.5-flash',
         'gemini-1.5-flash-latest',
-        'gemini-1.5-flash-001',
+        'gemini-pro-latest',
+        'gemini-2.0-flash',
         'gemini-2.0-flash-exp'
     ]
 
