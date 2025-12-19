@@ -27,6 +27,9 @@ try:
 except (FileNotFoundError, KeyError):
     API_KEY = os.getenv("GEMINI_API_KEY")
 
+# GENAI_AVAILABLE definition for other modules
+GENAI_AVAILABLE = (GENAI_V1_AVAILABLE or GENAI_LEGACY_AVAILABLE) and (API_KEY is not None)
+
 if not API_KEY:
     print("Warning: GEMINI_API_KEY not found in secrets.toml or environment variables.")
 
@@ -246,4 +249,63 @@ def _format_extra_context(context):
         desc = "上昇トレンド（追い風）" if trend == "Bull" else "下落トレンド（向かい風）" if trend == "Bear" else "中立"
         lines.append(f"- **市場全体の地合い (日経平均)**: {desc}")
         
-    return "\n".join(lines) if lines else "特になし"
+def analyze_news_impact(portfolio_items, news_data_map):
+    """
+    Analyze the impact of recent news on portfolio holdings using Gemini.
+    """
+    if not GENAI_AVAILABLE:
+        return "AI分析が利用できないため、要約をスキップします。"
+    
+    if not portfolio_items:
+        return "ポートフォリオが空です。"
+
+    portfolio_str = "\n".join([f"- {item['name']} ({item['ticker']}): {item['shares']}株" for item in portfolio_items])
+    
+    news_str = ""
+    for ticker, news_list in news_data_map.items():
+        if news_list:
+            news_str += f"\n【{ticker} 関連ニュース】\n"
+            for n in news_list[:3]:
+                news_str += f"- {n['title']} ({n['publisher']})\n"
+
+    if not news_str:
+        return "関連ニュースが見つかりませんでした。"
+
+    prompt = f"""
+    あなたはプロの証券アナリストです。以下の保有銘柄と最新ニュースに基づき、
+    1. 各ニュースが保有株に与える影響（ポジティブ/ネガティブ/中立）
+    2. 今後の投資活動に対する簡潔なアドバイス
+    を、忙しいユーザーのために重要度順に要約してください。
+
+    # 保有銘柄
+    {portfolio_str}
+
+    # 最新ニュース
+    {news_str}
+
+    # 出力形式
+    - 絵文字を使い、親しみやすくかつプロフェッショナルなトーンで。
+    - LINEで読みやすいよう、要点を箇条書きで短くまとめてください。
+    """
+
+    client = get_gemini_client()
+    if client:
+        try:
+            response = client.models.generate_content(
+                model='gemini-1.5-flash',
+                contents=prompt
+            )
+            return response.text
+        except Exception as e:
+            print(f"News Analysis V1 Failed: {e}")
+            
+    if GENAI_LEGACY_AVAILABLE and API_KEY:
+        try:
+            old_genai.configure(api_key=API_KEY)
+            model = old_genai.GenerativeModel('gemini-1.5-flash')
+            response = model.generate_content(prompt)
+            return response.text
+        except Exception as e:
+            print(f"News Analysis Legacy Failed: {e}")
+
+    return "ニュースのAI分析中にエラーが発生しました。"

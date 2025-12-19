@@ -106,3 +106,8 @@ def get_portfolio_df(current_prices):
         
     df = pd.DataFrame(rows)
     return df, total_invested, total_value
+
+def get_portfolio_data():
+    """Returns a simple list of portfolio items for news analysis."""
+    portfolio = load_portfolio()
+    return [{'ticker': p['code'], 'name': p['name'], 'shares': p['quantity']} for p in portfolio]
