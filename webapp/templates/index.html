@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="header">
+    <h2>Watchlist</h2>
+    <div class="actions">
+        <!-- Future: Add stock button -->
+        <input type="text" placeholder="Search..."
+            style="background:var(--bg-card); border:1px solid var(--border); padding:0.5rem; color:white; border-radius:0.5rem;">
+    </div>
+</div>
+
+<div class="grid-cards">
+    {% for item in watchlist %}
+    <div class="stock-card" hx-get="/components/stock-card/{{ item.code }}"
+        hx-trigger="load delay:{{ loop.index * 100 }}ms" hx-swap="outerHTML">
+
+        <!-- Loading Skeleton -->
+        <div class="stock-header">
+            <div class="ticker">{{ item.code }}</div>
+        </div>
+        <div class="price"
+            style="background:var(--bg-hover); height:2rem; width:80%; border-radius:0.25rem; margin-bottom:0.5rem;">
+        </div>
+        <div class="change" style="background:var(--bg-hover); height:1rem; width:50%; border-radius:0.25rem;"></div>
+    </div>
+    {% else %}
+    <p style="color:var(--text-secondary);">No stocks in watchlist.</p>
+    {% endfor %}
+</div>
+{% endblock %}

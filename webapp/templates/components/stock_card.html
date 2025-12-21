@@ -1,0 +1,14 @@
+<div class="stock-card" hx-trigger="click" hx-target=".content" hx-swap="outerHTML">
+    <div class="stock-header">
+        <div class="ticker">{{ ticker }}</div>
+        <!-- Mini chart placeholder -->
+        <span style="font-size:0.75rem; color:var(--text-secondary);">1D</span>
+    </div>
+
+    <div class="price">¥{{ "{:,}".format(price) }}</div>
+
+    <div class="change {{ 'positive' if change >= 0 else 'negative' }}">
+        <span>{{ "▲" if change >= 0 else "▼" }}</span>
+        <span>{{ change }} ({{ "{:.2f}".format(percent) }}%)</span>
+    </div>
+</div>

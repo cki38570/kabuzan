@@ -1,0 +1,135 @@
+    def __init__(self,
+    def get_date(self) -> List[str]:
+    def get_finance_template(self) -> Dict[str, 'FinanceItem']:
+    def get_finance_values(self) -> Dict[str, List['FinanceValue']]:
+    def __init__(self,
+    def get_date(self) -> List[str]:
+    def get_finance_template(self) -> Dict[str, 'FinanceItem']:
+    def get_finance_values(self) -> Dict[str, List['FinanceValue']]:
+    def children_is_empty(self) -> bool:
+    def get_title(self):
+    def get_children(self):
+    def get_spec(self):
+    def get_key(self):
+def _find_finance_value_by_date(values: List['FinanceValue'],
+    def get_date(self) -> List[str]:
+    def get_finance_template(self) -> Dict[str, 'FinanceItem']:
+    def get_finance_values(self) -> Dict[str, List['FinanceValue']]:
+    def accept(self, visitor: 'StatementVisitor') -> None:
+    def _visit_row(self, visitor: 'StatementVisitor',
+    def _get_row(self, item: 'FinanceItem') -> Optional[List['FinanceValue']]:
+    def _children_is_empty(self, item):
+    def get_period_type(self):
+    def get_report_date(self):
+    def get_report_value(self):
+    def __init__(self,
+    def get_date(self) -> List[str]:
+    def get_finance_template(self) -> Dict[str, 'FinanceItem']:
+    def get_finance_values(self) -> Dict[str, List['FinanceValue']]:
+    def __init__(self, news: pd.DataFrame):
+    def get_news_list(self) -> pd.DataFrame:
+    def get_news(self, uuid: str) -> pd.DataFrame:
+    def print_pretty_table(self, uuid):
+    def __str__(self):
+    def _find_news(self, uuid):
+    def __init__(self):
+    def visit_title(self, fields: List[str]) -> None:
+    def visit_row(self,
+    def get_statement(self) -> Statement:
+    def _get_table_string(self) -> str:
+    def visit_title(self, fields: List[str]) -> None:
+    def visit_row(self,
+    def __init__(self, data : pd.DataFrame, content : str):
+    def print_pretty_table(self):
+    def df(self):
+    def __init__(self, ticker, http_proxy: Optional[str] = None, log_level: Optional[str] = logging.INFO, config: Optional[Configuration] = None):
+    def info(self) -> pd.DataFrame:
+    def officers(self) -> pd.DataFrame:
+    def calendar(self) -> pd.DataFrame:
+    def earnings(self) -> pd.DataFrame:
+    def splits(self) -> pd.DataFrame:
+    def dividends(self) -> pd.DataFrame:
+    def revenue_forecast(self) -> pd.DataFrame:
+    def earnings_forecast(self) -> pd.DataFrame:
+    def summary(self) -> pd.DataFrame:
+    def ttm_eps(self) -> pd.DataFrame:
+    def price(self) -> pd.DataFrame:
+    def currency(self, symbol: str) -> pd.DataFrame:
+    def shares(self) -> pd.DataFrame:
+    def quarterly_income_statement(self) -> Statement:
+    def annual_income_statement(self) -> Statement:
+    def quarterly_balance_sheet(self) -> Statement:
+    def annual_balance_sheet(self) -> Statement:
+    def quarterly_cash_flow(self) -> Statement:
+    def annual_cash_flow(self) -> Statement:
+    def ttm_pe(self) -> pd.DataFrame:
+    def quarterly_gross_margin(self) -> pd.DataFrame:
+    def annual_gross_margin(self) -> pd.DataFrame:
+    def quarterly_operating_margin(self) -> pd.DataFrame:
+    def annual_operating_margin(self) -> pd.DataFrame:
+    def quarterly_net_margin(self) -> pd.DataFrame:
+    def annual_net_margin(self) -> pd.DataFrame:
+    def quarterly_ebitda_margin(self) -> pd.DataFrame:
+    def annual_ebitda_margin(self) -> pd.DataFrame:
+    def quarterly_fcf_margin(self) -> pd.DataFrame:
+    def annual_fcf_margin(self) -> pd.DataFrame:
+    def earning_call_transcripts(self) -> Transcripts:
+    def news(self) -> News:
+    def revenue_by_segment(self) -> pd.DataFrame:
+    def revenue_by_geography(self) -> pd.DataFrame:
+    def revenue_by_product(self) -> pd.DataFrame:
+    def quarterly_revenue_yoy_growth(self) -> pd.DataFrame:
+    def annual_revenue_yoy_growth(self) -> pd.DataFrame:
+    def quarterly_operating_income_yoy_growth(self) -> pd.DataFrame:
+    def annual_operating_income_yoy_growth(self) -> pd.DataFrame:
+    def quarterly_net_income_yoy_growth(self) -> pd.DataFrame:
+    def annual_net_income_yoy_growth(self) -> pd.DataFrame:
+    def quarterly_fcf_yoy_growth(self) -> pd.DataFrame:
+    def annual_fcf_yoy_growth(self) -> pd.DataFrame:
+    def quarterly_eps_yoy_growth(self) -> pd.DataFrame:
+    def quarterly_ttm_eps_yoy_growth(self) -> pd.DataFrame:
+    def market_capitalization(self) -> pd.DataFrame:
+    def ps_ratio(self) -> pd.DataFrame:
+    def pb_ratio(self) -> pd.DataFrame:
+    def peg_ratio(self) -> pd.DataFrame:
+    def _quarterly_book_value_of_equity(self) -> pd.DataFrame:
+    def ttm_revenue(self) -> pd.DataFrame:
+    def ttm_net_income_common_stockholders(self) -> pd.DataFrame:
+    def roe(self) -> pd.DataFrame:
+    def roa(self) -> pd.DataFrame:
+    def roic(self) -> pd.DataFrame:
+    def equity_multiplier(self) -> pd.DataFrame:
+    def asset_turnover(self) -> pd.DataFrame:
+    def wacc(self) -> pd.DataFrame:
+    def industry_ttm_pe(self) -> pd.DataFrame:
+    def industry_ps_ratio(self) -> pd.DataFrame:
+    def industry_pb_ratio(self) -> pd.DataFrame:
+    def industry_roe(self) -> pd.DataFrame:
+    def industry_roa(self) -> pd.DataFrame:
+    def industry_equity_multiplier(self) -> pd.DataFrame:
+    def industry_quarterly_gross_margin(self) -> pd.DataFrame:
+    def industry_quarterly_ebitda_margin(self) -> pd.DataFrame:
+    def industry_quarterly_net_margin(self) -> pd.DataFrame:
+    def industry_asset_turnover(self) -> pd.DataFrame:
+    def _quarterly_eps_yoy_growth(self, eps_column: str, current_alias: str, prev_alias: str) -> pd.DataFrame:
+    def _calculate_yoy_growth(self, item_name: str, period_type: str, finance_type: str) -> pd.DataFrame:
+    def _revenue_by_breakdown(self, breakdown_type: str) -> pd.DataFrame:
+    def _generate_margin(self, margin_type: str, period_type: str, numerator_item: str,
+    def _query_data(self, table_name: str) -> pd.DataFrame:
+    def _query_data2(self, table_name: str, ticker: str) -> pd.DataFrame:
+    def _statement(self, finance_type: str, period_type: str) -> Statement:
+    def _dataframe_to_stock_statements(df: pd.DataFrame) -> List[StockStatement]:
+    def _get_finance_values_map(statements: List['StockStatement'],
+    def download_data_performance(self) -> str:
+def _unnest(record: pd.DataFrame) -> pd.DataFrame:
+    def __init__(self, ticker: str, transcripts: pd.DataFrame, log_level: str):
+    def get_transcripts_list(self) -> pd.DataFrame:
+    def get_transcript(self, fiscal_year: int, fiscal_quarter: int) -> pd.DataFrame:
+    def analyze_financial_metrics_forecast_for_future_with_ai(self, fiscal_year: int, fiscal_quarter: int, llm: OpenAI, config: Optional[OpenAIConfiguration] = None) -> pd.DataFrame:
+    def analyze_financial_metrics_change_for_this_quarter_with_ai(self, fiscal_year: int, fiscal_quarter: int, llm: OpenAI, config: Optional[OpenAIConfiguration] = None) -> pd.DataFrame:
+    def summarize_key_financial_data_with_ai(self, fiscal_year: int, fiscal_quarter: int, llm: OpenAI, config: Optional[OpenAIConfiguration] = None) -> pd.DataFrame:
+    def print_pretty_table(self, fiscal_year: int, fiscal_quarter: int) -> str:
+    def __str__(self):
+    def _find_transcripts(self, fiscal_quarter, fiscal_year):
+    def __init__(self, http_proxy: Optional[str] = None, log_level: Optional[str] = logging.INFO, config: Optional[Configuration] = None):
+    def daily_treasure_yield(self) -> pd.DataFrame:

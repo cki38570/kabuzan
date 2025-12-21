@@ -8,3 +8,7 @@ lxml
 typing_extensions
 google-generativeai
 google-genai
+fastapi
+uvicorn
+jinja2
+python-multipart

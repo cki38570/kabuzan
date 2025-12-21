@@ -1,0 +1,38 @@
+[nltk_data] Downloading package punkt_tab to
+[nltk_data]     C:\Users\GORO\AppData\Local\Temp\nltk...
+[nltk_data]   Package punkt_tab is already up-to-date!
+[38;5;10m______      __           _    ______      _        
+|  _  \    / _|         | |   | ___ \    | |       
+| | | |___| |_ ___  __ _| |_  | |_/ / ___| |_ __ _ 
+| | | / _ \  _/ _ \/ _` | __| | ___ \/ _ \ __/ _` |
+| |/ /  __/ ||  __/ (_| | |_  | |_/ /  __/ || (_| |
+|___/ \___|_| \___|\__,_|\__| \____/ \___|\__\__,_|[0m
+[1;38;5;10m嶋:: Data Update Time ::[0m	2025-12-12 [1;38;5;10m::[0m
+[1;38;5;10m嶋:: Software Version ::[0m	0.0.27      [1;38;5;10m::[0m
+Initializing Ticker for 7203.T...
+2025-12-21 08:56:53 ERROR DuckDBClient MainThread - Failed to initialize connection: HTTP Error: Failed to download extension "cache_httpfs" at URL "http://community-extensions.duckdb.org/v1.4.3/windows_amd64/cache_httpfs.duckdb_extension.gz" (HTTP 404)
+
+Candidate extensions: "core_functions", "uc_catalog", "parquet", "tpch", "inet"
+For more info, visit https://duckdb.org/docs/stable/extensions/troubleshooting?version=v1.4.3&platform=windows_amd64&extension=cache_httpfs
+Traceback (most recent call last):
+  File "C:\Users\GORO\Desktop\kabuzan\test_defeatbeta.py", line 8, in <module>
+    t = Ticker(ticker_code)
+  File "C:\Users\GORO\Desktop\kabuzan\.venv\Lib\site-packages\defeatbeta_api\data\ticker.py", line 38, in __init__
+    self.duckdb_client = get_duckdb_client(http_proxy=self.http_proxy, log_level=log_level, config=config)
+                         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\GORO\Desktop\kabuzan\.venv\Lib\site-packages\defeatbeta_api\client\duckdb_client.py", line 22, in get_duckdb_client
+    _instance = DuckDBClient(http_proxy, log_level, config)
+  File "C:\Users\GORO\Desktop\kabuzan\.venv\Lib\site-packages\defeatbeta_api\client\duckdb_client.py", line 39, in __init__
+    self._initialize_connection()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\GORO\Desktop\kabuzan\.venv\Lib\site-packages\defeatbeta_api\client\duckdb_client.py", line 56, in _initialize_connection
+    self.connection.execute(query)
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^
+_duckdb.HTTPException: HTTP Error: Failed to download extension "cache_httpfs" at URL "http://community-extensions.duckdb.org/v1.4.3/windows_amd64/cache_httpfs.duckdb_extension.gz" (HTTP 404)
+
+Candidate extensions: "core_functions", "uc_catalog", "parquet", "tpch", "inet"
+For more info, visit https://duckdb.org/docs/stable/extensions/troubleshooting?version=v1.4.3&platform=windows_amd64&extension=cache_httpfs
+Error: HTTP Error: Failed to download extension "cache_httpfs" at URL "http://community-extensions.duckdb.org/v1.4.3/windows_amd64/cache_httpfs.duckdb_extension.gz" (HTTP 404)
+
+Candidate extensions: "core_functions", "uc_catalog", "parquet", "tpch", "inet"
+For more info, visit https://duckdb.org/docs/stable/extensions/troubleshooting?version=v1.4.3&platform=windows_amd64&extension=cache_httpfs

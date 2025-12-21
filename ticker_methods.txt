@@ -1,0 +1,200 @@
+class Ticker:
+    def __init__(self, ticker, http_proxy: Optional[str] = None, log_level: Optional[str] = logging.INFO, config: Optional[Configuration] = None):
+        self.ticker = ticker.upper()
+        self.http_proxy = http_proxy
+        self.config = config
+        self.duckdb_client = get_duckdb_client(http_proxy=self.http_proxy, log_level=log_level, config=config)
+        self.huggingface_client = HuggingFaceClient()
+        self.log_level = log_level
+        self.treasure = Treasure(
+            http_proxy=self.http_proxy,
+            log_level=self.log_level,
+            config=config
+        )
+
+    def info(self) -> pd.DataFrame:
+        return self._query_data(stock_profile)
+
+    def officers(self) -> pd.DataFrame:
+        return self._query_data(stock_officers)
+
+    def calendar(self) -> pd.DataFrame:
+        return self._query_data(stock_earning_calendar)
+
+    def earnings(self) -> pd.DataFrame:
+        return self._query_data(stock_historical_eps)
+
+    def splits(self) -> pd.DataFrame:
+        return self._query_data(stock_split_events)
+
+    def dividends(self) -> pd.DataFrame:
+        return self._query_data(stock_dividend_events)
+
+    def revenue_forecast(self) -> pd.DataFrame:
+        return self._query_data(stock_revenue_estimates)
+
+    def earnings_forecast(self) -> pd.DataFrame:
+        return self._query_data(stock_earning_estimates)
+
+    def summary(self) -> pd.DataFrame:
+        return self._query_data(stock_summary)
+
+    def ttm_eps(self) -> pd.DataFrame:
+        return self._query_data(stock_tailing_eps)
+
+    def price(self) -> pd.DataFrame:
+        return self._query_data(stock_prices)
+
+    def currency(self, symbol: str) -> pd.DataFrame:
+        return self._query_data2(exchange_rate, symbol)
+
+    def shares(self) -> pd.DataFrame:
+        return self._query_data(stock_shares_outstanding)
+
+    def quarterly_income_statement(self) -> Statement:
+        return self._statement(income_statement, quarterly)
+
+    def annual_income_statement(self) -> Statement:
+        return self._statement(income_statement, annual)
+
+    def quarterly_balance_sheet(self) -> Statement:
+        return self._statement(balance_sheet, quarterly)
+
+    def annual_balance_sheet(self) -> Statement:
+        return self._statement(balance_sheet, annual)
+
+    def quarterly_cash_flow(self) -> Statement:
+        return self._statement(cash_flow, quarterly)
+
+    def annual_cash_flow(self) -> Statement:
+        return self._statement(cash_flow, annual)
+
+    def ttm_pe(self) -> pd.DataFrame:
+        price_df = self.price()
+
+        eps_df = self.ttm_eps()
+
+        price_df['report_date'] = pd.to_datetime(price_df['report_date'])
+        eps_df['report_date'] = pd.to_datetime(eps_df['report_date'])
+
+        result_df = price_df.copy()
+        result_df = result_df.rename(columns={'report_date': 'price_report_date'})
+
+        result_df = pd.merge_asof(
+            result_df.sort_values('price_report_date'),
+            eps_df.sort_values('report_date'),
+            left_on='price_report_date',
+            right_on='report_date',
+            direction='backward'
+        )
+
+        result_df['ttm_pe'] = round(result_df['close'] / result_df['tailing_eps'], 2)
+
+        result_df = result_df[[
+            'price_report_date',
+            'report_date',
+            'close',
+            'tailing_eps',
+            'ttm_pe'
+        ]]
+
+        result_df = result_df.rename(columns={
+            'price_report_date': 'report_date',
+            'close': 'close_price',
+            'tailing_eps': 'ttm_eps',
+            'report_date': 'eps_report_date'
+        })
+
+        return result_df
+
+    def quarterly_gross_margin(self) -> pd.DataFrame:
+        return self._generate_margin('gross', 'quarterly', 'gross_profit', 'gross_margin')
+
+    def annual_gross_margin(self) -> pd.DataFrame:
+        return self._generate_margin('gross', 'annual', 'gross_profit', 'gross_margin')
+
+    def quarterly_operating_margin(self) -> pd.DataFrame:
+        return self._generate_margin('operating', 'quarterly', 'operating_income', 'operating_margin')
+
+    def annual_operating_margin(self) -> pd.DataFrame:
+        return self._generate_margin('operating', 'annual', 'operating_income', 'operating_margin')
+
+    def quarterly_net_margin(self) -> pd.DataFrame:
+        return self._generate_margin('net', 'quarterly', 'net_income_common_stockholders', 'net_margin')
+
+    def annual_net_margin(self) -> pd.DataFrame:
+        return self._generate_margin('net', 'annual', 'net_income_common_stockholders', 'net_margin')
+
+    def quarterly_ebitda_margin(self) -> pd.DataFrame:
+        return self._generate_margin('ebitda', 'quarterly', 'ebitda', 'ebitda_margin')
+
+    def annual_ebitda_margin(self) -> pd.DataFrame:
+        return self._generate_margin('ebitda', 'annual', 'ebitda', 'ebitda_margin')
+
+    def quarterly_fcf_margin(self) -> pd.DataFrame:
+        return self._generate_margin('fcf', 'quarterly', 'free_cash_flow', 'fcf_margin')
+
+    def annual_fcf_margin(self) -> pd.DataFrame:
+        return self._generate_margin('fcf', 'annual', 'free_cash_flow', 'fcf_margin')
+
+    def earning_call_transcripts(self) -> Transcripts:
+        return Transcripts(self.ticker, self._query_data(stock_earning_call_transcripts), self.log_level)
+
+    def news(self) -> News:
+        url = self.huggingface_client.get_url_path(stock_news)
+        sql = load_sql("select_news_by_symbol", ticker = self.ticker, url = url)
+        return News(self.duckdb_client.query(sql))
+
+    def revenue_by_segment(self) -> pd.DataFrame:
+        return self._revenue_by_breakdown('segment')
+
+    def revenue_by_geography(self) -> pd.DataFrame:
+        return self._revenue_by_breakdown('geography')
+
+    def revenue_by_product(self) -> pd.DataFrame:
+        return self._revenue_by_breakdown('product')
+
+    def quarterly_revenue_yoy_growth(self) -> pd.DataFrame:
+        return self._calculate_yoy_growth(item_name='total_revenue', period_type='quarterly', finance_type='income_statement')
+
+    def annual_revenue_yoy_growth(self) -> pd.DataFrame:
+        return self._calculate_yoy_growth(item_name='total_revenue', period_type='annual', finance_type='income_statement')
+
+    def quarterly_operating_income_yoy_growth(self) -> pd.DataFrame:
+        return self._calculate_yoy_growth(item_name='operating_income', period_type='quarterly', finance_type='income_statement')
+
+    def annual_operating_income_yoy_growth(self) -> pd.DataFrame:
+        return self._calculate_yoy_growth(item_name='operating_income', period_type='annual', finance_type='income_statement')
+
+    def quarterly_net_income_yoy_growth(self) -> pd.DataFrame:
+        return self._calculate_yoy_growth(item_name='net_income_common_stockholders', period_type='quarterly', finance_type='income_statement')
+
+    def annual_net_income_yoy_growth(self) -> pd.DataFrame:
+        return self._calculate_yoy_growth(item_name='net_income_common_stockholders', period_type='annual', finance_type='income_statement')
+
+    def quarterly_fcf_yoy_growth(self) -> pd.DataFrame:
+        return self._calculate_yoy_growth(item_name='free_cash_flow', period_type='quarterly', finance_type='cash_flow')
+
+    def annual_fcf_yoy_growth(self) -> pd.DataFrame:
+        return self._calculate_yoy_growth(item_name='free_cash_flow', period_type='annual', finance_type='cash_flow')
+
+    def quarterly_eps_yoy_growth(self) -> pd.DataFrame:
+        return self._quarterly_eps_yoy_growth('eps', 'eps', 'prev_year_eps')
+
+    def quarterly_ttm_eps_yoy_growth(self) -> pd.DataFrame:
+        return self._quarterly_eps_yoy_growth('tailing_eps', 'ttm_eps', 'prev_year_ttm_eps')
+
+    def market_capitalization(self) -> pd.DataFrame:
+        price_df = self.price()
+
+        shares_df = self.shares()
+
+        price_df['report_date'] = pd.to_datetime(price_df['report_date'])
+        shares_df['report_date'] = pd.to_datetime(shares_df['report_date'])
+
+        result_df = price_df.copy()
+        result_df = result_df.rename(columns={'report_date': 'price_report_date'})
+
+        result_df = pd.merge_asof(
+            result_df.sort_values('price_report_date'),
+            shares_df.sort_values('report_date'),
