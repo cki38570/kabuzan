@@ -277,6 +277,23 @@ if ticker_input and not st.session_state.comparison_mode:
             with tab2:
                 st.markdown("### 🤖 Gemini AI アナリスト")
                 
+                # --- Fundamental Briefing Section ---
+                if credit_data and credit_data.get('details'):
+                    details = credit_data['details']
+                    def format_large_number(num):
+                        if not num: return "N/A"
+                        if num >= 1e12: return f"{num/1e12:.1f}兆円"
+                        if num >= 1e8: return f"{num/1e8:.1f}億円"
+                        return f"{num:,.0f}円"
+
+                    st.markdown("#### 💎 銘柄概況 (Fundamentals)")
+                    f_col1, f_col2, f_col3, f_col4 = st.columns(4)
+                    f_col1.metric("時価総額", format_large_number(details.get('market_cap')))
+                    f_col2.metric("PER (実績)", f"{details.get('pe_ratio', 0):.1f}倍" if details.get('pe_ratio') else "N/A")
+                    f_col3.metric("PBR", f"{details.get('pb_ratio', 0):.2f}倍" if details.get('pb_ratio') else "N/A")
+                    f_col4.metric("配当利回り", f"{details.get('dividend_yield', 0):.2f}%" if details.get('dividend_yield') else "N/A")
+                    st.divider()
+                
                 # Pass Extra Context to AI
                 extra_context = {
                     'earnings_date': earnings_date,
@@ -459,7 +476,21 @@ if ticker_input and not st.session_state.comparison_mode:
                 
                 if credit_data and credit_data.get('details'):
                      st.markdown("#### 信用需給・財務概況")
-                     st.json(credit_data['details'])
+                     # st.json(credit_data['details']) # Replaced with cleaner display
+                     details = credit_data['details']
+                     
+                     def format_val(v):
+                         if isinstance(v, float): return f"{v:.2f}"
+                         if isinstance(v, (int, float)) and v > 1000000:
+                            if v >= 1e12: return f"{v/1e12:.2f}兆円"
+                            return f"{v/1e8:.2f}億円"
+                         return str(v)
+
+                     # Show as a table for better readability on mobile
+                     detail_df = pd.DataFrame([
+                         {"項目": k, "値": format_val(v)} for k, v in details.items() if v is not None
+                     ])
+                     st.table(detail_df)
                 
                 st.markdown("#### 時系列データ")
                 st.dataframe(df.tail(10), width='stretch')

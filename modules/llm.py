@@ -96,9 +96,8 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     ## 検出パターン
     {_format_patterns_for_prompt(patterns)}
     
-    ## 需給情報・財務概況
-    - マーケットキャップ: {credit_data.get('details', {}).get('market_cap', 'N/A')}
-    - Sector: {credit_data.get('details', {}).get('sector', 'N/A')}
+    ## 需給情報・財務概況 (Fundamentals)
+    {_format_fundamentals_for_prompt(credit_data)}
     - データソース状態: {credit_data.get('source', 'unknown')}
 
     ## その他の重要情報 (Context)
@@ -231,6 +230,29 @@ def _format_patterns_for_prompt(patterns):
     
     return "\n".join(result) if result else "特になし"
 
+def _format_fundamentals_for_prompt(credit_data):
+    """Format fundamental data for the prompt."""
+    if not credit_data or not credit_data.get('details'):
+        return "- 財務データ: 取得不可"
+    
+    details = credit_data['details']
+    def fmt(v, suffix=""):
+        if v is None: return "N/A"
+        if isinstance(v, (int, float)) and v >= 1e12: return f"{v/1e12:.2f}兆円"
+        if isinstance(v, (int, float)) and v >= 1e8: return f"{v/1e8:.2f}億円"
+        if isinstance(v, float): return f"{v:.2f}{suffix}"
+        return f"{v}{suffix}"
+
+    lines = [
+        f"- 時価総額: {fmt(details.get('market_cap'))}",
+        f"- PER (実績): {fmt(details.get('pe_ratio'), '倍')}",
+        f"- PBR: {fmt(details.get('pb_ratio'), '倍')}",
+        f"- 配立つ利回り: {fmt(details.get('dividend_yield'), '%')}",
+        f"- ROE: {fmt(details.get('roe'))}",
+        f"- セクター: {details.get('sector', 'N/A')}"
+    ]
+    return "\n".join(lines)
+
 def _format_extra_context(context):
     """Format extra context like Earnings and Market Trend."""
     if not context:
@@ -244,6 +266,8 @@ def _format_extra_context(context):
         trend = context['market_trend']
         desc = "上昇トレンド（追い風）" if trend == "Bull" else "下落トレンド（向かい風）" if trend == "Bear" else "中立"
         lines.append(f"- **市場全体の地合い (日経平均)**: {desc}")
+    
+    return "\n".join(lines) if lines else "特になし"
         
 def analyze_news_impact(portfolio_items, news_data_map):
     """
