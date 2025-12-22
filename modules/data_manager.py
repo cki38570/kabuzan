@@ -15,9 +15,23 @@ except ImportError:
     def get_defeatbeta_client(token=None): return None
 
 # Initialize disk cache
-# Size limit: 1GB, Eviction policy: least-recently-stored
-CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.cache')
-cache = Cache(CACHE_DIR, size_limit=1024 * 1024 * 1024)
+# Use /tmp for Streamlit Cloud or local .cache
+if os.environ.get('STREAMLIT_RUNTIME_ENV') == 'cloud' or os.path.exists('/mount/src'):
+    CACHE_DIR = '/tmp/kabuzan_cache'
+else:
+    CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.cache')
+
+try:
+    if not os.path.exists(CACHE_DIR):
+        os.makedirs(CACHE_DIR, exist_ok=True)
+    cache = Cache(CACHE_DIR, size_limit=1024 * 1024 * 1024)
+except Exception as e:
+    print(f"Warning: Could not initialize diskcache at {CACHE_DIR}: {e}")
+    # Fallback to dummy cache interface if diskcache fails
+    class DummyCache:
+        def get(self, key): return None
+        def set(self, key, value): pass
+    cache = DummyCache()
 
 class DataManager:
     """
@@ -91,84 +105,84 @@ class DataManager:
     def get_technical_indicators(self, df: pd.DataFrame) -> Dict[str, Any]:
         """
         Calculate technical indicators using pandas-ta.
-        Assumes df has standard columns: Open, High, Low, Close, Volume
         """
-        if df.empty or len(df) < 30:
-            return {}
+        # Default empty structure
+        results = {
+            'rsi': 50.0, 'rsi_status': "Data Lack",
+            'macd': 0.0, 'macd_signal': 0.0, 'macd_status': "Data Lack",
+            'bb_upper': 0.0, 'bb_lower': 0.0, 'bb_width': 0.0, 'bb_status': "Data Lack",
+            'sma25': 0.0, 'sma75': 0.0, 'atr': 0.0, 'trend_desc': "Insufficient Data"
+        }
+
+        if df.empty or len(df) < 10:
+            return results
             
         try:
-            # Working on a copy to avoid SettingWithCopyWarning on cached dfs
-            # But pandas_ta usually appends. Safe to copy.
+            # Ensure columns are properly named and lowercase for pandas_ta if needed, 
+            # though pandas_ta handles CamelCase.
             calc_df = df.copy()
             
+            # Validation: Check if required columns exist
+            required = ['Open', 'High', 'Low', 'Close']
+            if not all(col in calc_df.columns for col in required):
+                print(f"Missing columns for technicals: {list(calc_df.columns)}")
+                return results
+
             # 1. RSI (14)
             calc_df.ta.rsi(length=14, append=True)
-            rsi_val = calc_df['RSI_14'].iloc[-1]
+            if 'RSI_14' in calc_df.columns:
+                rsi_val = calc_df['RSI_14'].iloc[-1]
+                results['rsi'] = rsi_val
+                if rsi_val > 70: results['rsi_status'] = "Overbought (買われすぎ)"
+                elif rsi_val < 30: results['rsi_status'] = "Oversold (売られすぎ)"
+                else: results['rsi_status'] = "Neutral (中立)"
             
             # 2. MACD (12, 26, 9)
             calc_df.ta.macd(fast=12, slow=26, signal=9, append=True)
-            macd_val = calc_df['MACD_12_26_9'].iloc[-1]
-            macd_signal = calc_df['MACDs_12_26_9'].iloc[-1]
+            if 'MACD_12_26_9' in calc_df.columns:
+                results['macd'] = calc_df['MACD_12_26_9'].iloc[-1]
+                results['macd_signal'] = calc_df['MACDs_12_26_9'].iloc[-1]
+                if results['macd'] > results['macd_signal']: results['macd_status'] = "Bullish Cross (買い優勢)"
+                else: results['macd_status'] = "Bearish Cross (売り優勢)"
             
             # 3. Bollinger Bands (20, 2)
             calc_df.ta.bbands(length=20, std=2, append=True)
-            bb_upper = calc_df['BBU_20_2.0'].iloc[-1]
-            bb_lower = calc_df['BBL_20_2.0'].iloc[-1]
-            bb_width_pct = ((bb_upper - bb_lower) / calc_df['Close'].iloc[-1]) * 100
+            if 'BBU_20_2.0' in calc_df.columns:
+                results['bb_upper'] = calc_df['BBU_20_2.0'].iloc[-1]
+                results['bb_lower'] = calc_df['BBL_20_2.0'].iloc[-1]
+                price = calc_df['Close'].iloc[-1]
+                results['bb_width'] = ((results['bb_upper'] - results['bb_lower']) / price) * 100 if price else 0
+                results['bb_status'] = "Expansion" if results['bb_width'] > 5 else "Squeeze" if results['bb_width'] < 2 else "Normal"
             
-            # 4. Moving Averages (SMA 25, 75, 200)
+            # 4. Moving Averages (SMA 25, 75)
             calc_df.ta.sma(length=25, append=True)
             calc_df.ta.sma(length=75, append=True)
-            calc_df.ta.sma(length=200, append=True)
             
-            sma25 = calc_df['SMA_25'].iloc[-1]
-            sma75 = calc_df['SMA_75'].iloc[-1] if 'SMA_75' in calc_df else 0
-            
-            # 5. ATR (14) - Volatility
-            calc_df.ta.atr(length=14, append=True)
-            atr_val = calc_df['ATRr_14'].iloc[-1] if 'ATRr_14' in calc_df else 0
-            
-            # Logic for Status Strings
-            # RSI Status
-            if rsi_val > 70: rsi_status = "Overbought (買われすぎ)"
-            elif rsi_val < 30: rsi_status = "Oversold (売られすぎ)"
-            else: rsi_status = "Neutral (中立)"
-            
-            # MACD Status
-            if macd_val > macd_signal: macd_status = "Bullish Cross (買い優勢)"
-            else: macd_status = "Bearish Cross (売り優勢)"
-            
-            # Trend Status (SMA)
-            current_price = calc_df['Close'].iloc[-1]
-            if current_price > sma25 and sma25 > sma75:
-                trend_desc = "Strong Uptrend (強い上昇)"
-            elif current_price < sma25 and sma25 < sma75:
-                trend_desc = "Strong Downtrend (強い下落)"
-            elif current_price > sma25:
-                trend_desc = "Moderate Uptrend (緩やかな上昇)"
-            else:
-                trend_desc = "Moderate Downtrend (緩やかな下落/調整)"
+            if 'SMA_25' in calc_df.columns:
+                results['sma25'] = calc_df['SMA_25'].iloc[-1]
+                price = calc_df['Close'].iloc[-1]
+                sma75 = calc_df['SMA_75'].iloc[-1] if 'SMA_75' in calc_df.columns else 0
+                results['sma75'] = sma75
                 
-            return {
-                'rsi': rsi_val,
-                'rsi_status': rsi_status,
-                'macd': macd_val,
-                'macd_signal': macd_signal,
-                'macd_status': macd_status,
-                'bb_upper': bb_upper,
-                'bb_lower': bb_lower,
-                'bb_width': bb_width_pct,
-                'bb_status': "Expansion" if bb_width_pct > 5 else "Squeeze" if bb_width_pct < 2 else "Normal",
-                'sma25': sma25,
-                'sma75': sma75,
-                'atr': atr_val,
-                'trend_desc': trend_desc
-            }
+                if price > results['sma25'] and results['sma25'] > sma75 and sma75 > 0:
+                    results['trend_desc'] = "Strong Uptrend (強い上昇)"
+                elif price < results['sma25'] and results['sma25'] < sma75 and sma75 > 0:
+                    results['trend_desc'] = "Strong Downtrend (強い下落)"
+                elif price > results['sma25']:
+                    results['trend_desc'] = "Moderate Uptrend (緩やかな上昇)"
+                else:
+                    results['trend_desc'] = "Moderate Downtrend (緩やかな下落/調整)"
+            
+            # 5. ATR (14)
+            calc_df.ta.atr(length=14, append=True)
+            if 'ATRr_14' in calc_df.columns:
+                results['atr'] = calc_df['ATRr_14'].iloc[-1]
+                
+            return results
             
         except Exception as e:
             print(f"Error calculating technicals: {e}")
-            traceback.print_exc()
-            return {}
+            return results
 
     def get_financial_data(self, ticker_code: str) -> Dict[str, Any]:
         """

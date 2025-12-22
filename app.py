@@ -109,7 +109,9 @@ with st.sidebar:
     
     selected_from_list = None
     for item in st.session_state.watchlist:
-        label = f"{item['name']} ({item['code']})"
+        # Cleanup name if it contains 'Mock:'
+        clean_name = item['name'].replace('Mock: ', '')
+        label = f"{clean_name} ({item['code']})"
         if st.button(label, key=f"btn_{item['code']}"):
             selected_from_list = item['code']
             
@@ -455,9 +457,9 @@ if ticker_input and not st.session_state.comparison_mode:
                 if enhanced_metrics:
                     st.markdown(format_metrics_display(enhanced_metrics))
                 
-                if credit_df is not None:
-                     st.markdown("#### 信用需給")
-                     st.dataframe(credit_df, width='stretch', height=150)
+                if credit_data and credit_data.get('details'):
+                     st.markdown("#### 信用需給・財務概況")
+                     st.json(credit_data['details'])
                 
                 st.markdown("#### 時系列データ")
                 st.dataframe(df.tail(10), width='stretch')
