@@ -1,6 +1,6 @@
 import pandas as pd
 import streamlit as st
-from modules.data import get_stock_data
+from modules.data_manager import get_data_manager
 from modules.analysis import calculate_indicators
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -54,7 +54,8 @@ CATEGORIES = {
 def scan_single_stock(stock):
     """Worker function for parallel scanning."""
     try:
-        df, info = get_stock_data(stock['code'])
+        dm = get_data_manager()
+        df, info = dm.get_market_data(stock['code'])
         if df is None or df.empty:
             return None
             

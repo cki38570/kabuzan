@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from modules.data import get_stock_data
+from modules.data_manager import get_data_manager
 from modules.analysis import calculate_indicators
 
 # Major Japanese stocks for comparison (TOPIX Core 30)
@@ -74,7 +74,8 @@ def find_similar_stocks(ticker, df, top_n=5):
             continue
         
         # Fetch comparison stock data
-        comp_df, comp_info = get_stock_data(code)
+        dm = get_data_manager()
+        comp_df, comp_info = dm.get_market_data(code)
         if comp_df is None or len(comp_df) < 30:
             continue
         

@@ -1,0 +1,13 @@
+.cache
+.git
+.venv
+venv
+tests
+docs
+*.pyc
+__pycache__
+app.py
+verify_hybrid.py
+verify_logic.py
+logs-*.txt
+.antigravity

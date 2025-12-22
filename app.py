@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from modules.styles import get_custom_css
 from modules.data import get_stock_data, get_credit_data, get_next_earnings_date, get_market_sentiment
-from modules.analysis import calculate_indicators, generate_ai_report, calculate_trading_strategy
+from modules.analysis import calculate_indicators, calculate_trading_strategy
 import datetime
 from modules.charts import create_main_chart, create_credit_chart
 from modules.notifications import (
@@ -19,7 +19,8 @@ from modules.enhanced_metrics import calculate_advanced_metrics, format_metrics_
 from modules.portfolio import add_to_portfolio, remove_from_portfolio, get_portfolio_df
 from modules.exports import generate_report_text
 from modules.screener import scan_market
-from modules.llm import API_KEY, GENAI_AVAILABLE
+from modules.llm import API_KEY, GENAI_AVAILABLE, generate_gemini_analysis
+from modules.data_manager import get_data_manager
 import json
 import os
 
@@ -184,9 +185,16 @@ if st.session_state.comparison_mode:
 
 if ticker_input and not st.session_state.comparison_mode:
     with st.spinner('AIが市場データを分析中...'):
-        df, info = get_stock_data(ticker_input)
+        dm = get_data_manager()
+        df, info = dm.get_market_data(ticker_input)
+        indicators = dm.get_technical_indicators(df)
         
-        if df is not None and info is not None:
+        if df is not None and not df.empty:
+            # Data Status Display
+            status_map = {"fresh": "🟢 Live", "cached": "🟡 Cached", "fallback": "🔴 Fallback"}
+            status_text = status_map.get(info.get('status'), "⚪ Unknown")
+            st.caption(f"Data Status: {status_text} (Source: {info.get('source')})")
+
             alerts = check_price_alerts(info['current_price'], ticker_input, info['name'])
             for alert_info in alerts:
                 st.warning(alert_info['message'])
@@ -222,10 +230,14 @@ if ticker_input and not st.session_state.comparison_mode:
                 else:
                      st.caption(f"📅 次回決算予定: {e_date} (残り{days_left}日)")
 
-            df = calculate_indicators(df, params) # Pass params
-            credit_df = get_credit_data(ticker_input)
+            # Technical calculation (Old logic for charts if needed, but we use pre-calc for AI)
+            # Actually, DataManager already calculated everything we need for AI.
+            # But the charts might need the specific columns from calculate_indicators.
+            df = calculate_indicators(df, params) 
             
-            # Feature 1: Fast Strategy Calculation
+            credit_data = dm.get_financial_data(ticker_input)
+            
+            # Fast Strategy Calculation for lines
             strategic_data = calculate_trading_strategy(df)
             
             # --- Tabs Layout ---
@@ -269,7 +281,20 @@ if ticker_input and not st.session_state.comparison_mode:
                     'market_trend': market_trend
                 }
                 
-                report, _ = generate_ai_report(df, credit_df, info['name'], info, extra_context=extra_context)
+                # Use the new structured analysis from modules/llm.py directly
+                patterns = enhance_ai_analysis_with_patterns(df)
+                enhanced_metrics = calculate_advanced_metrics(df, info['current_price'])
+                
+                report = generate_gemini_analysis(
+                    ticker_input, 
+                    info, 
+                    indicators, 
+                    credit_data, 
+                    strategic_data, 
+                    enhanced_metrics=enhanced_metrics,
+                    patterns=patterns,
+                    extra_context=extra_context
+                )
                 
                 # Export Button
                 last_row = df.iloc[-1]

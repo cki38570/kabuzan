@@ -6,9 +6,10 @@ requests
 beautifulsoup4
 lxml
 typing_extensions
-google-generativeai
 google-genai
 fastapi
 uvicorn
 jinja2
 python-multipart
+pandas_ta
+diskcache

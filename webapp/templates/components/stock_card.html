@@ -1,4 +1,19 @@
 <div class="stock-card" hx-trigger="click" hx-target=".content" hx-swap="outerHTML">
+    <!-- Status Indicator -->
+    {% if source_status == "fresh" %}
+    <span
+        style="position:absolute; top:8px; right:8px; width:8px; height:8px; background-color:#22c55e; border-radius:50%;"
+        title="Real-time Data"></span>
+    {% elif source_status == "cached" %}
+    <span
+        style="position:absolute; top:8px; right:8px; width:8px; height:8px; background-color:#eab308; border-radius:50%;"
+        title="Cached Data"></span>
+    {% else %}
+    <span
+        style="position:absolute; top:8px; right:8px; width:8px; height:8px; background-color:#ef4444; border-radius:50%;"
+        title="Fallback (Basic Data)"></span>
+    {% endif %}
+
     <div class="stock-header">
         <div class="ticker">{{ ticker }}</div>
         <!-- Mini chart placeholder -->

@@ -7,28 +7,19 @@ except ImportError:
     GENAI_V1_AVAILABLE = False
     print("google-genai (V1 SDK) not available.")
 
-try:
-    import google.generativeai as old_genai
-    GENAI_LEGACY_AVAILABLE = True
-    print("google-generativeai (Legacy SDK) available.")
-except ImportError:
-    GENAI_LEGACY_AVAILABLE = False
-    print("google-generativeai (Legacy SDK) not available.")
-
 import os
 import time
-
 import streamlit as st
 
 # API Key - Load from secrets.toml (local) or Streamlit Cloud Secrets
 # PRIORITY: st.secrets > os.getenv > None
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
-except (FileNotFoundError, KeyError):
+except (FileNotFoundError, KeyError, AttributeError):
     API_KEY = os.getenv("GEMINI_API_KEY")
 
 # GENAI_AVAILABLE definition for other modules
-GENAI_AVAILABLE = (GENAI_V1_AVAILABLE or GENAI_LEGACY_AVAILABLE) and (API_KEY is not None)
+GENAI_AVAILABLE = GENAI_V1_AVAILABLE and (API_KEY is not None)
 
 if not API_KEY:
     print("Warning: GEMINI_API_KEY not found in secrets.toml or environment variables.")
@@ -75,7 +66,7 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
 
     3. **リスクリワード (R/R) の計算定義**
        - リスクリワードは以下の式で正確に算出してください。
-         `R/R = (利確目標値 - エントリー価格) ÷ (エントリー価格 - 損切目安値)`
+         `R/R = (利確目標 (TP) - エントリー価格) ÷ (エントリー価格 - 損切目安 (SL))`
        - **R/Rが 1.5 を下回るトレードは「推奨しない（NO TRADE）」と判定してください。** 旨味が少なすぎます。
 
     4. **ステータスの明確化**
@@ -91,25 +82,24 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     - 変化率: {price_info.get('change_percent') or 0:+.2f}%
     - 52週高値位置: {enhanced_metrics.get('price_position') or 50:.1f}% (高値: ¥{enhanced_metrics.get('52w_high') or 0:,.0f})
     
-    ## テクニカル指標
-    - トレンド (SMA): {strategic_data.get('trend_desc', '')}
-    - RSI(14): {indicators.get('rsi') or 50:.1f} ({indicators.get('rsi_status', '')})
-    - MACD: {indicators.get('macd_status', '')}
-    - ボリンジャーバンド: {indicators.get('bb_status', '')} (幅: {enhanced_metrics.get('bb_width') or 0:.2f}%)
-    - ATR(14): ¥{indicators.get('atr') or 0:.0f}
-    
-    ## アルゴリズム提案値 (参考)
-    ※以下の値はあくまで参考値です。プロの視点で再評価・修正してください。
-    - 提案トレンド: {strategic_data.get('strategy_msg', '')}
-    - 算出エントリー: ¥{strategic_data.get('entry_price') or 0:,.0f}
-    - 算出ターゲット: ¥{strategic_data.get('target_price') or 0:,.0f}
-    - 算出損切: ¥{strategic_data.get('stop_loss') or 0:,.0f}
+    ## テクニカル指標 (※計算済みデータ)
+    - トレンド(SMA): {indicators.get('trend_desc', 'N/A')}
+      - SMA25: ¥{indicators.get('sma25', 0):,.0f}
+      - SMA75: ¥{indicators.get('sma75', 0):,.0f}
+    - RSI(14): {indicators.get('rsi', 50):.1f} -> {indicators.get('rsi_status', '')}
+    - MACD: {indicators.get('macd', 0):.2f} (Signal: {indicators.get('macd_signal', 0):.2f}) -> {indicators.get('macd_status', '')}
+    - ボリンジャーバンド: {indicators.get('bb_status', '')} (幅: {indicators.get('bb_width', 0):.2f}%)
+      - Upper: ¥{indicators.get('bb_upper', 0):,.0f}
+      - Lower: ¥{indicators.get('bb_lower', 0):,.0f}
+    - ATR(ボラティリティ): ¥{indicators.get('atr', 0):.0f}
     
     ## 検出パターン
     {_format_patterns_for_prompt(patterns)}
     
-    ## 需給情報
-    {credit_data}
+    ## 需給情報・財務概況
+    - マーケットキャップ: {credit_data.get('details', {}).get('market_cap', 'N/A')}
+    - Sector: {credit_data.get('details', {}).get('sector', 'N/A')}
+    - データソース状態: {credit_data.get('source', 'unknown')}
 
     ## その他の重要情報 (Context)
     {_format_extra_context(extra_context)}
@@ -123,26 +113,25 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     ## 📊 戦略判定: [ここにステータスを入れる (例: 🛡️ MONITOR / 🟢 BUY ENTRY)]
 
     **【結論】**
-    (ここに、「なぜその判定なのか」を1行で要約。例:「下落トレンド継続中のため、直近安値での反発を確認するまで静観を推奨」)
+    (「なぜその判定なのか」を1行で要約。例:「下落トレンド継続中のため、直近安値での反発を確認するまで静観を推奨」)
 
     **【アナリストの思考プロセス】**
-    (提供されたデータをどのように処理し、最終判断に至ったかのロジックを3ステップ程度で記述してください。**ここが分析の正確性の根拠となります。**)
+    (提供されたテクニカル指標をどのように解釈し、最終判断に至ったかのロジックを3ステップで記述。)
 
-    **【トレードセットアップ】**
-    ※ステータスが「MONITOR」や「NO TRADE」の場合、以下の価格は「監視ライン」として提示すること。
-
+    **【トレードセットアップ】 (※NO TRADE/MONITORの場合は「監視ライン」として記述)**
+    
     - **エントリー推奨値**: [価格] 円
-      - (根拠: 25日移動平均線のサポート、前回高値ライン 等)
+      - (根拠: [テクニカル根拠])
     - **利確目標 (TP)**: [価格] 円 (+[％]%)
-      - (根拠: ボリンジャーバンド+2σ、直近高値 等)
+      - (根拠: [テクニカル根拠])
     - **損切目安 (SL)**: [価格] 円 (-[％]%)
-      - (根拠: 直近安値割れ、75日線ブレイク 等)
-    - **リスクリワード比**: [数値] (計算式に基づく正確な値)
+      - (根拠: [テクニカル根拠])
+    - **リスクリワード比**: [数値] (計算式: (TP - Entry) / (Entry - SL))
 
     **【テクニカル詳細分析】**
-    1. **トレンド環境**: (パーフェクトオーダーの有無、ダウ理論によるトレンド判定。SMA5, 25, 75の関係性を考慮してください)
-    2. **オシレーター評価**: (RSIやMACDが示す過熱感やダイバージェンスの有無。RSIが70以上なら利益確定、30以下なら底打ちを意識してください)
-    3. **需給・ファンダ**: (信用倍率や出来高から読み取れる相場心理)
+    1. **トレンド環境**: (SMA配列とダウ理論による客観的評価)
+    2. **オシレーター評価**: (RSI, MACDのステータスを活用)
+    3. **ボラティリティ**: (ボリンジャーバンド幅とATRによる価格変動リスク評価)
 
     ---
     """
@@ -178,24 +167,6 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
             error_details.append("V1 SDK (google-genai) not installed.")
         if not API_KEY:
             error_details.append("API Key missing.")
-
-    # Attempt 2: Legacy SDK フォールバック
-    if GENAI_LEGACY_AVAILABLE and API_KEY:
-        try:
-            old_genai.configure(api_key=API_KEY)
-            for model_name in MODEL_CANDIDATES:
-                try:
-                    # Some versions need 'models/' prefix, some don't. Try both if needed, 
-                    # but usually 'gemini-1.5-flash' works in Legacy.
-                    model = old_genai.GenerativeModel(model_name)
-                    response = model.generate_content(prompt)
-                    if response and response.text:
-                        print(f"Success with Legacy SDK: {model_name}")
-                        return response.text
-                except Exception as e:
-                    error_details.append(f"Legacy SDK ({model_name}) Failed: {str(e)}")
-        except Exception as e:
-            error_details.append(f"Legacy Setup Failed: {str(e)}")
     
     # Fallback to Mock
     debug_info = " | ".join(error_details) if error_details else "Unknown Error"
@@ -336,18 +307,6 @@ def analyze_news_impact(portfolio_items, news_data_map):
             except Exception as e:
                 print(f"News Analysis V1 ({model_name}) Failed: {e}")
             
-    if GENAI_LEGACY_AVAILABLE and API_KEY:
-        try:
-            old_genai.configure(api_key=API_KEY)
-            for model_name in MODEL_CANDIDATES:
-                try:
-                    model = old_genai.GenerativeModel(model_name)
-                    response = model.generate_content(prompt)
-                    if response and response.text:
-                        return response.text
-                except Exception as e:
-                    print(f"News Analysis Legacy ({model_name}) Failed: {e}")
-        except Exception as e:
-            print(f"News Analysis Legacy Setup Failed: {e}")
+    return "ニュースのAI分析中にエラーが発生しました。接続可能なモデルが見つかりませんでした。"
 
     return "ニュースのAI分析中にエラーが発生しました。接続可能なモデルが見つかりませんでした。"

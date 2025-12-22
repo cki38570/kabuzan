@@ -8,3 +8,5 @@
 
 .streamlit/secrets.toml
 # *.json # Commented out to allow config files like vercel.json
+
+.vercel
