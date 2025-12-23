@@ -35,134 +35,106 @@ def get_gemini_client():
         print(f"Failed to initialize Gemini Client: {e}")
         return None
 
-def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strategic_data, enhanced_metrics=None, patterns=None, extra_context=None, weekly_indicators=None, news_data=None):
+def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strategic_data, enhanced_metrics=None, patterns=None, extra_context=None, weekly_indicators=None, news_data=None, macro_data=None, transcript_data=None):
     """
-    Generate a professional stock analysis report using Gemini 1.5 Flash.
-    Falls back to legacy SDK or mock if unavailable.
+    Generate a highly advanced professional stock analysis report using Gemini.
+    Implements Self-Reflection (Bull/Bear perspectives) and Macro/Transcript integration.
+    Returns structured JSON if possible, otherwise Markdown.
     """
-    if enhanced_metrics is None:
-        enhanced_metrics = {}
-    if weekly_indicators is None:
-        weekly_indicators = {}
-    if news_data is None:
-        news_data = []
+    if macro_data is None:
+        macro_data = {}
+    if transcript_data is None:
+        transcript_data = pd.DataFrame()
         
-    # [Prompt construction - same as before]
+    # Advanced Prompt with Self-Reflection and Macro/Transcript Context
     prompt = f"""
     # Role
-    あなたは「リスク管理を最優先するプロの機関投資家」兼「熟練のスイングトレーダー」です。
-    提供された株価データとテクニカル指標に基づき、**論理的整合性の取れた**トレードシナリオを作成してください。
+    あなたは「世界トップクラスのヘッジファンド・シニアアナリスト」です。
+    投資家に対して、複数の視点（自己批判を含む）から検証された極めて精度の高い投資戦略を提供してください。
+
+    # Self-Reflection Task (自己批判)
+    分析において、以下の2人のエキスパートの対話形式で思考してください：
+    1. **強気派アナリスト**: テクニカル指標の上昇サインやマクロの好材料を重視し、買いの根拠を主張する。
+    2. **弱気派アナリスト**: 潜在的なリスク、上値の重さ、マクロの悪材料、ニュースの懸念点を厳しく指摘する。
+    最後に、**シニアアナリスト（あなた）**として、両者の議論を統合し、客観的な最終判断を下してください。
 
     # Mission
-    ユーザーの資産を守り、かつ増やすために、勝率とリスクリワードのバランスが取れたトレードプラン（または「様子見」の判断）を提示すること。
-    **トレンド判断と売買推奨の間に矛盾が生じることを絶対に避けてください。**
-
-    # Critical Rules (絶対遵守事項)
-
-    2. **総合判断スコア (Total Investment Score) の算出**
-       - テクニカル（60%）とセンチメント（40%）を統合し、100点満点でスコアを算出してください。
-       - 80点以上: 強い買い推奨
-       - 60-79点: 買い検討
-       - 40-59点: 中立・監視
-       - 40点未満: 回避・売り検討
-
-    3. **センチメント分析 (News Sentiment)**
-       - 直近ニュースを解析し、「ポジティブ」「ネガティブ」「中立」を判定してください。
-       - 各ニュースが株価に与える影響度を考慮してください。
-
-    4. **価格設定の厳格化**
-       - エントリー、利確、損切価格は、必ずテクニカル的な根拠に基づいて設定してください。
-
-    5. **ステータスの明確化**
-       - レポートの冒頭で、【BUY ENTRY】【SELL ENTRY】【MONITOR】【NO TRADE】のいずれかを明示してください。
+    勝率とリスクリワードのバランスが取れた明確なアクションプランを提示すること。
 
     # Input Data (市場データ)
     - 銘柄: {ticker}
     - 現在値: ¥{price_info.get('current_price') or 0:,.1f}
     - 変化率: {price_info.get('change_percent') or 0:+.2f}%
-    - 52週高値位置: {enhanced_metrics.get('price_position') or 50:.1f}% (高値: ¥{enhanced_metrics.get('52w_high') or 0:,.0f})
     
-    ## テクニカル指標 (※計算済みデータ)
-    - **【日足】**
-      - トレンド: {indicators.get('trend_desc', 'N/A')}
-      - SMA短期/中期/長期: ¥{indicators.get('sma_short', 0):,.0f} / ¥{indicators.get('sma_mid', 0):,.0f} / ¥{indicators.get('sma_long', 0):,.0f}
-      - RSI(14): {indicators.get('rsi', 50):.1f} -> {indicators.get('rsi_status', '')}
-      - MACD: {indicators.get('macd', 0):.2f} (Signal: {indicators.get('macd_signal', 0):.2f}) -> {indicators.get('macd_status', '')}
-      - ボリンジャーバンド: {indicators.get('bb_status', '')} (幅: {indicators.get('bb_width', 0):.2f}%)
-      - ATR: ¥{indicators.get('atr', 0):.0f}
+    ## テクニカル指標
+    - 【日足】: {indicators.get('trend_desc', 'N/A')}, SMA(5/25/75): {indicators.get('sma_short')}/{indicators.get('sma_mid')}/{indicators.get('sma_long')}, RSI: {indicators.get('rsi')}, ATR: {indicators.get('atr')}
+    - 【週足】: {weekly_indicators.get('trend_desc', 'N/A')}, SMA(13/26/52): {weekly_indicators.get('sma_short')}/{weekly_indicators.get('sma_mid')}/{weekly_indicators.get('sma_long')}
     
-    - **【週足 (大局)】**
-      - トレンド: {weekly_indicators.get('trend_desc', 'N/A')}
-      - RSI: {weekly_indicators.get('rsi', 50):.1f}
-      - SMA(13/26/52): ¥{weekly_indicators.get('sma_short', 0):,.0f} / ¥{weekly_indicators.get('sma_mid', 0):,.0f} / ¥{weekly_indicators.get('sma_long', 0):,.0f}
+    ## マクロ経済環境
+    - 日経平均平均 (^N225): {macro_data.get('n225', {}).get('price', 'N/A')} ({macro_data.get('n225', {}).get('change_pct', 0):+.2f}%, {macro_data.get('n225', {}).get('trend', 'N/A')})
+    - ドル円 (USD/JPY): {macro_data.get('usdjpy', {}).get('price', 'N/A')} ({macro_data.get('usdjpy', {}).get('change_pct', 0):+.2f}%, {macro_data.get('usdjpy', {}).get('trend', 'N/A')})
     
     ## 検出パターン
     {_format_patterns_for_prompt(patterns)}
     
-    ## 需給情報・財務概況 (Fundamentals)
+    ## 需給・ファンダ (Supply/Demand)
     {_format_fundamentals_for_prompt(credit_data)}
     
-    ## 直近ニュース (Sentiment Data)
+    ## 直近ニュース (Sentiment)
     {_format_news_for_prompt(news_data)}
 
-    ## その他の重要情報 (Context)
-    {_format_extra_context(extra_context)}
+    ## 決算説明会文字起こし要約 (Transcripts)
+    {_format_transcripts_for_prompt(transcript_data)}
 
-    # Output Format (出力形式)
-    以下のフォーマットに従って出力してください。**回答は必ず日本語で行ってください。**
-
-    ---
-    ## 📊 総合判定: [ここにステータスを入れる]
-    ### 🎯 総合投資判断スコア: [00] / 100 点
-
-    **【結論】**
-    (「なぜそのスコア・判定なのか」を1行で要約。)
-
-    **【思考プロセス】**
-    1. **週足/大局判断**: (週足に基づく中期トレンド評価)
-    2. **日足/テクニカル**: (日足の指標によるエントリー可否)
-    3. **センチメント**: (ニュース面からの影響評価)
-
-    **【トレードセットアップ】**
-    (※具体的な価格根拠を含めて記述)
-    - **エントリー推奨値**: [価格] 円
-    - **利確目標 (TP)**: [価格] 円
-    - **損切目安 (SL)**: [価格] 円
-    - **リスクリワード比**: [数値]
-
-    **【詳細分析レポート】**
-    - **テクニカル点数**: [0-60]点
-    - **センチメント判定**: [ポジティブ/中立/ネガティブ] ([0-40]点)
-    - **特記事項**: (パターンの有無、決算日など)
-    ---
+    # Output Format (Structured JSON)
+    必ず以下の構造のJSON形式で出力してください。Markdownのコードブロック（```json ... ```）で囲んでください。
+    {{
+        "status": "【BUY ENTRY / SELL ENTRY / MONITOR / NO TRADE】",
+        "total_score": 0-100,
+        "conclusion": "結論（1行）",
+        "bull_view": "強気派の視点",
+        "bear_view": "弱気派の視点",
+        "final_reasoning": "統合的な最終思考プロセス",
+        "setup": {{
+            "entry_price": 数値,
+            "target_price": 数値,
+            "stop_loss": 数値,
+            "risk_reward": 数値
+        }},
+        "details": {{
+            "technical_score": 0-60,
+            "sentiment_score": 0-40,
+            "sentiment_label": "ポジティブ/中立/ネガティブ",
+            "notes": "特記事項（決算日や主要イベント）"
+        }}
+    }}
     """
     
     error_details = []
     # Candidates for model name (tries from top)
-    # Based on direct API check, 'gemini-flash-latest' and 'gemini-pro-latest' are confirmed available.
     MODEL_CANDIDATES = [
-        'gemini-flash-latest',
-        'gemini-1.5-flash',
-        'gemini-1.5-flash-latest',
-        'gemini-pro-latest',
         'gemini-2.0-flash',
-        'gemini-2.0-flash-exp'
+        'gemini-2.0-flash-exp',
+        'gemini-1.5-flash-latest',
+        'gemini-1.5-pro-latest',
+        'gemini-1.5-flash'
     ]
 
-    # Attempt 1: New SDK (V1)
+    # Use V1 SDK if available
     client = get_gemini_client()
     if client:
         for model_name in MODEL_CANDIDATES:
             try:
+                # response_mime_type="application/json" を使用すると時折エラーになるため、プロンプトでの指示を優先
                 response = client.models.generate_content(
                     model=model_name,
                     contents=prompt
                 )
                 if response and response.text:
-                    print(f"Success with V1 SDK: {model_name}")
+                    print(f"Success with Gemini API: {model_name}")
                     return response.text
             except Exception as e:
-                error_details.append(f"V1 SDK ({model_name}) Failed: {str(e)}")
+                error_details.append(f"Gemini {model_name} Failed: {str(e)}")
     else:
         if not GENAI_V1_AVAILABLE:
             error_details.append("V1 SDK (google-genai) not installed.")
@@ -266,7 +238,17 @@ def _format_news_for_prompt(news_data):
     
     return "\n".join(result)
 
-def _format_extra_context(context):
+def _format_transcripts_for_prompt(transcript_data):
+    """Format transcript snippets for inclusion in prompt."""
+    if transcript_data is None or transcript_data.empty:
+        return "過去の決算説明会データはありません。"
+    
+    result = []
+    for _, row in transcript_data.iterrows():
+        content = str(row['Content'])[:1500] # Limit content per transcript
+        result.append(f"### {row['year']} Q{row['quarter']} (公開日: {row['Date']})\n{content}...")
+    
+    return "\n\n".join(result)
     """Format extra context like Earnings and Market Trend."""
     if not context:
         return "特になし"

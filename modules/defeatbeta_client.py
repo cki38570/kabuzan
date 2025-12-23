@@ -12,6 +12,7 @@ class DefeatBetaClient:
     """
     
     DATASET_URL = "https://huggingface.co/datasets/bwzheng2010/yahoo-finance-data/resolve/main/data/stock_prices.parquet"
+    TRANSCRIPTS_URL = "https://huggingface.co/datasets/bwzheng2010/yahoo-finance-data/resolve/main/data/stock_earning_call_transcripts.parquet"
     
     def __init__(self, token: Optional[str] = None):
         # Allow token injection, otherwise check env var or Streamlit secrets
@@ -107,6 +108,34 @@ class DefeatBetaClient:
         except Exception as e:
             print(f"Connection check failed: {e}")
             return False
+
+    def get_transcripts(self, ticker_code: str, limit: int = 5) -> pd.DataFrame:
+        """
+        Fetch earnings call transcripts for a given ticker.
+        """
+        if not ticker_code.endswith(".T"):
+            ticker_code = f"{ticker_code}.T"
+            
+        try:
+            query = f"""
+                SELECT 
+                    symbol,
+                    quarter,
+                    year,
+                    publish_date as Date,
+                    content as Content
+                FROM '{self.TRANSCRIPTS_URL}' 
+                WHERE symbol = '{ticker_code}'
+                ORDER BY publish_date DESC
+                LIMIT {limit}
+            """
+            
+            df = self.con.execute(query).fetchdf()
+            return df
+            
+        except Exception as e:
+            print(f"Error fetching transcripts: {e}")
+            return pd.DataFrame()
 
 # Singleton instance for easy import if needed, though dependency injection is better
 _client_instance = None

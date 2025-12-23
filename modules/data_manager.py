@@ -98,9 +98,54 @@ class DataManager:
             return df, meta
             
         except Exception as e:
-            print(f"Error in get_market_data for {ticker_code}: {e}")
+            print(f"Error fetching market data: {e}")
             traceback.print_exc()
-            return pd.DataFrame(), {'error': str(e)}
+            return pd.DataFrame(), {}
+
+    def get_macro_context(self) -> Dict[str, Any]:
+        """
+        Fetch macro indicators (USD/JPY, Nikkei 225) to provide market context.
+        """
+        cache_key = "macro_context"
+        cached = cache.get(cache_key)
+        if cached:
+            data, timestamp = cached
+            if (datetime.datetime.now() - timestamp).total_seconds() < 3600: # 1 hour cache
+                return data
+        
+        context = {}
+        try:
+            # Nikkei 225
+            n225 = yf.Ticker("^N225")
+            n225_hist = n225.history(period="1mo")
+            if not n225_hist.empty:
+                current = n225_hist['Close'].iloc[-1]
+                prev = n225_hist['Close'].iloc[-2]
+                change = ((current - prev) / prev) * 100
+                context['n225'] = {
+                    'price': current,
+                    'change_pct': change,
+                    'trend': 'Bull' if change > 0 else 'Bear'
+                }
+            
+            # USD/JPY
+            usdjpy = yf.Ticker("JPY=X")
+            usdjpy_hist = usdjpy.history(period="1mo")
+            if not usdjpy_hist.empty:
+                current = usdjpy_hist['Close'].iloc[-1]
+                prev = usdjpy_hist['Close'].iloc[-2]
+                change = ((current - prev) / prev) * 100
+                context['usdjpy'] = {
+                    'price': current,
+                    'change_pct': change,
+                    'trend': 'Weak Yen' if change > 0 else 'Strong Yen'
+                }
+                
+            cache.set(cache_key, (context, datetime.datetime.now()))
+            return context
+        except Exception as e:
+            print(f"Error fetching macro context: {e}")
+            return {}
 
     def get_technical_indicators(self, df: pd.DataFrame, interval: str = "1d") -> Dict[str, Any]:
         """

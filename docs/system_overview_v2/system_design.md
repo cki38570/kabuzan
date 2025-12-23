@@ -1,22 +1,23 @@
-# Kabuzan System Architecture & Design Specification
+# Kabuzan System Architecture & Design Specification (v2.1)
 
-このドキュメントは、Kabuzan アプリケーションの設計、技術スタック、および各コンポーネントの動作原理を詳細に解説したものです。他の生成AIや開発者がシステムを理解し、拡張するための「設計図」として機能します。
+このドキュメントは、Kabuzan アプリケーションの設計、技術スタック、および各コンポーネントの動作原理を詳細に解説したものです。
 
 ## 1. システム概要
 Kabuzan は、日本株（および米国株）を対象とした、テクニカル分析と生成AI（Google Gemini）による定性分析を統合した投資支援ダッシュボードです。
 
-- **コアバリュー**: リアルタイム株価データと財務データを組み合わせ、プロの証券アナリスト視点での「戦略判定（エントリー・利確・損切）」を自動生成する。
-- **デプロイ環境**: Streamlit Cloud (高速なUI反復と、重量級ライブラリのサポートのため)。
+- **コアバリュー**: リアルタイム株価、マルチタイムフレーム分析、ニュースセンチメントを組み合わせ、プロの証券アナリスト視点での「総合投資判断スコア」と戦略を自動生成する。
+- **デプロイ環境**: Streamlit Cloud
 
 ## 2. 技術スタック (Tech Stack)
 - **Frontend/UI**: Streamlit (Python)
 - **Data Acquisition**: 
-  - `yfinance` (リアルタイム株価、基本財務データ)
-  - `defeatbeta-api` (独自の信用需給・財務概況データへのフォールバック)
-- **Technical Analysis**: `pandas-ta` (EMA, SMA, RSI, MACD, Bollinger Bands, ATR 等)
+  - `yfinance` (株価データ、財務データ、**最新ニュース**)
+  - `defeatbeta-api` (独自の信用需給へのフォールバック)
+- **Technical Analysis**: `pandas-ta`
 - **AI/LLM**: Google Gemini API (`google-genai` V1 SDK)
-- **Caching**: `diskcache` (SQLite ベースの永続化キャッシュ。/tmp 領域を使用)
-- **Visualization**: `plotly` (インタラクティブ・チャート)
+- **Caching**: `diskcache` (SQLite ベースの永続化キャッシュ)
+- **Visualization**: `plotly` (マルチタイムフレーム・インタラクティブ・チャート)
+- **Notifications**: LINE Notify API
 
 ## 3. システムアーキテクチャ (Component Layout)
 
@@ -25,43 +26,44 @@ graph TD
     User((ユーザー)) <--> UI[app.py: Streamlit UI]
     UI <--> DM[DataManager: データハブ]
     DM <--> Cache[(DiskCache: 永続キャッシュ)]
-    DM <--> YF[yfinance: 市場データ]
+    DM <--> YF[yfinance: 市場データ / ニュース]
     DM <--> DB[DefeatBeta API: 需給・財務]
     UI --> LLM[llm.py: Gemini AI アナリスト]
     LLM <--> Gemini((Google Gemini API))
     UI --> Sc[Screener: 銘柄スキャナー]
+    UI --> Noti[notifications.py: 通知管理]
+    Noti --> LINE[LINE Notify / Messaging API]
     Sc --> DM
 ```
 
 ### 主要モジュール解説
 1.  **`app.py` (Orchestrator)**:
-    - 状態管理 (`st.session_state`) を担当し、ウォッチリスト、ポートフォリオ、UIタブの切り替えを制御。
-    - 各タブ（チャート、AI分析、ポートフォリオ、スキャン、データ）のレンダリング。
+    - 状態管理とUIレンダリング。
+    - **マルチタイムフレーム UI**: 日足・週足をタブで切り替える機能。
 2.  **`modules/data_manager.py` (Data Layer)**:
-    - **Hybrid Sourcing**: 複数ソースからデータを収集・マージ。
-    - **Indicator Calculation**: `pandas-ta` を用いた堅牢な指標計算。欠落データに対するデフォルト値補完機能を備える。
-    - **Caching Policy**: 環境（ローカル/Cloud）に応じたキャッシュパスの自動切り替え。
+    - **Multi-Timeframe Support**: 日足（1d）と週足（1wk）のデータ取得・指標計算を統合。
+    - 指標期間の自動調整（日足: 5/25/75, 週足: 13/26/52）。
 3.  **`modules/llm.py` (AI Intelligence Layer)**:
-    - **Structured Prompting**: テクニカル指標、財務データ、マーケット地合いを構造化したプロンプトに変換。
-    - **Model Fallback**: 複数の Gemini モデル（2.0-flash, 1.5-pro 等）を順次試行するフォールバックロジック。
-    - **Persona Interface**: 証券アナリストのペルソナによる戦略提案。
-4.  **`modules/charts.py` (Visualization)**:
-    - `plotly` を使用し、移動平均線、シグナルライン、戦略価格（SL/TP）を視覚化。
+    - **ニュース感情分析**: ニュースを解析しポジティブ/ネガティブ判定を行う。
+    - **総合判定スコア**: テクニカルとセンチメントを統合した100点満点のスコア算出。
+    - **マルチタイムフレーム思考**: 大局（週足）から中期（日足）を判断するプロンプト。
+4.  **`modules/news.py` (News Module)**:
+    - `yfinance` 経由でキャッシュを考慮した効率的なニュース取得。
+5.  **`modules/charts.py` (Visualization)**:
+    - 期間選択（1m, 3m, 6m, 1y, All）、ダークモード最適化、マルチタイムフレーム対応。
+6.  **`modules/notifications.py`**:
+    - 特定のテクニカル条件（RSIやボリンジャーバンド）に基づく自動通知。
 
 ## 4. データフロー (Data Flow)
-1.  **入力**: ユーザーが銘柄コード（例: 7203）を入力。
-2.  **収集**: `DataManager` がキャッシュを確認。なければ `yfinance` 等からデータを取得。
-3.  **加工**: 取得したデータからテクニカル指標を算出 (`pandas-ta`)。
-4.  **推論**: 直近の指標、トレンド、財務情報を `llm.py` が集約し、Gemini API へ送信。
-5.  **出力**: Gemini が出力した Markdown 日本語レポートを UI に表示。
+1.  **データ収集**: 銘柄コード入力により、日足・週足の株価データおよび最新ニュースを同時取得。
+2.  **指標計算**: 各時間軸に応じたテクニカル指標を計算。
+3.  **センチメント解析**: 取得したニュースタイトルからAIが市場心理を数値化。
+4.  **総合分析**: LLMがテクニカルとニュースを統合し、詳細なレポートとターゲット価格を生成。
+5.  **シグナル検知**: 条件合致時に LINE Notify 経由でユーザーへプッシュ通知。
 
-## 5. 独自の強みとロジック
-- **戦略算出アルゴリズム**: 単なる分析に留まらず、ボラティリティ（ATR）や直近サポート/レジスタンスを考慮したエントリー・ターゲット価格を自動算出。
-- **堅牢なエラーハンドリング**: 指標が計算できない場合でも AI 分析が停止しないよう、メタデータとしての「不確実性」を AI に伝えつつ分析を続行。
-- **モバイル最適化**: Streamlit の `wide` レイアウトと、スマホ表示を意識したカード形式・表形式の使い分け。
+## 5. 独自のロジック
+- **ハイブリッド・スコアリング**: テクニカルの客観データと、ニュースの主観的センチメントを 6:4 の比率で統合。
+- **マルチタイムフレーム戦略**: 週足のトレンドに逆らわない日足のエントリー。
 
-## 6. API セキュリティ
-- Streamlit Cloud の `Secrets` 管理機能を活用し、`GEMINI_API_KEY` を安全に保持。ローカル環境では `secrets.toml` または `.env` を使用。
-
----
-このシステムは、データの正確性（Technical Indicators）と解釈の深さ（Gemini AI）を両立させることを主眼に設計されています。
+## 6. セキュリティ
+- `secrets.toml` で API キーと LINE トークンを管理。

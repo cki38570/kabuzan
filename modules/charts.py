@@ -1,6 +1,7 @@
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
+from lightweight_charts.widgets import StreamlitChart
 
 def create_main_chart(df, ticker_name, strategic_data=None, interval="1d"):
     """
@@ -156,3 +157,67 @@ def create_credit_chart(credit_df):
     )
     
     return fig
+
+def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"):
+    """
+    Create a TradingView-style chart using lightweight-charts.
+    """
+    if df is None or df.empty:
+        return None
+
+    # Prepare data for lightweight-charts
+    # Columns expected: time, open, high, low, close, volume (lowercase)
+    chart_df = df.copy()
+    if 'Date' in chart_df.columns:
+        chart_df = chart_df.rename(columns={'Date': 'time'})
+    elif chart_df.index.name == 'Date' or isinstance(chart_df.index, pd.DatetimeIndex):
+        chart_df['time'] = chart_df.index
+        
+    chart_df = chart_df.rename(columns={
+        'Open': 'open', 'High': 'high', 'Low': 'low', 'Close': 'close', 'Volume': 'volume'
+    })
+    
+    # Initialize StreamlitChart
+    chart = StreamlitChart(width=900, height=600)
+    
+    # Appearance Settings
+    chart.layout(background_color='#0a192f', text_color='#ccd6f6', font_size=12)
+    chart.candle_style(up_color='#00ffbd', down_color='#ff4b4b', border_up_color='#00ffbd', border_down_color='#ff4b4b', wick_up_color='#00ffbd', wick_down_color='#ff4b4b')
+    chart.grid(vert_color='#233554', horz_color='#233554')
+
+    # Set Main Data
+    chart.set(chart_df)
+
+    # Moving Averages
+    if interval == "1wk":
+        ma_list = [('SMA13', '#00d4ff'), ('SMA26', '#ff00ff'), ('SMA52', '#ffcc00')]
+    else:
+        ma_list = [('SMA5', '#00ff00'), ('SMA25', '#ff00ff'), ('SMA75', '#ffcc00')]
+
+    for ma_col, color in ma_list:
+        if ma_col in df.columns:
+            line = chart.create_line(name=ma_col)
+            line.set(pd.DataFrame({'time': chart_df['time'], ma_col: df[ma_col]}))
+            # line.color(color) # Note: some versions might use different API for color
+
+    # Bollinger Bands
+    if 'BB_Upper' in df.columns and 'BB_Lower' in df.columns:
+        upper = chart.create_line(name='BB Upper')
+        upper.set(pd.DataFrame({'time': chart_df['time'], 'BB Upper': df['BB_Upper']}))
+        lower = chart.create_line(name='BB Lower')
+        lower.set(pd.DataFrame({'time': chart_df['time'], 'BB Lower': df['BB_Lower']}))
+
+    # Strategic Lines (AI Target/Stop)
+    if strategic_data:
+        target = strategic_data.get('target_price')
+        stop = strategic_data.get('stop_loss')
+        entry = strategic_data.get('entry_price')
+        
+        if target and not pd.isna(target):
+            chart.horizontal_line(target, color='#00ffbd', style='dashed', text='利確目標')
+        if stop and not pd.isna(stop):
+            chart.horizontal_line(stop, color='#ff4b4b', style='dashed', text='損切')
+        if entry and not pd.isna(entry):
+            chart.horizontal_line(entry, color='#00d4ff', style='dotted', text='ENTRY')
+
+    return chart

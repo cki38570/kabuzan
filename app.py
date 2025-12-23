@@ -4,7 +4,7 @@ from modules.styles import get_custom_css
 from modules.data import get_stock_data, get_credit_data, get_next_earnings_date, get_market_sentiment
 from modules.analysis import calculate_indicators, calculate_trading_strategy
 import datetime
-from modules.charts import create_main_chart, create_credit_chart
+from modules.charts import create_main_chart, create_credit_chart, create_lightweight_chart
 from modules.notifications import (
     check_price_alerts, 
     show_alert_manager, 
@@ -200,6 +200,10 @@ if ticker_input and not st.session_state.comparison_mode:
         # Fetch News Data for sentiment analysis
         news_data = get_stock_news(ticker_input)
         
+        # v3.0: Fetch Macro context and Transcripts
+        macro_context = dm.get_macro_context()
+        transcript_data = dm.defeatbeta.get_transcripts(ticker_input) if dm.defeatbeta else pd.DataFrame()
+        
         if df is not None and not df.empty:
             # Data Status Display
             status_map = {"fresh": "🟢 Live", "cached": "🟡 Cached", "fallback": "🔴 Fallback"}
@@ -272,8 +276,20 @@ if ticker_input and not st.session_state.comparison_mode:
                 chart_daily_tab, chart_weekly_tab = st.tabs(["日足 (Daily)", "週足 (Weekly)"])
                 
                 with chart_daily_tab:
-                    fig_main = create_main_chart(df, info['name'], strategic_data, interval="1d")
-                    st.plotly_chart(fig_main, use_container_width=True, key="chart_daily")
+                    eng_col1, eng_col2 = st.columns([1, 4])
+                    chart_engine = eng_col1.radio("Engine", ["TV", "Plotly"], horizontal=True, key="engine_daily")
+                    
+                    try:
+                        if chart_engine == "TV":
+                            fig_tv = create_lightweight_chart(df, info['name'], strategic_data, interval="1d")
+                            if fig_tv:
+                                fig_tv.load()
+                        else:
+                            fig_main = create_main_chart(df, info['name'], strategic_data, interval="1d")
+                            st.plotly_chart(fig_main, use_container_width=True, key="chart_daily_plotly")
+                    except Exception as e:
+                        st.error(f"チャートの描画中にエラーが発生しました: {e}")
+                        st.info("チャートエンジンを Plotly に切り替えてお試しください。")
                 
                 with chart_weekly_tab:
                     # Fetch weekly data
@@ -281,8 +297,21 @@ if ticker_input and not st.session_state.comparison_mode:
                     if not df_weekly.empty:
                         # Calculate indicators for weekly
                         df_weekly_calc = calculate_indicators(df_weekly, params) 
-                        fig_weekly = create_main_chart(df_weekly_calc, info['name'], interval="1wk")
-                        st.plotly_chart(fig_weekly, use_container_width=True, key="chart_weekly")
+                        
+                        eng_w1, eng_w2 = st.columns([1, 4])
+                        chart_engine_w = eng_w1.radio("Engine", ["TV", "Plotly"], horizontal=True, key="engine_weekly")
+                        
+                        try:
+                            if chart_engine_w == "TV":
+                                fig_tv_w = create_lightweight_chart(df_weekly_calc, info['name'], interval="1wk")
+                                if fig_tv_w:
+                                    fig_tv_w.load()
+                            else:
+                                fig_weekly = create_main_chart(df_weekly_calc, info['name'], interval="1wk")
+                                st.plotly_chart(fig_weekly, use_container_width=True, key="chart_weekly_plotly")
+                        except Exception as e:
+                            st.error(f"週足チャートの描画中にエラーが発生しました: {e}")
+                            st.info("チャートエンジンを Plotly に切り替えてお試しください。")
                     else:
                         st.warning("週足データを取得できませんでした。")
                 
@@ -329,7 +358,7 @@ if ticker_input and not st.session_state.comparison_mode:
                 patterns = enhance_ai_analysis_with_patterns(df)
                 enhanced_metrics = calculate_advanced_metrics(df, info['current_price'])
                 
-                report = generate_gemini_analysis(
+                report_raw = generate_gemini_analysis(
                     ticker_input, 
                     info, 
                     indicators, 
@@ -339,85 +368,81 @@ if ticker_input and not st.session_state.comparison_mode:
                     patterns=patterns,
                     extra_context=extra_context,
                     weekly_indicators=weekly_indicators,
-                    news_data=news_data
+                    news_data=news_data,
+                    macro_data=macro_context,
+                    transcript_data=transcript_data
                 )
                 
-                # Sentiment Score Extraction for UI Display
-                import re
-                score_match = re.search(r'総合投資判断スコア:\s*(\d+)', report)
-                total_score = int(score_match.group(1)) if score_match else None
-                
-                if total_score is not None:
+                # Parse JSON if possible
+                report_data = {}
+                try:
+                    # Look for JSON block in markdown
+                    import re
+                    json_match = re.search(r'```json\s*(.*?)\s*```', report_raw, re.DOTALL)
+                    if json_match:
+                        report_data = json.loads(json_match.group(1))
+                    else:
+                        report_data = json.loads(report_raw)
+                except:
+                    pass
+
+                if report_data:
+                    # 1. Total Score Gauge
+                    total_score = report_data.get('total_score', 0)
                     score_color = "#64ffda" if total_score >= 80 else "#00d4ff" if total_score >= 60 else "#ffff00" if total_score >= 40 else "#ff4b4b"
+                    status = report_data.get('status', 'MONITOR')
+                    
                     st.markdown(f"""
-                    <div style='background-color: rgba(10, 25, 47, 0.7); padding: 20px; border-radius: 10px; border: 1px solid {score_color}; margin-bottom: 20px;'>
+                    <div style='background-color: rgba(10, 25, 47, 0.7); padding: 20px; border-radius: 10px; border: 2px solid {score_color}; margin-bottom: 20px;'>
                         <div style='display: flex; justify-content: space-between; align-items: center;'>
-                            <span style='font-size: 1.2rem; font-weight: bold; color: #ccd6f6;'>📊 AI 総合投資判断スコア</span>
-                            <span style='font-size: 2.5rem; font-weight: bold; color: {score_color};'>{total_score}<small style='font-size: 1rem;'> / 100</small></span>
+                            <div>
+                                <span style='font-size: 0.9rem; color: #8892b0;'>JUDGMENT</span><br/>
+                                <span style='font-size: 1.8rem; font-weight: bold; color: {score_color};'>{status}</span>
+                            </div>
+                            <div style='text-align: right;'>
+                                <span style='font-size: 2.5rem; font-weight: bold; color: {score_color};'>{total_score}<small style='font-size: 1rem;'>/100</small></span>
+                            </div>
                         </div>
-                        <div style='background-color: #233554; height: 12px; border-radius: 6px; margin-top: 10px;'>
-                            <div style='background-color: {score_color}; width: {total_score}%; height: 12px; border-radius: 6px; transition: width 1s ease-in-out;'></div>
+                        <div style='background-color: #233554; height: 10px; border-radius: 5px; margin-top: 10px;'>
+                            <div style='background-color: {score_color}; width: {total_score}%; height: 10px; border-radius: 5px; transition: width 1.5s;'></div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
-                
-                # Display News Brief in the AI tab
-                if news_data:
-                    with st.expander("📰 関連ニュース一覧"):
-                        for n in news_data:
-                            st.markdown(f"**[{n['publisher']}]({n['link']})**: {n['title']}  \n<small>{n['provider_publish_time']}</small>", unsafe_allow_html=True)
-                
-                # Export Button
-                last_row = df.iloc[-1]
-                simple_indicators = {
-                    'rsi': last_row['RSI'],
-                    'rsi_status': "過熱" if last_row['RSI'] > 70 else "底値" if last_row['RSI'] < 30 else "中立",
-                    'macd_status': "GC" if last_row['MACD'] > last_row['MACD_Signal'] else "DC",
-                    'bb_status': "BW" if last_row['Close'] > last_row['BB_Upper'] else "Normal"
-                }
-                report_text = generate_report_text(ticker_input, info['name'], report, strategic_data, simple_indicators)
-                st.download_button(
-                    label="📥 レポートをダウンロード (TXT)",
-                    data=report_text,
-                    file_name=f"report_{ticker_input}.txt",
-                    mime="text/plain"
-                )
-                
-                # Display detected patterns
-                patterns = enhance_ai_analysis_with_patterns(df)
-                all_patterns = patterns.get('candlestick_patterns', []) + patterns.get('chart_patterns', [])
-                
-                if all_patterns:
-                    st.markdown("#### 🔍 検出されたパターン")
-                    for p in all_patterns:
-                        p_type = p.get('type', 'neutral')
-                        icon = '🟢' if p_type == 'bullish' else '🔴' if p_type == 'bearish' else '⚪'
-                        st.info(f"{icon} **{p['name']}**: {p['signal']}")
-                
-                # Feature: Technical Strength Meter
-                st.markdown("#### ⚖️ テクニカル強度スコア")
-                last_row = df.iloc[-1]
-                score = 0
-                # SMA Score (Trend)
-                if last_row['SMA5'] > last_row['SMA25']: score += 25
-                if last_row['SMA25'] > last_row['SMA75']: score += 25
-                # RSI Score (Momentum)
-                if 40 < last_row['RSI'] < 60: score += 25
-                elif 30 < last_row['RSI'] <= 40 or 60 <= last_row['RSI'] < 70: score += 15
-                # MACD Score
-                if last_row['MACD'] > last_row['MACD_Signal']: score += 25
-                
-                score_color = "green" if score >= 75 else "orange" if score >= 50 else "red"
-                st.markdown(f"""
-                <div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border-left: 5px solid {score_color};'>
-                    <span style='font-size: 1.2rem;'>総合スコア: <b>{score} / 100</b></span>
-                    <div style='background-color: #333; height: 10px; border-radius: 5px; margin-top: 5px;'>
-                        <div style='background-color: {score_color}; width: {score}%; height: 10px; border-radius: 5px;'></div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
 
-                st.markdown(f"<div style='background-color: #112240; padding: 15px; border-radius: 8px; margin-top: 15px;'>{report}</div>", unsafe_allow_html=True)
+                    # 2. Bull vs Bear Perspectives (Self-Reflection)
+                    st.markdown("#### ⚖️ Self-Reflection: 多角的な分析")
+                    bcol1, bcol2 = st.columns(2)
+                    with bcol1:
+                        st.markdown(f"""
+                        <div style='background-color: rgba(0, 255, 189, 0.1); padding: 15px; border-radius: 8px; border-left: 4px solid #00ffbd; height: 100%;'>
+                            <b style='color: #00ffbd;'>🐂 強気派の見極め</b><br/>
+                            <small>{report_data.get('bull_view', 'N/A')}</small>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    with bcol2:
+                        st.markdown(f"""
+                        <div style='background-color: rgba(255, 75, 75, 0.1); padding: 15px; border-radius: 8px; border-left: 4px solid #ff4b4b; height: 100%;'>
+                            <b style='color: #ff4b4b;'>🐻 弱気派の懸念</b><br/>
+                            <small>{report_data.get('bear_view', 'N/A')}</small>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    # 3. Final Conclusion
+                    st.markdown("#### 🎯 最終判断と根拠")
+                    st.info(report_data.get('conclusion', ''))
+                    st.markdown(f"<div style='background-color: #112240; padding: 15px; border-radius: 8px;'>{report_data.get('final_reasoning', '')}</div>", unsafe_allow_html=True)
+                    
+                    # 4. Indicators Table
+                    st.markdown("#### 📋 分析詳細")
+                    details = report_data.get('details', {})
+                    d1, d2, d3 = st.columns(3)
+                    d1.metric("テクニカル", f"{details.get('technical_score', 0)}/60")
+                    d2.metric("センチメント", f"{details.get('sentiment_score', 0)}/40")
+                    d3.metric("判定", details.get('sentiment_label', '中立'))
+                    
+                else:
+                    # Fallback to Text report
+                    st.markdown(f"<div style='background-color: #112240; padding: 15px; border-radius: 8px;'>{report_raw}</div>", unsafe_allow_html=True)
                 
                 # Feature: Backtest Integration
                 st.markdown("---")

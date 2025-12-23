@@ -13,3 +13,4 @@ jinja2
 python-multipart
 pandas_ta
 diskcache
+lightweight-charts
