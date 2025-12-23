@@ -102,7 +102,7 @@ class DataManager:
             traceback.print_exc()
             return pd.DataFrame(), {'error': str(e)}
 
-    def get_technical_indicators(self, df: pd.DataFrame) -> Dict[str, Any]:
+    def get_technical_indicators(self, df: pd.DataFrame, interval: str = "1d") -> Dict[str, Any]:
         """
         Calculate technical indicators using pandas-ta.
         """
@@ -111,7 +111,7 @@ class DataManager:
             'rsi': 50.0, 'rsi_status': "Data Lack",
             'macd': 0.0, 'macd_signal': 0.0, 'macd_status': "Data Lack",
             'bb_upper': 0.0, 'bb_lower': 0.0, 'bb_width': 0.0, 'bb_status': "Data Lack",
-            'sma25': 0.0, 'sma75': 0.0, 'atr': 0.0, 'trend_desc': "Insufficient Data"
+            'sma_short': 0.0, 'sma_mid': 0.0, 'sma_long': 0.0, 'atr': 0.0, 'trend_desc': "Insufficient Data"
         }
 
         if df.empty or len(df) < 10:
@@ -154,21 +154,32 @@ class DataManager:
                 results['bb_width'] = ((results['bb_upper'] - results['bb_lower']) / price) * 100 if price else 0
                 results['bb_status'] = "Expansion" if results['bb_width'] > 5 else "Squeeze" if results['bb_width'] < 2 else "Normal"
             
-            # 4. Moving Averages (SMA 25, 75)
-            calc_df.ta.sma(length=25, append=True)
-            calc_df.ta.sma(length=75, append=True)
+            # 4. Moving Averages
+            if interval == "1wk":
+                ma_short_len, ma_mid_len, ma_long_len = 13, 26, 52  # 13週, 26週, 52週
+            else:
+                ma_short_len, ma_mid_len, ma_long_len = 5, 25, 75   # 5日, 25日, 75日
             
-            if 'SMA_25' in calc_df.columns:
-                results['sma25'] = calc_df['SMA_25'].iloc[-1]
+            calc_df.ta.sma(length=ma_short_len, append=True)
+            calc_df.ta.sma(length=ma_mid_len, append=True)
+            calc_df.ta.sma(length=ma_long_len, append=True)
+            
+            ma_short_col = f'SMA_{ma_short_len}'
+            ma_mid_col = f'SMA_{ma_mid_len}'
+            ma_long_col = f'SMA_{ma_long_len}'
+            
+            if ma_mid_col in calc_df.columns:
+                results['sma_short'] = calc_df[ma_short_col].iloc[-1]
+                results['sma_mid'] = calc_df[ma_mid_col].iloc[-1]
                 price = calc_df['Close'].iloc[-1]
-                sma75 = calc_df['SMA_75'].iloc[-1] if 'SMA_75' in calc_df.columns else 0
-                results['sma75'] = sma75
+                sma_long = calc_df[ma_long_col].iloc[-1] if ma_long_col in calc_df.columns else 0
+                results['sma_long'] = sma_long
                 
-                if price > results['sma25'] and results['sma25'] > sma75 and sma75 > 0:
+                if price > results['sma_mid'] and results['sma_mid'] > sma_long and sma_long > 0:
                     results['trend_desc'] = "Strong Uptrend (強い上昇)"
-                elif price < results['sma25'] and results['sma25'] < sma75 and sma75 > 0:
+                elif price < results['sma_mid'] and results['sma_mid'] < sma_long and sma_long > 0:
                     results['trend_desc'] = "Strong Downtrend (強い下落)"
-                elif price > results['sma25']:
+                elif price > results['sma_mid']:
                     results['trend_desc'] = "Moderate Uptrend (緩やかな上昇)"
                 else:
                     results['trend_desc'] = "Moderate Downtrend (緩やかな下落/調整)"

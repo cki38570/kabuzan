@@ -2,34 +2,37 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
 
-def create_main_chart(df, ticker_name, strategic_data=None):
+def create_main_chart(df, ticker_name, strategic_data=None, interval="1d"):
     """
     Create a Plotly chart with Candlestick, MA, and RSI.
     Adds strategic lines if data is provided.
     """
-    if df is None:
+    if df is None or df.empty:
         return None
         
     # Create subplots: Row 1 for Price, Row 2 for RSI
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, 
-                        vertical_spacing=0.05, row_heights=[0.7, 0.3],
-                        subplot_titles=("", ""))  # Remove titles
+                        vertical_spacing=0.04, row_heights=[0.75, 0.25],
+                        subplot_titles=("", ""))
 
     # Candlestick
     fig.add_trace(go.Candlestick(x=df.index,
                 open=df['Open'], high=df['High'],
                 low=df['Low'], close=df['Close'],
-                name='株価', increasing_line_color='#00ff00', 
-                decreasing_line_color='#ff0000'), row=1, col=1)
+                name='株価', increasing_line_color='#00ffbd', 
+                decreasing_line_color='#ff4b4b'), row=1, col=1)
 
-    # Moving Averages
-    ma_names = {'SMA5': '5日線', 'SMA25': '25日線', 'SMA75': '75日線'}
-    colors = {'SMA5': '#00ff00', 'SMA25': '#ff00ff', 'SMA75': '#ffff00'}
-    for ma, color in colors.items():
-        if ma in df.columns:
-            fig.add_trace(go.Scatter(x=df.index, y=df[ma], 
-                                   mode='lines', name=ma_names[ma],
-                                   line=dict(color=color, width=1)), row=1, col=1)
+    # Moving Averages based on interval
+    if interval == "1wk":
+        ma_configs = {'SMA13': ('13週線', '#00d4ff'), 'SMA26': ('26週線', '#ff00ff'), 'SMA52': ('52週線', '#ffcc00')}
+    else:
+        ma_configs = {'SMA5': ('5日線', '#00ff00'), 'SMA25': ('25日線', '#ff00ff'), 'SMA75': ('75日線', '#ffcc00')}
+
+    for ma_col, (name, color) in ma_configs.items():
+        if ma_col in df.columns:
+            fig.add_trace(go.Scatter(x=df.index, y=df[ma_col], 
+                                   mode='lines', name=name,
+                                   line=dict(color=color, width=1.2)), row=1, col=1)
                                    
     # Strategic Lines with Price Annotations
     if strategic_data:
@@ -37,43 +40,35 @@ def create_main_chart(df, ticker_name, strategic_data=None):
         stop = strategic_data.get('stop_loss')
         
         if target and not pd.isna(target):
-            fig.add_hline(y=target, line_dash="dash", line_color="#00ff00", 
+            fig.add_hline(y=target, line_dash="dash", line_color="#00ffbd", 
                           line_width=2, row=1, col=1)
-            # Add annotation with price
             fig.add_annotation(
                 x=df.index[-1], y=target,
                 text=f"利確目標: ¥{target:,.0f}",
-                showarrow=True, arrowhead=2,
-                ax=40, ay=-30,
-                bgcolor="#00ff00", font=dict(color="#000000", size=11),
+                showarrow=True, arrowhead=2, ax=50, ay=-30,
+                bgcolor="#00ffbd", font=dict(color="#000000", size=11),
                 row=1, col=1
             )
         if stop and not pd.isna(stop):
-            fig.add_hline(y=stop, line_dash="dash", line_color="#ff0000", 
+            fig.add_hline(y=stop, line_dash="dash", line_color="#ff4b4b", 
                           line_width=2, row=1, col=1)
-            # Add annotation with price
             fig.add_annotation(
                 x=df.index[-1], y=stop,
                 text=f"損切: ¥{stop:,.0f}",
-                showarrow=True, arrowhead=2,
-                ax=40, ay=30,
-                bgcolor="#ff0000", font=dict(color="#ffffff", size=11),
+                showarrow=True, arrowhead=2, ax=50, ay=30,
+                bgcolor="#ff4b4b", font=dict(color="#ffffff", size=11),
                 row=1, col=1
             )
         
-        # Add Entry Point Indicator
         entry_price = strategic_data.get('entry_price')
         if entry_price and not pd.isna(entry_price):
-            # Entry point horizontal line
-            fig.add_hline(y=entry_price, line_dash="dot", line_color="#00ffff", 
+            fig.add_hline(y=entry_price, line_dash="dot", line_color="#00d4ff", 
                           line_width=2, row=1, col=1)
-            # Entry point annotation with icon
             fig.add_annotation(
                 x=df.index[-1], y=entry_price,
-                text=f"🎯 エントリー: ¥{entry_price:,.0f}",
-                showarrow=True, arrowhead=2,
-                ax=-40, ay=0,
-                bgcolor="#00ffff", font=dict(color="#000000", size=12, family="Arial Black"),
+                text=f"🎯 Entry: ¥{entry_price:,.0f}",
+                showarrow=True, arrowhead=2, ax=-50, ay=0,
+                bgcolor="#00d4ff", font=dict(color="#000000", size=12),
                 row=1, col=1
             )
 
@@ -82,33 +77,48 @@ def create_main_chart(df, ticker_name, strategic_data=None):
                            mode='lines', name='RSI',
                            line=dict(color='#00d4ff', width=1.5)), row=2, col=1)
     
-    # RSI Zones
-    fig.add_hline(y=70, line_dash="dot", line_color="red", row=2, col=1)
-    fig.add_hline(y=30, line_dash="dot", line_color="green", row=2, col=1)
+    fig.add_hline(y=70, line_dash="dot", line_color="#ff4b4b", opacity=0.5, row=2, col=1)
+    fig.add_hline(y=30, line_dash="dot", line_color="#00ffbd", opacity=0.5, row=2, col=1)
 
-    # Layout
+    # Layout & Aesthetics
     fig.update_layout(
-        title=dict(text=f"{ticker_name}", font=dict(size=18, color='#ffffff')),
+        title=dict(text=f"{ticker_name} - {'週足' if interval == '1wk' else '日足'}", 
+                   font=dict(size=20, color='#ffffff')),
         xaxis_rangeslider_visible=False,
-        plot_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(10, 25, 47, 0.4)',
         paper_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='#ffffff'),
-        height=600,
+        font=dict(color='#ccd6f6'),
+        height=700,
+        margin=dict(l=50, r=50, t=80, b=50),
         showlegend=True,
         legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1,
-            bgcolor='rgba(17, 34, 64, 0.8)'
+            orientation="h", yanchor="bottom", y=1.02,
+            xanchor="right", x=1, bgcolor='rgba(10, 25, 47, 0.7)'
         )
     )
     
-    # Update axes with Japanese labels
-    fig.update_xaxes(title_text="日付", gridcolor='#233554', row=2, col=1)
-    fig.update_yaxes(title_text="株価 (円)", gridcolor='#233554', row=1, col=1)
-    fig.update_yaxes(title_text="RSI", gridcolor='#233554', row=2, col=1)
+    # Range Selector
+    fig.update_xaxes(
+        rangeselector=dict(
+            buttons=list([
+                dict(count=1, label="1m", step="month", stepmode="backward"),
+                dict(count=3, label="3m", step="month", stepmode="backward"),
+                dict(count=6, label="6m", step="month", stepmode="backward"),
+                dict(count=1, label="1y", step="year", stepmode="backward"),
+                dict(step="all", label="All")
+            ]),
+            bgcolor='rgba(17, 34, 64, 0.9)',
+            activecolor='#64ffda',
+            font=dict(color='#ccd6f6')
+        ),
+        gridcolor='#233554',
+        linecolor='#233554',
+        row=1, col=1
+    )
+    
+    fig.update_xaxes(title_text="日付", gridcolor='#233554', linecolor='#233554', row=2, col=1)
+    fig.update_yaxes(title_text="価格 (円)", gridcolor='#233554', linecolor='#233554', row=1, col=1)
+    fig.update_yaxes(title_text="RSI", gridcolor='#233554', linecolor='#233554', range=[0, 100], row=2, col=1)
     
     return fig
 

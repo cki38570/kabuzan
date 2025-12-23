@@ -10,7 +10,8 @@ from modules.notifications import (
     show_alert_manager, 
     show_notification_settings, 
     process_morning_notifications,
-    send_line_message
+    send_line_message,
+    check_technical_signals
 )
 from modules.recommendations import find_similar_stocks, get_recommendation_reason
 from modules.backtest import backtest_strategy, format_backtest_results
@@ -21,6 +22,7 @@ from modules.exports import generate_report_text
 from modules.screener import scan_market
 from modules.llm import API_KEY, GENAI_AVAILABLE, generate_gemini_analysis
 from modules.data_manager import get_data_manager
+from modules.news import get_stock_news
 import json
 import os
 
@@ -189,13 +191,23 @@ if ticker_input and not st.session_state.comparison_mode:
     with st.spinner('AIが市場データを分析中...'):
         dm = get_data_manager()
         df, info = dm.get_market_data(ticker_input)
-        indicators = dm.get_technical_indicators(df)
+        indicators = dm.get_technical_indicators(df, interval="1d")
+        
+        # Prepare weekly indicators for AI analysis
+        df_weekly, _ = dm.get_market_data(ticker_input, interval="1wk")
+        weekly_indicators = dm.get_technical_indicators(df_weekly, interval="1wk") if not df_weekly.empty else {}
+        
+        # Fetch News Data for sentiment analysis
+        news_data = get_stock_news(ticker_input)
         
         if df is not None and not df.empty:
             # Data Status Display
             status_map = {"fresh": "🟢 Live", "cached": "🟡 Cached", "fallback": "🔴 Fallback"}
             status_text = status_map.get(info.get('status'), "⚪ Unknown")
             st.caption(f"Data Status: {status_text} (Source: {info.get('source')})")
+
+            # Technical Signal Check (RSI + BB)
+            check_technical_signals(ticker_input, info['current_price'], indicators, info['name'])
 
             alerts = check_price_alerts(info['current_price'], ticker_input, info['name'])
             for alert_info in alerts:
@@ -253,15 +265,28 @@ if ticker_input and not st.session_state.comparison_mode:
                 with col1:
                     st.markdown(f"### {info['name']} ({ticker_input})")
                 with col2:
-                     price_color = "#00ff00" if info['change'] >= 0 else "#ff0000"
+                     price_color = "#00ffbd" if info['change'] >= 0 else "#ff4b4b"
                      st.markdown(f"<div style='text-align:right; font-size: 1.5rem; color:{price_color}'>¥{info['current_price']:,.0f}</div>", unsafe_allow_html=True)
                 
-                # Plot Chart with Strategy Lines IMMEDIATELY (Fast)
-                fig_main = create_main_chart(df, info['name'], strategic_data)
-                if fig_main:
-                    st.plotly_chart(fig_main, width='stretch')
+                # Multi-Timeframe Tabs for Charts
+                chart_daily_tab, chart_weekly_tab = st.tabs(["日足 (Daily)", "週足 (Weekly)"])
                 
-                # Performance Metrics (Moved from Data tab for better view)
+                with chart_daily_tab:
+                    fig_main = create_main_chart(df, info['name'], strategic_data, interval="1d")
+                    st.plotly_chart(fig_main, use_container_width=True, key="chart_daily")
+                
+                with chart_weekly_tab:
+                    # Fetch weekly data
+                    df_weekly, meta_weekly = dm.get_market_data(ticker_input, interval="1wk")
+                    if not df_weekly.empty:
+                        # Calculate indicators for weekly
+                        df_weekly_calc = calculate_indicators(df_weekly, params) 
+                        fig_weekly = create_main_chart(df_weekly_calc, info['name'], interval="1wk")
+                        st.plotly_chart(fig_weekly, use_container_width=True, key="chart_weekly")
+                    else:
+                        st.warning("週足データを取得できませんでした。")
+                
+                # Performance Metrics
                 st.markdown("#### パフォーマンス概要")
                 perf_col1, perf_col2, perf_col3 = st.columns(3)
                 week_ago = df.iloc[-5]['Close'] if len(df) >= 5 else df.iloc[0]['Close']
@@ -312,8 +337,35 @@ if ticker_input and not st.session_state.comparison_mode:
                     strategic_data, 
                     enhanced_metrics=enhanced_metrics,
                     patterns=patterns,
-                    extra_context=extra_context
+                    extra_context=extra_context,
+                    weekly_indicators=weekly_indicators,
+                    news_data=news_data
                 )
+                
+                # Sentiment Score Extraction for UI Display
+                import re
+                score_match = re.search(r'総合投資判断スコア:\s*(\d+)', report)
+                total_score = int(score_match.group(1)) if score_match else None
+                
+                if total_score is not None:
+                    score_color = "#64ffda" if total_score >= 80 else "#00d4ff" if total_score >= 60 else "#ffff00" if total_score >= 40 else "#ff4b4b"
+                    st.markdown(f"""
+                    <div style='background-color: rgba(10, 25, 47, 0.7); padding: 20px; border-radius: 10px; border: 1px solid {score_color}; margin-bottom: 20px;'>
+                        <div style='display: flex; justify-content: space-between; align-items: center;'>
+                            <span style='font-size: 1.2rem; font-weight: bold; color: #ccd6f6;'>📊 AI 総合投資判断スコア</span>
+                            <span style='font-size: 2.5rem; font-weight: bold; color: {score_color};'>{total_score}<small style='font-size: 1rem;'> / 100</small></span>
+                        </div>
+                        <div style='background-color: #233554; height: 12px; border-radius: 6px; margin-top: 10px;'>
+                            <div style='background-color: {score_color}; width: {total_score}%; height: 12px; border-radius: 6px; transition: width 1s ease-in-out;'></div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                # Display News Brief in the AI tab
+                if news_data:
+                    with st.expander("📰 関連ニュース一覧"):
+                        for n in news_data:
+                            st.markdown(f"**[{n['publisher']}]({n['link']})**: {n['title']}  \n<small>{n['provider_publish_time']}</small>", unsafe_allow_html=True)
                 
                 # Export Button
                 last_row = df.iloc[-1]

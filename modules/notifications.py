@@ -5,6 +5,7 @@ import os
 import json
 from modules.news import get_stock_news
 from modules.llm import analyze_news_impact
+from modules.line import send_line_notification
 
 # LINE Messaging API Credentials
 LINE_CHANNEL_ACCESS_TOKEN = st.secrets.get("LINE_CHANNEL_ACCESS_TOKEN", "")
@@ -60,6 +61,15 @@ def show_notification_settings():
         
     st.session_state.notify_line = notify_line
     st.session_state.notify_email = notify_email
+    
+    notify_line_notify = st.checkbox("LINE Notify (統合通知)", value=st.session_state.get('notify_line_notify', True))
+    if notify_line_notify:
+        token = st.secrets.get("LINE_NOTIFY_TOKEN", "")
+        if not token:
+            st.warning("⚠️ LINE Notify トークンが secrets.toml に設定されていません。通知は送信されません。")
+        else:
+            st.success("✅ LINE Notify が有効です。")
+    st.session_state.notify_line_notify = notify_line_notify
     
     if st.button("テスト通知を送信"):
         send_test_notification()
@@ -165,3 +175,36 @@ def show_alert_manager(ticker_input, name, current_price):
         for i, alert in enumerate(st.session_state.alerts):
             if alert['code'] == ticker_input:
                 st.info(f"{alert['name']} {alert['price']}円 {'以上' if alert['condition'] == 'above' else '以下'}")
+def check_technical_signals(ticker, price, indicators, name):
+    """
+    Check for complex technical signals and notify via LINE Notify.
+    Condition: RSI < 30 AND Price <= BB_Lower
+    """
+    if not st.session_state.get('notify_line_notify'):
+        return None
+        
+    rsi = indicators.get('rsi', 50)
+    bb_low = indicators.get('bb_lower', 0)
+    
+    signal_detected = False
+    signal_name = ""
+    
+    if rsi <= 30 and price <= bb_low:
+        signal_detected = True
+        signal_name = "🔥 強力な押し目シグナル (RSI底打ち + BB-2σタッチ)"
+    
+    if signal_detected:
+        token = st.secrets.get("LINE_NOTIFY_TOKEN", "")
+        if token:
+            message = (
+                f"\n【株山AI シグナル検知】\n"
+                f"銘柄: {name} ({ticker})\n"
+                f"現在値: ¥{price:,.0f}\n"
+                f"検知シグナル: {signal_name}\n\n"
+                f"🤖 AIコメント: テクニカル的に売られすぎの極致にあります。反発を確認後のエントリーが検討可能です。"
+            )
+            success, res = send_line_notification(message, token)
+            if success:
+                st.toast(f"LINEにシグナル通知を送信しました: {ticker}", icon="📲")
+                return signal_name
+    return None
