@@ -120,13 +120,13 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     """
     
     error_details = []
-    # Candidates for model name (tries from top)
+    # Stable Model Candidates (Prioritizing 1.5 Flash for stability and 8B for high quota)
     MODEL_CANDIDATES = [
+        'gemini-1.5-flash',
+        'gemini-1.5-flash-8b',
         'gemini-2.0-flash',
         'gemini-2.0-flash-exp',
-        'gemini-1.5-flash-latest',
-        'gemini-1.5-pro-latest',
-        'gemini-1.5-flash'
+        'gemini-1.5-pro',
     ]
 
     # Use V1 SDK if available
@@ -312,14 +312,13 @@ def analyze_news_impact(portfolio_items, news_data_map):
     - LINEで読みやすいよう、要点を箇条書きで短くまとめてください。
     """
 
-    # Based on direct API check, 'gemini-flash-latest' is confirmed available.
+    # Consistently use the same stable candidates
     MODEL_CANDIDATES = [
-        'gemini-flash-latest',
         'gemini-1.5-flash',
-        'gemini-1.5-flash-latest',
-        'gemini-pro-latest',
+        'gemini-1.5-flash-8b',
         'gemini-2.0-flash',
-        'gemini-2.0-flash-exp'
+        'gemini-2.0-flash-exp',
+        'gemini-1.5-pro',
     ]
 
     client = get_gemini_client()
