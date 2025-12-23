@@ -118,7 +118,7 @@ with st.sidebar:
     if st.button("🗑️ リストをクリア"):
         st.session_state.watchlist = []
         save_watchlist(st.session_state.watchlist)
-        st.experimental_rerun()
+        st.rerun()
     
     st.markdown("---")
     st.header("⚙️ 機能")
@@ -126,7 +126,7 @@ with st.sidebar:
     comparison_mode = st.checkbox("📊 銘柄比較モード", value=st.session_state.comparison_mode)
     if comparison_mode != st.session_state.comparison_mode:
         st.session_state.comparison_mode = comparison_mode
-        st.experimental_rerun()
+        st.rerun()
 
     st.markdown("---")
     st.markdown("---")
@@ -418,7 +418,7 @@ if ticker_input and not st.session_state.comparison_mode:
                     if submitted and p_qty > 0:
                         add_to_portfolio(ticker_input, info['name'], p_qty, p_price)
                         st.success(f"{info['name']} をポートフォリオに追加しました")
-                        st.experimental_rerun()
+                        st.rerun()
 
                 # Display Logic
                 current_prices = {ticker_input: info['current_price']}
@@ -438,7 +438,7 @@ if ticker_input and not st.session_state.comparison_mode:
                     if st.button("選択した銘柄を削除"):
                         remove_from_portfolio(del_code)
                         st.warning(f"{del_code} を削除しました")
-                        st.experimental_rerun()
+                        st.rerun()
                 else:
                     st.info("ポートフォリオは空です。上部のフォームから追加してください。")
 
