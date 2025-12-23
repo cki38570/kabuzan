@@ -5,53 +5,23 @@ import os
 import json
 from modules.news import get_stock_news
 from modules.llm import analyze_news_impact
-from modules.line import send_line_notification
+from modules.line import send_line_message
 
-# LINE Messaging API Credentials
-LINE_CHANNEL_ACCESS_TOKEN = st.secrets.get("LINE_CHANNEL_ACCESS_TOKEN", "")
-LINE_USER_ID = st.secrets.get("LINE_USER_ID", "")
-
-def send_line_message(text):
-    """
-    Send a push message via LINE Messaging API.
-    """
-    if not LINE_CHANNEL_ACCESS_TOKEN or not LINE_USER_ID:
-        return False, "LINE configuration missing in secrets."
-
-    url = "https://api.line.me/v2/bot/message/push"
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}"
-    }
-    payload = {
-        "to": LINE_USER_ID,
-        "messages": [
-            {
-                "type": "text",
-                "text": text
-            }
-        ]
-    }
-
-    try:
-        response = requests.post(url, headers=headers, json=payload, timeout=10)
-        if response.status_code == 200:
-            return True, "Message sent successfully."
-        else:
-            return False, f"Failed to send: {response.status_code} {response.text}"
-    except Exception as e:
-        return False, f"Error sending LINE message: {e}"
+# LINE Messaging API is now handled in modules/line.py
 
 def show_notification_settings():
     """Display notification settings UI in sidebar."""
-    st.markdown("### 🔔 通知設定 (シミュレーション)")
+    st.markdown("### 🔔 通知設定")
     
     notify_line = st.checkbox("LINE通知 (Messaging API)", value=st.session_state.get('notify_line', False))
     if notify_line:
-        if not LINE_CHANNEL_ACCESS_TOKEN or not LINE_USER_ID:
+        channel_token = st.secrets.get("LINE_CHANNEL_ACCESS_TOKEN", "")
+        user_id = st.secrets.get("LINE_USER_ID", "")
+        if not channel_token or not user_id:
             st.error("⚠️ LINE認証情報が secrets.toml に設定されていません。")
+            st.info("必要な設定: LINE_CHANNEL_ACCESS_TOKEN, LINE_USER_ID")
         else:
-            st.success("✅ Messaging API が有効です。")
+            st.success("✅ LINE Messaging API が有効です。")
         
     notify_email = st.checkbox("メール通知", value=st.session_state.get('notify_email', False))
     if notify_email:
@@ -61,15 +31,6 @@ def show_notification_settings():
         
     st.session_state.notify_line = notify_line
     st.session_state.notify_email = notify_email
-    
-    notify_line_notify = st.checkbox("LINE Notify (統合通知)", value=st.session_state.get('notify_line_notify', True))
-    if notify_line_notify:
-        token = st.secrets.get("LINE_NOTIFY_TOKEN", "")
-        if not token:
-            st.warning("⚠️ LINE Notify トークンが secrets.toml に設定されていません。通知は送信されません。")
-        else:
-            st.success("✅ LINE Notify が有効です。")
-    st.session_state.notify_line_notify = notify_line_notify
     
     if st.button("テスト通知を送信"):
         send_test_notification()
@@ -177,10 +138,10 @@ def show_alert_manager(ticker_input, name, current_price):
                 st.info(f"{alert['name']} {alert['price']}円 {'以上' if alert['condition'] == 'above' else '以下'}")
 def check_technical_signals(ticker, price, indicators, name):
     """
-    Check for complex technical signals and notify via LINE Notify.
+    Check for complex technical signals and notify via LINE Messaging API.
     Condition: RSI < 30 AND Price <= BB_Lower
     """
-    if not st.session_state.get('notify_line_notify'):
+    if not st.session_state.get('notify_line'):
         return None
         
     rsi = indicators.get('rsi', 50)
@@ -194,17 +155,15 @@ def check_technical_signals(ticker, price, indicators, name):
         signal_name = "🔥 強力な押し目シグナル (RSI底打ち + BB-2σタッチ)"
     
     if signal_detected:
-        token = st.secrets.get("LINE_NOTIFY_TOKEN", "")
-        if token:
-            message = (
-                f"\n【株山AI シグナル検知】\n"
-                f"銘柄: {name} ({ticker})\n"
-                f"現在値: ¥{price:,.0f}\n"
-                f"検知シグナル: {signal_name}\n\n"
-                f"🤖 AIコメント: テクニカル的に売られすぎの極致にあります。反発を確認後のエントリーが検討可能です。"
-            )
-            success, res = send_line_notification(message, token)
-            if success:
-                st.toast(f"LINEにシグナル通知を送信しました: {ticker}", icon="📲")
-                return signal_name
+        message = (
+            f"\n【株山AI シグナル検知】\n"
+            f"銘柄: {name} ({ticker})\n"
+            f"現在値: ¥{price:,.0f}\n"
+            f"検知シグナル: {signal_name}\n\n"
+            f"🤖 AIコメント: テクニカル的に売られすぎの極致にあります。反発を確認後のエントリーが検討可能です。"
+        )
+        success, res = send_line_message(message)
+        if success:
+            st.toast(f"LINEにシグナル通知を送信しました: {ticker}", icon="📲")
+            return signal_name
     return None
