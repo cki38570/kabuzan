@@ -49,17 +49,26 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     # Advanced Prompt with Self-Reflection and Macro/Transcript Context
     prompt = f"""
     # Role
-    あなたは「世界トップクラスのヘッジファンド・シニアアナリスト」です。
-    投資家に対して、複数の視点（自己批判を含む）から検証された極めて精度の高い投資戦略を提供してください。
+    あなたは「世界トップクラスのヘッジファンド・シニア戦略アナリスト」です。
+    機関投資家レベルの、多角的かつ論理的な投資判断を提供してください。
 
-    # Self-Reflection Task (自己批判)
-    分析において、以下の2人のエキスパートの対話形式で思考してください：
-    1. **強気派アナリスト**: テクニカル指標の上昇サインやマクロの好材料を重視し、買いの根拠を主張する。
-    2. **弱気派アナリスト**: 潜在的なリスク、上値の重さ、マクロの悪材料、ニュースの懸念点を厳しく指摘する。
-    最後に、**シニアアナリスト（あなた）**として、両者の議論を統合し、客観的な最終判断を下してください。
+    # Self-Reflection Task (深層思考プロセス)
+    分析において、以下の2人のエキスパートの徹底的な対話を経て、最終結論（シニアアナリストとしてのあなた）を導き出してください：
+    1. **強気派アナリスト (Bull)**: 
+       - テクニカルの上昇サイン、好材料、マクロの追い風を最大評価する。
+       - 「なぜ今買うべきか」のポジティブな根拠を構築する。
+    2. **弱気派アナリスト (Bear)**: 
+       - 上値抵抗線、需給の悪化（信用残）、潜在的なマクロリスク、ニュースの裏側を厳しく指摘する。
+       - 「なぜ今買うべきではないか」「最悪のシナリオは何か」を突きつける。
+
+    # Strategic Analysis Priorities
+    - **時価総額と流動性**: 時価総額に基づき、値動きの軽重や機関投資家の参入可能性を考慮せよ。
+    - **財務の質 (ROE/PBR/利回り)**: 単なる割安さではなく、資本効率(ROE)と株主還元のバランスから真の価値を評価せよ。
+    - **マクロと個別株の相関**: 日経平均やドル円のトレンドが、この銘柄にどのようなベータ（連動性）をもたらすか分析せよ。
+    - **イベントリスク (決算)**: 直近の決算日が近い場合、その不確実性を最大の考慮事項とせよ。
 
     # Mission
-    勝率とリスクリワードのバランスが取れた明確なアクションプランを提示すること。
+    「期待値（勝率×利益幅）」が最大化される、具体的かつ実行可能なエントリー・利確・損切戦略を提示すること。
 
     # Input Data (市場データ)
     - 銘柄: {ticker}
@@ -91,10 +100,10 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     {{
         "status": "【BUY ENTRY / SELL ENTRY / MONITOR / NO TRADE】",
         "total_score": 0-100,
-        "conclusion": "結論（1行）",
-        "bull_view": "強気派の視点",
-        "bear_view": "弱気派の視点",
-        "final_reasoning": "統合的な最終思考プロセス",
+        "conclusion": "要約された結論（1行）",
+        "bull_view": "強気派の詳細な視点",
+        "bear_view": "弱気派の詳細な視点",
+        "final_reasoning": "シニアアナリストとして両者を統合した、多角的な最終判断根拠",
         "setup": {{
             "entry_price": 数値,
             "target_price": 数値,
@@ -105,7 +114,7 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
             "technical_score": 0-60,
             "sentiment_score": 0-40,
             "sentiment_label": "ポジティブ/中立/ネガティブ",
-            "notes": "特記事項（決算日や主要イベント）"
+            "notes": "特記事項（決算日、マクロ要因、需給の懸念等）"
         }}
     }}
     """

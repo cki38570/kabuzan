@@ -183,7 +183,9 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
     # Appearance Settings
     chart.layout(background_color='#0a192f', text_color='#ccd6f6', font_size=12)
     chart.candle_style(up_color='#00ffbd', down_color='#ff4b4b', border_up_color='#00ffbd', border_down_color='#ff4b4b', wick_up_color='#00ffbd', wick_down_color='#ff4b4b')
-    chart.grid(vert_color='#233554', horz_color='#233554')
+    # chart.grid() often only accepts bools in newer versions, colors are set in layout or via specific options dictionaries.
+    # To fix 'AbstractChart.grid() got an unexpected keyword argument 'vert_color''
+    chart.grid(vert_enabled=True, horz_enabled=True)
 
     # Set Main Data
     chart.set(chart_df)
