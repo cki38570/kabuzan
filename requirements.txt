@@ -14,3 +14,4 @@ python-multipart
 pandas_ta
 diskcache
 lightweight-charts
+duckdb
