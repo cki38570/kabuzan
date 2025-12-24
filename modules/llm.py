@@ -10,6 +10,7 @@ except ImportError:
 import os
 import time
 import streamlit as st
+import pandas as pd
 
 # API Key - Load from secrets.toml (local) or Streamlit Cloud Secrets
 # PRIORITY: st.secrets > os.getenv > None
@@ -120,32 +121,38 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     """
     
     error_details = []
-    # Stable Model Candidates (Mixing standard and -latest variants for robustness)
+    # Stable Model Candidates (2025 Free Tier Optimized)
     MODEL_CANDIDATES = [
-        'gemini-1.5-flash',
-        'gemini-1.5-flash-latest',
-        'gemini-1.5-flash-8b',
-        'gemini-2.0-flash',
-        'gemini-2.0-flash-exp',
-        'gemini-1.5-pro',
-        'gemini-1.5-pro-latest'
+        'gemini-3-flash-preview',
+        'gemini-2.5-flash-lite',
+        'gemini-2.5-flash'
     ]
 
     # Use V1 SDK if available
     client = get_gemini_client()
     if client:
         for model_name in MODEL_CANDIDATES:
-            try:
-                # response_mime_type="application/json" を使用すると時折エラーになるため、プロンプトでの指示を優先
-                response = client.models.generate_content(
-                    model=model_name,
-                    contents=prompt
-                )
-                if response and response.text:
-                    print(f"Success with Gemini API: {model_name}")
-                    return response.text
-            except Exception as e:
-                error_details.append(f"Gemini {model_name} Failed: {str(e)}")
+            max_retries = 3
+            base_delay = 2  # Initial delay in seconds
+            for attempt in range(max_retries):
+                try:
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents=prompt
+                    )
+                    if response and response.text:
+                        print(f"Success with Gemini API: {model_name} (Attempt {attempt+1})")
+                        return response.text
+                except Exception as e:
+                    err_msg = str(e)
+                    if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg:
+                        delay = base_delay * (2 ** attempt)
+                        print(f"Rate limit hit (429). Retrying {model_name} in {delay}s... (Attempt {attempt+1}/{max_retries})")
+                        time.sleep(delay)
+                        continue
+                    else:
+                        error_details.append(f"Gemini {model_name} Failed: {err_msg}")
+                        break # Try next model if it's not a rate limit error
     else:
         if not GENAI_V1_AVAILABLE:
             error_details.append("V1 SDK (google-genai) not installed.")
@@ -244,7 +251,7 @@ def _format_news_for_prompt(news_data):
         return "直近の重要ニュースはありません。"
     
     result = []
-    for n in news_data[:3]:
+    for n in news_data[:2]: # Trim to top 2 for token saving
         result.append(f"- 【{n['publisher']}】{n['title']} ({n['provider_publish_time']})")
     
     return "\n".join(result)
@@ -256,7 +263,7 @@ def _format_transcripts_for_prompt(transcript_data):
     
     result = []
     for _, row in transcript_data.iterrows():
-        content = str(row['Content'])[:1500] # Limit content per transcript
+        content = str(row['Content'])[:1000] # Reduced from 1500 to 1000 for token saving
         result.append(f"### {row['year']} Q{row['quarter']} (公開日: {row['Date']})\n{content}...")
     
     return "\n\n".join(result)
@@ -291,7 +298,7 @@ def analyze_news_impact(portfolio_items, news_data_map):
     for ticker, news_list in news_data_map.items():
         if news_list:
             news_str += f"\n【{ticker} 関連ニュース】\n"
-            for n in news_list[:3]:
+            for n in news_list[:2]: # Trim to top 2 for token saving
                 news_str += f"- {n['title']} ({n['publisher']})\n"
 
     if not news_str:
@@ -316,27 +323,34 @@ def analyze_news_impact(portfolio_items, news_data_map):
 
     # Consistently use the same stable candidates for news as well
     MODEL_CANDIDATES = [
-        'gemini-1.5-flash',
-        'gemini-1.5-flash-latest',
-        'gemini-1.5-flash-8b',
-        'gemini-2.0-flash',
-        'gemini-2.0-flash-exp',
-        'gemini-1.5-pro',
-        'gemini-1.5-pro-latest'
+        'gemini-3-flash-preview',
+        'gemini-2.5-flash-lite',
+        'gemini-2.5-flash'
     ]
 
     client = get_gemini_client()
     if client:
         for model_name in MODEL_CANDIDATES:
-            try:
-                response = client.models.generate_content(
-                    model=model_name,
-                    contents=prompt
-                )
-                if response and response.text:
-                    return response.text
-            except Exception as e:
-                print(f"News Analysis V1 ({model_name}) Failed: {e}")
+            max_retries = 3
+            base_delay = 2
+            for attempt in range(max_retries):
+                try:
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents=prompt
+                    )
+                    if response and response.text:
+                        return response.text
+                except Exception as e:
+                    err_msg = str(e)
+                    if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg:
+                        delay = base_delay * (2 ** attempt)
+                        print(f"Rate limit hit (429). Retrying {model_name} in {delay}s... (Attempt {attempt+1}/{max_retries})")
+                        time.sleep(delay)
+                        continue
+                    else:
+                        print(f"News Analysis V1 ({model_name}) Failed: {e}")
+                        break
             
     return "ニュースのAI分析中にエラーが発生しました。接続可能なモデルが見つかりませんでした。"
 
