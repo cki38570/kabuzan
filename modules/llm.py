@@ -11,6 +11,7 @@ import os
 import time
 import streamlit as st
 import pandas as pd
+import json
 
 # API Key - Load from secrets.toml (local) or Streamlit Cloud Secrets
 # PRIORITY: st.secrets > os.getenv > None
@@ -169,50 +170,39 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     return _create_mock_report(strategic_data, enhanced_metrics, indicators, credit_data, error_info=debug_info)
 
 def _create_mock_report(strategic_data, enhanced_metrics, indicators, credit_data, error_info=None):
-    """Helper to create strict format mock report."""
-    trend_status = "MONITOR (監視)"
+    """Helper to create strict format mock report in JSON."""
+    trend_status = "NEUTRAL"
     conclusion = "方向感が乏しため、明確なシグナルが出るまで静観を推奨します。"
     
-    # Simple logic to make mock dynamic
     if enhanced_metrics.get('roc_5d', 0) > 2 and indicators.get('rsi', 50) < 70:
             trend_status = "BUY ENTRY"
             conclusion = "短期上昇モメンタムが発生しており、押し目でのエントリーが有効です。"
     elif enhanced_metrics.get('roc_5d', 0) < -2:
-            trend_status = "NO TRADE"
+            trend_status = "SELL ENTRY"
             conclusion = "下落トレンド中につき、底打ちを確認するまで様子見を推奨。"
 
-    debug_tag = f"\n> [!CAUTION]\n> **AI Analysis Failure**: {error_info}\n" if error_info else ""
+    mock_json = {
+        "status": trend_status,
+        "total_score": 50,
+        "conclusion": conclusion,
+        "bull_view": "テクニカル指標の一部に下げ止まりの兆候が見られるが、確定的な反転サインではない。",
+        "bear_view": "短期的な移動平均線が下向きであり、地合いの悪化が継続するリスクがある。",
+        "final_reasoning": f"AI分析エラー({error_info})のため、暫定的なテクニカル判断のみを表示しています。",
+        "setup": {
+            "entry_price": strategic_data.get('entry_price', 0),
+            "target_price": strategic_data.get('target_price', 0),
+            "stop_loss": strategic_data.get('stop_loss', 0),
+            "risk_reward": strategic_data.get('risk_reward', 0)
+        },
+        "details": {
+            "technical_score": 30,
+            "sentiment_score": 20,
+            "sentiment_label": "中立",
+            "notes": f"エラー情報: {error_info}"
+        }
+    }
 
-    return f"""
-<!-- MOCK REPORT due to API failure -->
-{debug_tag}
-## 📊 戦略判定: 🛡️ {trend_status}
-
-**【結論】**
-{conclusion}
-
-**【トレードセットアップ】**
-- **エントリー推奨値**: ¥{strategic_data.get('entry_price') or 0:,.0f}
-  - (根拠: アルゴリズム算出値に基づく参考価格)
-- **利確目標 (TP)**: ¥{strategic_data.get('target_price') or 0:,.0f}
-  - (根拠: ボリンジャーバンド+2σ付近)
-- **損切目安 (SL)**: ¥{strategic_data.get('stop_loss') or 0:,.0f}
-  - (根拠: 直近サポートライン割れ)
-- **リスクリワード比**: {strategic_data.get('risk_reward') or 0:.2f}
-
-**【テクニカル詳細分析】**
-1. **トレンド環境**:
-   - SMA判定: {strategic_data.get('trend_desc', 'N/A')}
-   - トレンド強度: {enhanced_metrics.get('trend_strength', 0):.1f}
-
-2. **オシレーター評価**:
-   - RSI(14): {indicators.get('rsi') or 50:.1f} ({indicators.get('rsi_status', '')})
-   - MACD: {indicators.get('macd_status', '')}
-   - ボリンジャーバンド: {indicators.get('bb_status', '')}
-
-3. **需給・ファンダ**:
-   - {credit_data}
-"""
+    return f"```json\n{json.dumps(mock_json, ensure_ascii=False, indent=4)}\n```"
 
 def _format_patterns_for_prompt(patterns):
     """Format detected patterns for inclusion in prompt."""
