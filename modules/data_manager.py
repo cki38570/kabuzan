@@ -55,16 +55,37 @@ class DataManager:
         if not self.fmp_key:
             return None, None
             
-        # FMP ticker format for Japan is often '7203.T'
+        # FMP ticker format for Japan is often '7203:JP' (Google style) or '7203.TSE'
         clean_ticker = str(ticker_code).split('.')[0]
-        fmp_ticker = f"{clean_ticker}.T"
+        
+        # Try primary suffix (:JP) which is common for FMP
+        fmp_ticker = f"{clean_ticker}.T" # Default fallback
         
         try:
             # 1. Historical Data
             # Note: interval mapping might be needed if not '1d'
-            hist_url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{fmp_ticker}?apikey={self.fmp_key}"
-            response = requests.get(hist_url, timeout=10)
-            if response.status_code != 200:
+            # Try logic for Japan tickers (Free Tier typically blocks non-US)
+            candidates = [f"{clean_ticker}.T", f"{clean_ticker}:JP", f"{clean_ticker}.TSE"]
+            
+            # Simple check for US tickers
+            if ticker_code.isalpha():
+                candidates = [ticker_code]
+
+            response = None
+            for cand in candidates:
+                hist_url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{cand}?apikey={self.fmp_key}"
+                try:
+                    res = requests.get(hist_url, timeout=5)
+                    if res.status_code == 200:
+                        response = res
+                        fmp_ticker = cand # Update to working ticker
+                        break
+                    elif res.status_code == 403:
+                        print(f"FMP Free Tier limitation for {cand} (403 Forbidden)")
+                except:
+                    continue
+            
+            if not response or response.status_code != 200:
                 return None, None
                 
             data = response.json()
