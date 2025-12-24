@@ -69,7 +69,12 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     - **イベントリスク (決算)**: 直近の決算日が近い場合、その不確実性を最大の考慮事項とせよ。
 
     # Mission
-    「期待値（勝率×利益幅）」が最大化される、具体的かつ実行可能なエントリー・利確・損切戦略を提示すること。
+    曖昧さを排除し、「期待値（勝率×利益幅）」が最大化される、具体的かつ実行可能なエントリー・利確・損切戦略を提示すること。
+
+    # Signal & Trade Plan Requirements (必須事項)
+    - **明確な判定**: 「BUY ENTRY」「SELL ENTRY」「NEUTRAL (様子見)」のいずれかを断定せよ。理由なき「様子見」は避け、テクニカル的根拠に基づいて判断せよ。
+    - **トレードプラン**: エントリー価格、利確ターゲット、損切ラインを、現在のボラティリティ(ATR)や主要な抵抗/支持線から論理的に算出せよ。
+    - **テクニカル数値の義務化**: 判断の根拠として、必ず「RSIが〇〇で乖離している」「SMA25が〇〇円で上値を抑えている」など、提供された数値を引用せよ。
 
     # Input Data (市場データ)
     - 銘柄: {ticker}
@@ -99,11 +104,11 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     # Output Format (Structured JSON)
     必ず以下の構造のJSON形式で出力してください。Markdownのコードブロック（```json ... ```）で囲んでください。
     {{
-        "status": "【BUY ENTRY / SELL ENTRY / MONITOR / NO TRADE】",
+        "status": "【BUY ENTRY / SELL ENTRY / NEUTRAL】",
         "total_score": 0-100,
         "conclusion": "要約された結論（1行）",
-        "bull_view": "強気派の詳細な視点",
-        "bear_view": "弱気派の詳細な視点",
+        "bull_view": "強気派の詳細な視点（テクニカル数値を含む）",
+        "bear_view": "弱気派の詳細な視点（テクニカル数値を含む）",
         "final_reasoning": "シニアアナリストとして両者を統合した、多角的な最終判断根拠",
         "setup": {{
             "entry_price": 数値,
@@ -115,7 +120,7 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
             "technical_score": 0-60,
             "sentiment_score": 0-40,
             "sentiment_label": "ポジティブ/中立/ネガティブ",
-            "notes": "特記事項（決算日、マクロ要因、需給の懸念等）"
+            "notes": "特記事項（決算日、マクロ要因、需給の数値的懸念等）"
         }}
     }}
     """

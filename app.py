@@ -427,8 +427,38 @@ if ticker_input and not st.session_state.comparison_mode:
                         </div>
                         """, unsafe_allow_html=True)
                     
-                    # 3. Final Conclusion
-                    st.markdown("#### 🎯 最終判断と根拠")
+                    # 3. Trade Setup (具体的トレードプラン)
+                    st.markdown("#### 🎯 具体的トレードプラン (Setup)")
+                    setup = report_data.get('setup', {})
+                    if setup:
+                        s_col1, s_col2, s_col3, s_col4 = st.columns(4)
+                        s_col1.markdown(f"""
+                        <div style='background-color: #1a1c24; padding: 10px; border-radius: 5px; border-top: 3px solid #64ffda; text-align: center;'>
+                            <small style='color: #8892b0;'>エントリー価格</small><br/>
+                            <span style='font-size: 1.2rem; font-weight: bold; color: #64ffda;'>¥{setup.get('entry_price', 0):,.1f}</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        s_col2.markdown(f"""
+                        <div style='background-color: #1a1c24; padding: 10px; border-radius: 5px; border-top: 3px solid #00d4ff; text-align: center;'>
+                            <small style='color: #8892b0;'>利確ターゲット</small><br/>
+                            <span style='font-size: 1.2rem; font-weight: bold; color: #00d4ff;'>¥{setup.get('target_price', 0):,.1f}</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        s_col3.markdown(f"""
+                        <div style='background-color: #1a1c24; padding: 10px; border-radius: 5px; border-top: 3px solid #ff4b4b; text-align: center;'>
+                            <small style='color: #8892b0;'>損切ライン</small><br/>
+                            <span style='font-size: 1.2rem; font-weight: bold; color: #ff4b4b;'>¥{setup.get('stop_loss', 0):,.1f}</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        s_col4.markdown(f"""
+                        <div style='background-color: #1a1c24; padding: 10px; border-radius: 5px; border-top: 3px solid #ffc107; text-align: center;'>
+                            <small style='color: #8892b0;'>リスクリワード</small><br/>
+                            <span style='font-size: 1.2rem; font-weight: bold; color: #ffc107;'>{setup.get('risk_reward', 0):.2f}</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    # 4. Final Conclusion
+                    st.markdown("#### 📝 最終判断と根拠")
                     st.info(report_data.get('conclusion', ''))
                     st.markdown(f"<div style='background-color: #112240; padding: 15px; border-radius: 8px;'>{report_data.get('final_reasoning', '')}</div>", unsafe_allow_html=True)
                     

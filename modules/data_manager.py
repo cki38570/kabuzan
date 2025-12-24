@@ -15,11 +15,18 @@ except ImportError:
     def get_defeatbeta_client(token=None): return None
 
 # Initialize disk cache
-# Use /tmp for Streamlit Cloud or local .cache
 if os.environ.get('STREAMLIT_RUNTIME_ENV') == 'cloud' or os.path.exists('/mount/src'):
     CACHE_DIR = '/tmp/kabuzan_cache'
 else:
     CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.cache')
+
+# FMP API Key
+import requests
+try:
+    import streamlit as st
+    FMP_API_KEY = st.secrets.get("FMP_API_KEY")
+except:
+    FMP_API_KEY = os.getenv("FMP_API_KEY")
 
 try:
     if not os.path.exists(CACHE_DIR):
@@ -40,7 +47,75 @@ class DataManager:
     """
     
     def __init__(self):
-        self.defeatbeta = get_defeatbeta_client() # Lazy load or init
+        self.defeatbeta = get_defeatbeta_client() 
+        self.fmp_key = FMP_API_KEY
+
+    def _fetch_from_fmp(self, ticker_code: str, period: str = "1y", interval: str = "1d") -> Tuple[Optional[pd.DataFrame], Optional[Dict[str, Any]]]:
+        """Helper to fetch data from Financial Modeling Prep (FMP)."""
+        if not self.fmp_key:
+            return None, None
+            
+        # FMP ticker format for Japan is often '7203.T'
+        clean_ticker = str(ticker_code).split('.')[0]
+        fmp_ticker = f"{clean_ticker}.T"
+        
+        try:
+            # 1. Historical Data
+            # Note: interval mapping might be needed if not '1d'
+            hist_url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{fmp_ticker}?apikey={self.fmp_key}"
+            response = requests.get(hist_url, timeout=10)
+            if response.status_code != 200:
+                return None, None
+                
+            data = response.json()
+            if not data or 'historical' not in data:
+                return None, None
+                
+            df = pd.DataFrame(data['historical'])
+            df['Date'] = pd.to_datetime(df['date'])
+            df.set_index('Date', inplace=True)
+            df.sort_index(inplace=True)
+            
+            # Map FMP columns to yfinance-style
+            df = df.rename(columns={
+                'open': 'Open', 'high': 'High', 'low': 'Low', 
+                'close': 'Close', 'volume': 'Volume'
+            })[['Open', 'High', 'Low', 'Close', 'Volume']]
+
+            # 2. Real-time Quote
+            quote_url = f"https://financialmodelingprep.com/api/v3/quote/{fmp_ticker}?apikey={self.fmp_key}"
+            q_res = requests.get(quote_url, timeout=10)
+            meta = {}
+            if q_res.status_code == 200:
+                q_data = q_res.json()
+                if q_data:
+                    q = q_data[0]
+                    meta = {
+                        'current_price': q.get('price'),
+                        'change': q.get('change'),
+                        'change_percent': q.get('changesPercentage'),
+                        'name': q.get('name'),
+                        'source': 'fmp',
+                        'status': 'fresh'
+                    }
+            
+            if not meta and not df.empty:
+                # Fallback meta from historical
+                last = df.iloc[-1]
+                prev = df.iloc[-2] if len(df) > 1 else last
+                meta = {
+                    'current_price': last['Close'],
+                    'change': last['Close'] - prev['Close'],
+                    'change_percent': ((last['Close'] - prev['Close']) / prev['Close'] * 100) if prev['Close'] else 0,
+                    'name': fmp_ticker,
+                    'source': 'fmp_historical',
+                    'status': 'fresh'
+                }
+                
+            return df, meta
+        except Exception as e:
+            print(f"FMP fetch error: {e}")
+            return None, None
         
     def get_market_data(self, ticker_code: str, period: str = "1y", interval: str = "1d") -> Tuple[pd.DataFrame, Dict[str, Any]]:
         """
@@ -61,7 +136,13 @@ class DataManager:
                 return df, meta
                 
         try:
-            # 1. Fetch from yfinance
+            # 1. Try FMP (Priority 1)
+            df_fmp, meta_fmp = self._fetch_from_fmp(ticker_code, period, interval)
+            if df_fmp is not None and not df_fmp.empty:
+                cache.set(cache_key, (df_fmp, meta_fmp, datetime.datetime.now()))
+                return df_fmp, meta_fmp
+
+            # 2. Try yfinance (Priority 2)
             ticker = yf.Ticker(ticker_code)
             df = ticker.history(period=period, interval=interval)
             
@@ -258,17 +339,51 @@ class DataManager:
         else:
             target_ticker = ticker_code
             
-        # Try DefeatBeta first (Mocked implementation for now as we build the client)
-        # Real integration would call: self.defeatbeta.get_financials(target_ticker)
-        # Here we simulate the fallback logic which is the user's priority requirement.
-        
+        # Try FMP Financials (Priority 1)
+        if self.fmp_key:
+            try:
+                clean_ticker = str(ticker_code).split('.')[0]
+                fmp_ticker = f"{clean_ticker}.T"
+                # Get Key Metrics
+                metrics_url = f"https://financialmodelingprep.com/api/v3/key-metrics-ttm/{fmp_ticker}?apikey={self.fmp_key}"
+                res = requests.get(metrics_url, timeout=10)
+                if res.status_code == 200:
+                    metrics = res.json()
+                    if metrics:
+                        m = metrics[0]
+                        data['details'].update({
+                            'market_cap': m.get('marketCapTTM'),
+                            'pe_ratio': m.get('peRatioTTM'),
+                            'pb_ratio': m.get('priceToBookRatioTTM'),
+                            'dividend_yield': m.get('dividendYieldTTM', 0) * 100 if m.get('dividendYieldTTM') else 0,
+                            'roe': m.get('roeTTM'),
+                        })
+                        data['source'] = 'fmp'
+                        data['status'] = 'complete'
+                
+                # Get Profile for Sector/Name
+                profile_url = f"https://financialmodelingprep.com/api/v3/profile/{fmp_ticker}?apikey={self.fmp_key}"
+                p_res = requests.get(profile_url, timeout=10)
+                if p_res.status_code == 200:
+                    profile = p_res.json()
+                    if profile:
+                        p = profile[0]
+                        data['details']['sector'] = p.get('sector')
+                        data['details']['name'] = p.get('companyName')
+            except Exception as e:
+                print(f"FMP Financials error: {e}")
+
+        # Try DefeatBeta (Priority 2) - For Credit Margin Data mostly
         try:
-            # Placeholder for DefeatBeta call
-            # details = self.defeatbeta.get_financials(target_ticker)
-            # if details: return {'source': 'defeatbeta', 'status': 'complete', 'details': details}
-            pass 
+            # Real integration would call: self.defeatbeta.get_financials(target_ticker)
+            if self.defeatbeta:
+                db_data = self.defeatbeta.get_company_info(ticker_code)
+                if db_data:
+                    # Merge or update from DefeatBeta (especially credit/margin)
+                    data['details'].update(db_data)
+                    if data['source'] == 'yfinance_fallback':
+                        data['source'] = 'defeatbeta'
         except Exception:
-            # Silent fail for auxiliary source
             pass
             
         # Fallback to yfinance
