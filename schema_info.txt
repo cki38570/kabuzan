@@ -1,0 +1,6 @@
+
+1. Inspecting Stock Prices Dataset...
+   Stock Columns: ['symbol', 'report_date', 'open', 'close', 'high', 'low', 'volume']
+
+2. Inspecting Transcripts Dataset...
+   Transcript Columns: ['symbol', 'fiscal_year', 'fiscal_quarter', 'report_date', 'transcripts', 'transcripts_id']

@@ -120,13 +120,13 @@ class DefeatBetaClient:
             query = f"""
                 SELECT 
                     symbol,
-                    quarter,
-                    year,
-                    publish_date as Date,
-                    content as Content
+                    fiscal_quarter as quarter,
+                    fiscal_year as year,
+                    report_date as Date,
+                    transcripts as Content
                 FROM '{self.TRANSCRIPTS_URL}' 
                 WHERE symbol = '{ticker_code}'
-                ORDER BY publish_date DESC
+                ORDER BY report_date DESC
                 LIMIT {limit}
             """
             
