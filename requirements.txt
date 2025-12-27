@@ -11,7 +11,7 @@ fastapi
 uvicorn
 jinja2
 python-multipart
-pandas_ta
+pandas-ta
 diskcache
 lightweight-charts
 duckdb
