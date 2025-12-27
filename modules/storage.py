@@ -11,27 +11,73 @@ try:
 except ImportError:
     GSHEETS_AVAILABLE = False
 
+# Try importing gspread for headless mode
+try:
+    import gspread
+    from google.oauth2.service_account import Credentials
+    GSPREAD_AVAILABLE = True
+except ImportError:
+    GSPREAD_AVAILABLE = False
+
 WATCHLIST_FILE = "watchlist.json"
 PORTFOLIO_FILE = "portfolio.json"
 
 class StorageManager:
     """
-    Manages data persistence via Google Sheets or local JSON.
+    Manages data persistence via Google Sheets (Streamlit or Headless) or local JSON.
     """
     def __init__(self):
         self.use_gsheets = False
         self.conn = None
+        self.mode = "local" # local, streamlit, headless
         
-        # Check if secrets are available for simple validation
-        if GSHEETS_AVAILABLE and "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
+        # 1. Check for Streamlit Secrets (App Mode)
+        if GSHEETS_AVAILABLE:
             try:
-                self.conn = st.connection("gsheets", type=GSheetsConnection)
-                self.use_gsheets = True
-                print("Using Google Sheets for storage.")
+                # Naive check if we are in streamlit context/have secrets
+                if hasattr(st, "secrets") and "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
+                    self.conn = st.connection("gsheets", type=GSheetsConnection)
+                    self.use_gsheets = True
+                    self.mode = "streamlit"
+                    # print("Using Google Sheets (Streamlit Mode).")
+                    return
             except Exception as e:
-                print(f"Failed to connect to Google Sheets: {e}. Falling back to local.")
-        else:
-            print("Google Sheets credentials not found. Using local storage.")
+                pass
+        
+        # 2. Check for Env Vars (Headless Mode / GitHub Actions)
+        # We expect GCP_SERVICE_ACCOUNT_KEY (json string) and SPREADSHEET_URL/ID
+        if GSPREAD_AVAILABLE:
+            gcp_key_json = os.environ.get("GCP_SERVICE_ACCOUNT_KEY")
+            sheet_url = os.environ.get("SPREADSHEET_URL")
+            
+            if gcp_key_json and sheet_url:
+                try:
+                    # Parse JSON string
+                    # If it's a file path, load it. If json string, parse it.
+                    if gcp_key_json.startswith("{"):
+                        creds_dict = json.loads(gcp_key_json)
+                    elif os.path.exists(gcp_key_json):
+                        with open(gcp_key_json) as f:
+                            creds_dict = json.load(f)
+                    else:
+                        raise ValueError("Invalid Key")
+                        
+                    scopes = [
+                        "https://www.googleapis.com/auth/spreadsheets",
+                        "https://www.googleapis.com/auth/drive"
+                    ]
+                    creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+                    self.gc = gspread.authorize(creds)
+                    self.sh = self.gc.open_by_url(sheet_url)
+                    
+                    self.use_gsheets = True
+                    self.mode = "headless"
+                    print("Using Google Sheets (Headless Mode).")
+                    return
+                except Exception as e:
+                    print(f"Headless setup failed: {e}")
+
+        print("Using local storage.")
 
     def _load_local(self, filename):
         if not os.path.exists(filename):
@@ -50,62 +96,143 @@ class StorageManager:
         except Exception as e:
             print(f"Error saving local: {e}")
             return False
+            
+    # --- Helper for GSpread ---
+    def _read_ws_headless(self, ws_name):
+        try:
+            ws = self.sh.worksheet(ws_name)
+            data = ws.get_all_records()
+            return data
+        except:
+            return []
+
+    def _update_ws_headless(self, ws_name, df):
+        try:
+            ws = self.sh.worksheet(ws_name)
+            ws.clear()
+            # gspread with pandas: set headers and data
+            # set_with_dataframe is from gspread-dataframe package, but we might not have it.
+            # Manual way:
+            params = [df.columns.values.tolist()] + df.values.tolist()
+            ws.update(params)
+            return True
+        except Exception as e:
+            print(f"Headless update error: {e}")
+            return False
 
     def load_watchlist(self):
-        if self.use_gsheets:
+        if self.mode == "streamlit":
             try:
-                # Expecting a worksheet named 'watchlist'
-                # If it doesn't exist or is empty, handle gracefully
                 df = self.conn.read(worksheet="watchlist", ttl=0)
-                if df.empty:
-                    return []
+                if df.empty: return []
                 return df.to_dict('records')
-            except Exception as e:
-                print(f"GSheets load error (watchlist): {e}")
-                # If error (e.g. worksheet missing), try creating empty or fallback
-                return []
+            except: return []
+        elif self.mode == "headless":
+            return self._read_ws_headless("watchlist")
         else:
             return self._load_local(WATCHLIST_FILE)
 
     def save_watchlist(self, data):
-        # data is list of dicts
-        if self.use_gsheets:
+        if self.mode == "streamlit":
             try:
                 df = pd.DataFrame(data)
                 self.conn.update(worksheet="watchlist", data=df)
                 return True
-            except Exception as e:
-                print(f"GSheets save error (watchlist): {e}")
-                return False
+            except: return False
+        elif self.mode == "headless":
+            return self._update_ws_headless("watchlist", pd.DataFrame(data))
         else:
             return self._save_local(WATCHLIST_FILE, data)
 
     def load_portfolio(self):
-        if self.use_gsheets:
+        if self.mode == "streamlit":
             try:
                 df = self.conn.read(worksheet="portfolio", ttl=0)
-                if df.empty:
-                    return []
-                # Convert numeric types if needed, though read usually handles it
+                if df.empty: return []
                 return df.to_dict('records')
-            except Exception as e:
-                print(f"GSheets load error (portfolio): {e}")
-                return []
+            except: return []
+        elif self.mode == "headless":
+            return self._read_ws_headless("portfolio")
         else:
             return self._load_local(PORTFOLIO_FILE)
 
     def save_portfolio(self, data):
-        if self.use_gsheets:
+        if self.mode == "streamlit":
             try:
                 df = pd.DataFrame(data)
-                # Ensure all columns are present to avoid schema issues if possible
                 self.conn.update(worksheet="portfolio", data=df)
                 return True
-            except Exception as e:
-                print(f"GSheets save error (portfolio): {e}")
-                return False
+            except: return False
+        elif self.mode == "headless":
+            return self._update_ws_headless("portfolio", pd.DataFrame(data))
         else:
             return self._save_local(PORTFOLIO_FILE, data)
+
+    def load_alerts(self):
+        filename = "alerts.json"
+        if self.mode == "streamlit":
+            try:
+                df = self.conn.read(worksheet="alerts", ttl=0)
+                if df.empty: return []
+                return df.to_dict('records')
+            except: return []
+        elif self.mode == "headless":
+            return self._read_ws_headless("alerts")
+        else:
+            return self._load_local(filename)
+
+    def save_alerts(self, data):
+        filename = "alerts.json"
+        if self.mode == "streamlit":
+            try:
+                df = pd.DataFrame(data)
+                self.conn.update(worksheet="alerts", data=df)
+                return True
+            except: return False
+        elif self.mode == "headless":
+            return self._update_ws_headless("alerts", pd.DataFrame(data))
+        else:
+            return self._save_local(filename, data)
+
+    def load_settings(self):
+        filename = "settings.json"
+        defaults = {"profit_target": 10.0, "stop_loss_limit": -5.0}
+        
+        # Helper to parse list of dicts to dict
+        def parse_kv(records):
+            s = defaults.copy()
+            for rec in records:
+                try: s[rec['key']] = float(rec['value'])
+                except: pass
+            return s
+
+        if self.mode == "streamlit":
+            try:
+                df = self.conn.read(worksheet="settings", ttl=0)
+                if df.empty: return defaults
+                return parse_kv(df.to_dict('records'))
+            except: return defaults
+        elif self.mode == "headless":
+            data = self._read_ws_headless("settings")
+            return parse_kv(data)
+        else:
+            data = self._load_local(filename)
+            return {**defaults, **data} if data else defaults
+
+    def save_settings(self, settings_dict):
+        filename = "settings.json"
+        data_list = [{"key": k, "value": v} for k, v in settings_dict.items()]
+        
+        if self.mode == "streamlit":
+            try:
+                df = pd.DataFrame(data_list)
+                self.conn.update(worksheet="settings", data=df)
+                return True
+            except: return False
+        elif self.mode == "headless":
+            return self._update_ws_headless("settings", pd.DataFrame(data_list))
+        else:
+            return self._save_local(filename, settings_dict)
 
 # Singleton instance
 storage = StorageManager()

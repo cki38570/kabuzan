@@ -16,3 +16,5 @@ diskcache
 lightweight-charts
 duckdb
 st-gsheets-connection
+gspread
+google-auth

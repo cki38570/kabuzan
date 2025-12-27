@@ -1,0 +1,35 @@
+name: Kabuzan Monitor Bot
+
+on:
+  schedule:
+    # 平日(月-金)の日本時間9時〜15時 (UTC 0時〜6時) に1時間ごとに実行
+    # UTC 0,1,2,3,4,5,6 -> JST 09,10,11,12,13,14,15
+    - cron: '0 0-6 * * 1-5'
+  workflow_dispatch: # 手動実行ボタンも有効化
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run Monitor Script
+      env:
+        LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+        LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
+        GCP_SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+        SPREADSHEET_URL: ${{ secrets.SPREADSHEET_URL }}
+      run: |
+        python auto_monitor.py
