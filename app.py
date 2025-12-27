@@ -23,6 +23,7 @@ from modules.screener import scan_market
 from modules.llm import API_KEY, GENAI_AVAILABLE, generate_gemini_analysis
 from modules.data_manager import get_data_manager
 from modules.news import get_stock_news
+from modules.constants import SCREENER_CATEGORIES, QUICK_TICKERS, DEFAULT_WATCHLIST
 import json
 import os
 
@@ -89,11 +90,7 @@ with st.sidebar:
 if 'watchlist' not in st.session_state:
     st.session_state.watchlist = load_watchlist()
     if not st.session_state.watchlist:
-        st.session_state.watchlist = [
-            {'code': '7203', 'name': 'トヨタ自動車'}, 
-            {'code': '9984', 'name': 'ソフトバンクG'}, 
-            {'code': '6758', 'name': 'ソニーG'}
-        ]
+        st.session_state.watchlist = DEFAULT_WATCHLIST
 
 if 'comparison_mode' not in st.session_state:
     st.session_state.comparison_mode = False
@@ -145,13 +142,7 @@ default_ticker = selected_from_list if selected_from_list else ""
 # Feature 4: Quick Select UX
 st.markdown("### 🔍 銘柄検索")
 col_q1, col_q2, col_q3, col_q4, col_q5 = st.columns(5)
-quick_tickers = [
-    {'code': '7203', 'name': 'トヨタ'},
-    {'code': '9984', 'name': 'SBG'},
-    {'code': '6920', 'name': 'レーザー'},
-    {'code': '8306', 'name': 'UFJ'},
-    {'code': '1570', 'name': '日経レバ'}
-]
+quick_tickers = QUICK_TICKERS
 
 clicked_quick = None
 # Create quick select buttons
@@ -259,15 +250,17 @@ if ticker_input and not st.session_state.comparison_mode:
             strategic_data = calculate_trading_strategy(df)
             
             # --- Tabs Layout ---
-            tab_titles = ["📈 チャート", "🤖 AI分析", "💰 ポートフォリオ", "🔍 市場スキャン", "📊 データ"]
+            tab_titles = ["📈 チャート", "🤖 AI分析", "💰 ポートフォリオ", "🔍 市場スキャン", "📰 ニュース", "📊 データ"]
             tabs = st.tabs(tab_titles)
-            tab1, tab2, tab3, tab4, tab5 = tabs[0], tabs[1], tabs[2], tabs[3], tabs[4]
+            tab1, tab2, tab3, tab4, tab5, tab6 = tabs[0], tabs[1], tabs[2], tabs[3], tabs[4], tabs[5]
             
             # Tab 1: Chart
             with tab1:
                 col1, col2 = st.columns([3, 1])
                 with col1:
                     st.markdown(f"### {info['name']} ({ticker_input})")
+                    if 'sector' in info and info['sector'] != '不明':
+                        st.caption(f"{info.get('sector', '')} | {info.get('industry', '')}")
                 with col2:
                      price_color = "#00ffbd" if info['change'] >= 0 else "#ff4b4b"
                      st.markdown(f"<div style='text-align:right; font-size: 1.5rem; color:{price_color}'>¥{info['current_price']:,.0f}</div>", unsafe_allow_html=True)
@@ -554,8 +547,10 @@ if ticker_input and not st.session_state.comparison_mode:
                  st.markdown("### 🔍 市場スクリーニング")
                  st.caption("対象となる銘柄群を選択してスキャンを実行します。")
                  
-                 from modules.screener import CATEGORIES
-                 category = st.selectbox("銘柄カテゴリ", list(CATEGORIES.keys()))
+
+                 
+                 # from modules.screener import CATEGORIES # Removed in favor of constants
+                 category = st.selectbox("銘柄カテゴリ", list(SCREENER_CATEGORIES.keys()))
                  
                  if st.button("🚀 スキャン開始"):
                      progress_text = f"{category} をスキャン中..."
@@ -574,8 +569,27 @@ if ticker_input and not st.session_state.comparison_mode:
                      else:
                          st.warning("現在、特定のシグナル条件に合致する銘柄はありませんでした。")
 
-            # Tab 5: Data
+            # Tab 5: News (NEW)
             with tab5:
+                st.markdown("### 📰 最新ニュース")
+                if news_data:
+                    for news in news_data:
+                        pub_time = news.get("provider_publish_time", "")
+                        st.markdown(f"""
+                        <div style="background-color: #112240; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                            <a href="{news.get('link')}" target="_blank" style="text-decoration: none; color: #e6f1ff; font-weight: bold; font-size: 1.1em;">
+                                {news.get('title')}
+                            </a>
+                            <div style="color: #8892b0; font-size: 0.8em; margin-top: 5px;">
+                                {news.get('publisher')} | {pub_time}
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                else:
+                     st.info("関連ニュースが見つかりませんでした。")
+
+            # Tab 6: Data
+            with tab6:
                 st.markdown("### 📊 詳細データ")
                 enhanced_metrics = calculate_advanced_metrics(df, info['current_price'])
                 if enhanced_metrics:

@@ -29,32 +29,52 @@ def get_stock_data(ticker_code, period="1y", interval="1d"):
         ticker_code = f"{ticker_code}.T"
     
     if YFINANCE_AVAILABLE:
-        try:
-            ticker = yf.Ticker(ticker_code)
-            df = ticker.history(period=period, interval=interval)
-            if not df.empty:
-                # Get current price and change
-                info = ticker.info
-                current_price = info.get('currentPrice') or info.get('regularMarketPrice') or df['Close'].iloc[-1]
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                ticker = yf.Ticker(ticker_code)
+                # Retry fetching history if it comes back empty unexpectedly
+                df = ticker.history(period=period, interval=interval)
                 
-                if len(df) >= 2:
-                    prev_close = df['Close'].iloc[-2]
-                    change = current_price - prev_close
-                    change_percent = (change / prev_close) * 100
-                else:
-                    change = 0
-                    change_percent = 0
+                if df.empty and attempt < max_retries - 1:
+                    time.sleep(1)
+                    continue
+                
+                if not df.empty:
+                    # Get current price and change
+                    info = ticker.info
+                    current_price = info.get('currentPrice') or info.get('regularMarketPrice') or df['Close'].iloc[-1]
                     
-                return df, {
-                    'current_price': current_price,
-                    'change': change,
-                    'change_percent': change_percent,
-                    'name': info.get('longName', ticker_code)
-                }
-        except Exception as e:
-            import streamlit as st
-            st.error(f"データ取得エラー: {e}") # Show error to user
-            print(f"Error fetching stock data: {e}, falling back to mock.")
+                    if len(df) >= 2:
+                        prev_close = df['Close'].iloc[-2]
+                        change = current_price - prev_close
+                        change_percent = (change / prev_close) * 100
+                    else:
+                        change = 0
+                        change_percent = 0
+                    
+                    # Extract Sector and Industry
+                    sector = info.get('sector', '不明')
+                    industry = info.get('industry', '不明')
+                    
+                    return df, {
+                        'current_price': current_price,
+                        'change': change,
+                        'change_percent': change_percent,
+                        'name': info.get('longName', ticker_code),
+                        'sector': sector,
+                        'industry': industry,
+                        'status': 'fresh',
+                        'source': 'yfinance'
+                    }
+            except Exception as e:
+                print(f"Attempt {attempt+1}/{max_retries} failed for {ticker_code}: {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(1)
+                else:
+                    import streamlit as st
+                    st.toast(f"データ取得エラー ({ticker_code}): {e}") # Use toast instead of error for less obtrusiveness
+                    print(f"Error fetching stock data: {e}, falling back to mock.")
     
     # Mock Data Generation
     dates = pd.date_range(end=datetime.datetime.now(), periods=250, freq='B')
