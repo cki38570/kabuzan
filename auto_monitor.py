@@ -42,11 +42,27 @@ def main():
         # OR we just mock st.session_state.
         
         import streamlit as st
+        # --- MOCK STREAMLIT UI FUNCTIONS FOR HEADLESS MODE ---
+        # These functions crash if called outside a Streamlit app context.
+        # We replace them with print statements.
+        
         if not hasattr(st, 'session_state'):
             st.session_state = {}
             
-        # Mock session state to enable notifications
         st.session_state['notify_line'] = True 
+        
+        # Mock Context Manager for st.spinner
+        class MockSpinner:
+            def __init__(self, text): self.text = text
+            def __enter__(self): print(f"[Spinner] {self.text}")
+            def __exit__(self, exc_type, exc_val, exc_tb): pass
+
+        st.spinner = MockSpinner
+        st.toast = lambda x, **kwargs: print(f"[Toast] {x}")
+        st.error = lambda x, **kwargs: print(f"[Error] {x}")
+        st.warning = lambda x, **kwargs: print(f"[Warning] {x}")
+        st.success = lambda x, **kwargs: print(f"[Success] {x}")
+        st.markdown = lambda x, **kwargs: print(f"[Markdown] {x}")
         
         # Run report
         send_daily_report(manual=True)
