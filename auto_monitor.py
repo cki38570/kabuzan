@@ -12,46 +12,28 @@ except ImportError as e:
     print(f"Error importing modules: {e}")
     sys.exit(1)
 
+import traceback
+
 def main():
-    print("--- Starting Auto Monitor Bot ---")
+    print("--- Starting Auto Monitor Bot (Debug Mode) ---")
     
-    # 1. Check Credentials
-    line_token = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN")
-    if not line_token:
-        print("Error: LINE_CHANNEL_ACCESS_TOKEN not found in environment.")
-        return
-
-    # 2. Check Storage Connection
-    if storage.mode == "local":
-        print("Warning: Running in LOCAL storage mode. This might not be intended for GitHub Actions unless you committed json files.")
-        # If we are in Actions, we expect 'headless' mode (gspread) usually.
-        # But if user forgot SPREADSHEET_URL, it falls back to local.
-    else:
-        print(f"Storage Mode: {storage.mode}")
-
-    # 3. Execute Report & Checks
-    # We trigger the same logic as "Manual Report Send" but automated
-    print("Generating report...")
     try:
-        # Hack: The original function checks st.session_state.get('notify_line')
-        # In this script, we don't have a real session state.
-        # However, modules/notifications.py imports 'send_line_message' from 'modules.line'.
-        # We need to bypass the 'if not notify_line' check in send_daily_report?
-        # Actually send_daily_report checks `st.session_state`.
-        # Since this is a specialized script, we should probably refactor send_daily_report to be cleaner,
-        # OR we just mock st.session_state.
+        # Debug: Check Env Vars (Masked)
+        token = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN")
+        print(f"LINE_TOKEN: {'Found' if token else 'Missing'} ({len(token) if token else 0} chars)")
+        
+        url = os.environ.get("SPREADSHEET_URL")
+        print(f"SHEET_URL: {'Found' if url else 'Missing'}")
+        
+        key = os.environ.get("GCP_SERVICE_ACCOUNT_KEY")
+        print(f"GCP_KEY: {'Found' if key else 'Missing'} ({len(key) if key else 0} chars)")
         
         import streamlit as st
         # --- MOCK STREAMLIT UI FUNCTIONS FOR HEADLESS MODE ---
-        # These functions crash if called outside a Streamlit app context.
-        # We replace them with print statements.
-        
         if not hasattr(st, 'session_state'):
             st.session_state = {}
-            
         st.session_state['notify_line'] = True 
         
-        # Mock Context Manager for st.spinner
         class MockSpinner:
             def __init__(self, text): self.text = text
             def __enter__(self): print(f"[Spinner] {self.text}")
@@ -66,12 +48,12 @@ def main():
         
         # Run report
         send_daily_report(manual=True)
-        print("Report generation triggered.")
+        print("Report generation processed.")
         
-    except Exception as e:
-        print(f"Error during reporting: {e}")
-        # Send error notification to clear confusion
-        send_line_message(f"⚠️ 自動監視ボットのエラー: {e}")
+    except Exception:
+        print("!!! CRITICAL ERROR !!!")
+        traceback.print_exc()
+        sys.exit(1)
 
     print("--- Finished ---")
 
