@@ -15,3 +15,4 @@ pandas_ta
 diskcache
 lightweight-charts
 duckdb
+st-gsheets-connection

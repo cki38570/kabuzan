@@ -2,29 +2,15 @@ import json
 import os
 import pandas as pd
 from datetime import datetime
-
-PORTFOLIO_FILE = "portfolio.json"
+from modules.storage import storage
 
 def load_portfolio():
-    """Load portfolio from local JSON file."""
-    if not os.path.exists(PORTFOLIO_FILE):
-        return []
-    try:
-        with open(PORTFOLIO_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except Exception as e:
-        print(f"Error loading portfolio: {e}")
-        return []
+    """Load portfolio using StorageManager."""
+    return storage.load_portfolio()
 
 def save_portfolio(portfolio_data):
-    """Save portfolio to local JSON file."""
-    try:
-        with open(PORTFOLIO_FILE, 'w', encoding='utf-8') as f:
-            json.dump(portfolio_data, f, ensure_ascii=False, indent=2)
-        return True
-    except Exception as e:
-        print(f"Error saving portfolio: {e}")
-        return False
+    """Save portfolio using StorageManager."""
+    return storage.save_portfolio(portfolio_data)
 
 def add_to_portfolio(code, name, quantity, avg_price):
     """Add or update a stock position in the portfolio."""
@@ -33,10 +19,7 @@ def add_to_portfolio(code, name, quantity, avg_price):
     # Check if exists, update if so
     found = False
     for item in portfolio:
-        if item['code'] == code:
-            # Simple weighted average for multiple buys could be implemented here
-            # For now, we overwrite or update quantity
-            # Let's say we update quantity and average price
+        if str(item['code']) == str(code): # Ensure string comparison
             total_cost_old = item['quantity'] * item['avg_price']
             total_cost_new = quantity * avg_price
             new_qty = item['quantity'] + quantity
@@ -44,13 +27,13 @@ def add_to_portfolio(code, name, quantity, avg_price):
             
             item['quantity'] = new_qty
             item['avg_price'] = new_avg
-            item['name'] = name # Update name just in case
+            item['name'] = name 
             found = True
             break
     
     if not found:
         portfolio.append({
-            'code': code,
+            'code': str(code),
             'name': name,
             'quantity': quantity,
             'avg_price': avg_price,
@@ -62,7 +45,7 @@ def add_to_portfolio(code, name, quantity, avg_price):
 def remove_from_portfolio(code):
     """Remove a stock from the portfolio."""
     portfolio = load_portfolio()
-    portfolio = [p for p in portfolio if p['code'] != code]
+    portfolio = [p for p in portfolio if str(p['code']) != str(code)]
     save_portfolio(portfolio)
 
 def get_portfolio_df(current_prices):
@@ -79,7 +62,7 @@ def get_portfolio_df(current_prices):
     total_value = 0
     
     for item in portfolio:
-        code = item['code']
+        code = str(item['code'])
         qty = item['quantity']
         avg = item['avg_price']
         current = current_prices.get(code, avg) # Fallback to avg if price not found
@@ -110,4 +93,4 @@ def get_portfolio_df(current_prices):
 def get_portfolio_data():
     """Returns a simple list of portfolio items for news analysis."""
     portfolio = load_portfolio()
-    return [{'ticker': p['code'], 'name': p['name'], 'shares': p['quantity']} for p in portfolio]
+    return [{'ticker': str(p['code']), 'name': p['name'], 'shares': p['quantity']} for p in portfolio]

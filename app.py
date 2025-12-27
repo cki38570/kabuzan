@@ -27,23 +27,13 @@ from modules.constants import SCREENER_CATEGORIES, QUICK_TICKERS, DEFAULT_WATCHL
 import json
 import os
 
-WATCHLIST_PATH = "watchlist.json"
+from modules.storage import storage
 
 def load_watchlist():
-    if os.path.exists(WATCHLIST_PATH):
-        try:
-            with open(WATCHLIST_PATH, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except:
-            return []
-    return []
+    return storage.load_watchlist()
 
 def save_watchlist(watchlist):
-    try:
-        with open(WATCHLIST_PATH, "w", encoding="utf-8") as f:
-            json.dump(watchlist, f, ensure_ascii=False, indent=2)
-    except:
-        pass
+    storage.save_watchlist(watchlist)
 
 # Page Config
 st.set_page_config(
