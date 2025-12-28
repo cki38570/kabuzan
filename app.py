@@ -319,7 +319,7 @@ if ticker_input and not st.session_state.comparison_mode:
                     df_weekly, meta_weekly = dm.get_market_data(ticker_input, interval="1wk")
                     if not df_weekly.empty:
                         # Calculate indicators for weekly
-                        df_weekly_calc = calculate_indicators(df_weekly, params) 
+                        df_weekly_calc = calculate_indicators(df_weekly, params, interval="1wk") 
                         
                         eng_w1, eng_w2 = st.columns([1, 4])
                         chart_engine_w = eng_w1.radio("Engine", ["TV", "Plotly"], horizontal=True, key="engine_weekly")

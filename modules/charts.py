@@ -226,8 +226,11 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
             line_data = line_data.dropna()
             
             if not line_data.empty:
-                line = chart.create_line(name=ma_col, color=color)
-                line.set(line_data)
+                try:
+                    line = chart.create_line(name=ma_col, color=color)
+                    line.set(line_data)
+                except Exception as e:
+                    print(f"Error setting line {ma_col}: {e}")
 
     # Bollinger Bands
     if 'BB_Upper' in df.columns and 'BB_Lower' in df.columns:

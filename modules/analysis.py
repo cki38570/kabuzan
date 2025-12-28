@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-def calculate_indicators(df, params=None):
+def calculate_indicators(df, params=None, interval="1d"):
     """
     Add technical indicators to the DataFrame.
     """
@@ -16,9 +16,16 @@ def calculate_indicators(df, params=None):
     df = df.copy()
     
     # Simple Moving Averages
-    df['SMA5'] = df['Close'].rolling(window=params.get('sma_short', 5)).mean()
-    df['SMA25'] = df['Close'].rolling(window=params.get('sma_mid', 25)).mean()
-    df['SMA75'] = df['Close'].rolling(window=params.get('sma_long', 75)).mean()
+    if interval == "1wk":
+        # Weekly standard: 13, 26, 52 weeks
+        df['SMA13'] = df['Close'].rolling(window=13).mean()
+        df['SMA26'] = df['Close'].rolling(window=26).mean()
+        df['SMA52'] = df['Close'].rolling(window=52).mean()
+    else:
+        # Daily/Default: Use params or 5, 25, 75
+        df['SMA5'] = df['Close'].rolling(window=params.get('sma_short', 5)).mean()
+        df['SMA25'] = df['Close'].rolling(window=params.get('sma_mid', 25)).mean()
+        df['SMA75'] = df['Close'].rolling(window=params.get('sma_long', 75)).mean()
     
     # RSI
     period = params.get('rsi_period', 14)
