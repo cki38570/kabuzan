@@ -36,6 +36,7 @@ def save_watchlist(watchlist):
     storage.save_watchlist(watchlist)
 
 # Page Config
+# Force Deploy: Fix pandas-ta
 st.set_page_config(
     page_title="株価AI分析",
     layout="wide", # Changed to wide for better dashboard view
