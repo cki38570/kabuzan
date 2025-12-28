@@ -23,63 +23,82 @@ def create_main_chart(df, ticker_name, strategic_data=None, interval="1d"):
                 name='株価', increasing_line_color='#00ffbd', 
                 decreasing_line_color='#ff4b4b'), row=1, col=1)
 
-    # Moving Averages based on interval
-    if interval == "1wk":
-        ma_configs = {'SMA13': ('13週線', '#00d4ff'), 'SMA26': ('26週線', '#ff00ff'), 'SMA52': ('52週線', '#ffcc00')}
-    else:
-        ma_configs = {'SMA5': ('5日線', '#00ff00'), 'SMA25': ('25日線', '#ff00ff'), 'SMA75': ('75日線', '#ffcc00')}
+    # Bollinger Bands (Fill)
+    if 'BB_Upper' in df.columns and 'BB_Lower' in df.columns:
+        # Upper Band (Transparent line)
+        fig.add_trace(go.Scatter(x=df.index, y=df['BB_Upper'], 
+                               line=dict(color='rgba(0, 212, 255, 0.1)', width=0),
+                               mode='lines', name='BB Upper', showlegend=False), row=1, col=1)
+        # Lower Band (Fill to Upper)
+        fig.add_trace(go.Scatter(x=df.index, y=df['BB_Lower'], 
+                               line=dict(color='rgba(0, 212, 255, 0.1)', width=0),
+                               mode='lines', fill='tonexty', fillcolor='rgba(0, 212, 255, 0.1)',
+                               name='Bollinger Band'), row=1, col=1)
 
+    # Moving Averages based on interval (Enhanced Colors)
+    if interval == "1wk":
+        ma_configs = {'SMA13': ('13週線', '#2962FF'), 'SMA26': ('26週線', '#FF6D00'), 'SMA52': ('52週線', '#00C853')} # Blue, Orange, Green
+    else:
+        ma_configs = {'SMA5': ('5日線', '#FFFF00'), 'SMA25': ('25日線', '#FF00FF'), 'SMA75': ('75日線', '#00E676')} # Yellow, Magenta, Green
+    
+    # Plot MAs on top of BB
     for ma_col, (name, color) in ma_configs.items():
         if ma_col in df.columns:
             fig.add_trace(go.Scatter(x=df.index, y=df[ma_col], 
                                    mode='lines', name=name,
-                                   line=dict(color=color, width=1.2)), row=1, col=1)
+                                   line=dict(color=color, width=1.5)), row=1, col=1)
                                    
-    # Strategic Lines with Price Annotations
+    # Strategic Lines with Price Annotations (Enhanced Visibility)
     if strategic_data:
         target = strategic_data.get('target_price')
         stop = strategic_data.get('stop_loss')
         
         if target and not pd.isna(target):
-            fig.add_hline(y=target, line_dash="dash", line_color="#00ffbd", 
+            fig.add_hline(y=target, line_dash="dash", line_color="#00E676", 
                           line_width=2, row=1, col=1)
             fig.add_annotation(
                 x=df.index[-1], y=target,
-                text=f"利確目標: ¥{target:,.0f}",
-                showarrow=True, arrowhead=2, ax=50, ay=-30,
-                bgcolor="#00ffbd", font=dict(color="#000000", size=11),
+                text=f"🚀 利確目標: ¥{target:,.0f}",
+                showarrow=True, arrowhead=2, ax=60, ay=-20,
+                bgcolor="rgba(0, 230, 118, 0.8)", font=dict(color="#000000", size=11, family="Roboto"),
+                bordercolor="#00E676", borderwidth=1,
                 row=1, col=1
             )
         if stop and not pd.isna(stop):
-            fig.add_hline(y=stop, line_dash="dash", line_color="#ff4b4b", 
+            fig.add_hline(y=stop, line_dash="dash", line_color="#FF1744", 
                           line_width=2, row=1, col=1)
             fig.add_annotation(
                 x=df.index[-1], y=stop,
-                text=f"損切: ¥{stop:,.0f}",
-                showarrow=True, arrowhead=2, ax=50, ay=30,
-                bgcolor="#ff4b4b", font=dict(color="#ffffff", size=11),
+                text=f"⛔ 損切: ¥{stop:,.0f}",
+                showarrow=True, arrowhead=2, ax=60, ay=20,
+                bgcolor="rgba(255, 23, 68, 0.8)", font=dict(color="#ffffff", size=11, family="Roboto"),
+                bordercolor="#FF1744", borderwidth=1,
                 row=1, col=1
             )
         
         entry_price = strategic_data.get('entry_price')
         if entry_price and not pd.isna(entry_price):
-            fig.add_hline(y=entry_price, line_dash="dot", line_color="#00d4ff", 
+            fig.add_hline(y=entry_price, line_dash="dot", line_color="#2979FF", 
                           line_width=2, row=1, col=1)
             fig.add_annotation(
                 x=df.index[-1], y=entry_price,
-                text=f"🎯 Entry: ¥{entry_price:,.0f}",
-                showarrow=True, arrowhead=2, ax=-50, ay=0,
-                bgcolor="#00d4ff", font=dict(color="#000000", size=12),
+                text=f"🔵 Entry: ¥{entry_price:,.0f}",
+                showarrow=True, arrowhead=2, ax=-60, ay=0,
+                bgcolor="rgba(41, 121, 255, 0.8)", font=dict(color="#ffffff", size=11),
                 row=1, col=1
             )
-
-    # RSI
+    
+    # RSI (Enhanced)
     fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], 
                            mode='lines', name='RSI',
-                           line=dict(color='#00d4ff', width=1.5)), row=2, col=1)
+                           line=dict(color='#29B6F6', width=2)), row=2, col=1)
     
-    fig.add_hline(y=70, line_dash="dot", line_color="#ff4b4b", opacity=0.5, row=2, col=1)
-    fig.add_hline(y=30, line_dash="dot", line_color="#00ffbd", opacity=0.5, row=2, col=1)
+    # RSI Zones
+    fig.add_hrect(y0=70, y1=100, fillcolor="red", opacity=0.1, line_width=0, row=2, col=1)
+    fig.add_hrect(y0=0, y1=30, fillcolor="green", opacity=0.1, line_width=0, row=2, col=1)
+    
+    fig.add_hline(y=70, line_dash="dot", line_color="#FF5252", opacity=0.6, row=2, col=1)
+    fig.add_hline(y=30, line_dash="dot", line_color="#69F0AE", opacity=0.6, row=2, col=1)
 
     # Layout & Aesthetics
     fig.update_layout(

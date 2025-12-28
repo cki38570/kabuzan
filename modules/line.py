@@ -11,7 +11,7 @@ def get_secret(key, default=""):
         pass
     return os.environ.get(key, default)
 
-def send_line_message(text, user_id=None, use_broadcast=False):
+def send_line_message(text=None, payload_messages=None, user_id=None, use_broadcast=False):
     """
     Send a message via LINE Messaging API.
     """
@@ -23,10 +23,10 @@ def send_line_message(text, user_id=None, use_broadcast=False):
     # Determine endpoint and payload
     if use_broadcast:
         url = "https://api.line.me/v2/bot/message/broadcast"
+        # If specific messages payload is provided, use it; otherwise wrap text
+        msgs = payload_messages if payload_messages else [{"type": "text", "text": text}]
         payload = {
-            "messages": [
-                {"type": "text", "text": text}
-            ]
+            "messages": msgs
         }
     else:
         # Push message to specific user
@@ -35,11 +35,10 @@ def send_line_message(text, user_id=None, use_broadcast=False):
             return False, "LINE_USER_ID is missing."
         
         url = "https://api.line.me/v2/bot/message/push"
+        msgs = payload_messages if payload_messages else [{"type": "text", "text": text}]
         payload = {
             "to": target_user_id,
-            "messages": [
-                {"type": "text", "text": text}
-            ]
+            "messages": msgs
         }
     
     headers = {

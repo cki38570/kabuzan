@@ -6,6 +6,7 @@ import yfinance as yf
 from modules.news import get_stock_news
 from modules.llm import analyze_news_impact
 from modules.line import send_line_message
+from modules.templates import get_daily_report_template, get_alert_template
 
 def get_market_indices():
     """Fetch major market indices."""
@@ -81,24 +82,68 @@ def send_daily_report(manual=False):
         stop_loss_limit = settings.get('stop_loss_limit', -5.0)
         
         indices = get_market_indices()
-        portfolio = storage.load_portfolio() # Use storage!
+        portfolio_raw = storage.load_portfolio()
+        portfolio = []
         alerts = storage.load_alerts()
+
+        # Enrich portfolio with current prices
+        if portfolio_raw:
+            tickers = [p['code'] for p in portfolio_raw] # Note: portfolio.json uses 'code' not 'ticker'
+            # Batch fetch could be better but sticking to loop for simplicity/robustness with existing code style
+            # OR use yf.download for speed if list is long.
+            # Let's use individual Ticker for consistency with other parts for now.
+            for p in portfolio_raw:
+                try:
+                    ticker = p.get('code')
+                    qty = float(p.get('quantity', 0))
+                    avg_price = float(p.get('avg_price', 0))
+                    
+                    # Fetch price
+                    stock = yf.Ticker(ticker)
+                    # fast_info is faster
+                    current_price = stock.fast_info.last_price
+                    if not current_price:
+                         hist = stock.history(period="1d")
+                         if not hist.empty:
+                             current_price = hist['Close'].iloc[-1]
+                         else:
+                             current_price = avg_price # Fallback
+                    
+                    val = current_price * qty
+                    cost = avg_price * qty
+                    pl = val - cost
+                    pl_pct = (pl / cost * 100) if cost else 0
+                    
+                    p_enriched = p.copy()
+                    p_enriched.update({
+                        'ticker': ticker, # Ensure 'ticker' key exists as used later
+                        'current_price': current_price,
+                        'value': val,
+                        'pl': pl,
+                        'pl_pct': pl_pct,
+                        'name': p.get('name', ticker)
+                    })
+                    portfolio.append(p_enriched)
+                except Exception as e:
+                    print(f"Error enriching {p.get('code')}: {e}")
+                    # Keep raw but add defaults to avoid KeyError later
+                    p_enriched = p.copy()
+                    p_enriched.update({'ticker': p.get('code'), 'value': 0, 'pl':0, 'pl_pct':0})
+                    portfolio.append(p_enriched)
         
         # 1. Market Overview
-        market_msg = "🌍 **市場概況**\n"
-        for name, data in indices.items():
-            icon = "😨" if name == "恐怖指数" and data['price'] > 20 else "📈" if data['change'] >= 0 else "📉"
-            market_msg += f"{icon} {name}: {data['price']:,.0f} ({data['change']:+,.0f})\n"
+        # objects are already in correct format for template: {"Name": {"price": X, "change": Y}}
+        market_data = indices
             
         # 2. Portfolio Guardian (Enhanced)
-        pf_msg = ""
+        portfolio_data = {}
         guardian_msg = ""
         portfolio_tickers = []
         
         if portfolio:
             total_val = sum(p['value'] for p in portfolio)
             total_pl = sum(p['pl'] for p in portfolio)
-            pf_msg = f"\n💰 **ポートフォリオ**\n評価額: ¥{total_val:,.0f}\n損益: ¥{total_pl:+,.0f}\n"
+            portfolio_data = {"total_value": total_val, "total_pl": total_pl}
             portfolio_tickers = [p['ticker'] for p in portfolio]
             
             # Check individual positions for Guardian
@@ -115,24 +160,11 @@ def send_daily_report(manual=False):
                 guardian_msg = "\n🛡️ **ガーディアン通知**\n" + "\n".join(goods + warnings) + "\n"
         
         # 3. Sniper Alerts (Check Scenarios)
-        sniper_msg = ""
-        hit_alerts = []
-        # Fetch current prices for all alert tickers
-        alert_tickers = list(set([a['code'] for a in alerts])) if alerts else []
-        # Ideally fetch batch data here. Validating one by one for now for simplicity or using cache
-        for alert in alerts:
-             # Simple price check logic simulation (in real app, fetch live price)
-             # alert structure: {code, target_price, condition, type='price'}
-             # We reuse check_price_alerts logic visually here but would run it actually
-             pass 
-             # (Detailed implementation requires fetching data for these tickers. 
-             # For this walkthrough, we will show active alerts count or skip if no data fetching available here efficiently)
+        # ... (Existing placeholder logic retained)
+        # Ideally fetching data here.
 
         # 4. AI Scanner (Mini-Scan)
         scanner_msg = ""
-        # Simply picking top momentum stocks from quick tickers as a demo of "scanning"
-        # In full version, this runs modules.screener.scan_market()
-        # To avoid timeout, we'll suggest checking the "Market Scan" tab or run a lightweight check
         try:
              # Simulated Scanner Output
              scanner_msg = "\n🔭 **AI注目株 (Beta)**\n自動車セクターが過熱気味です。\n"
@@ -156,12 +188,21 @@ def send_daily_report(manual=False):
         if earnings_msg:
             earnings_msg = "\n📅 **決算アラート**\n" + earnings_msg
 
-        # Combine
-        full_msg = f"📊 株山AI レポート ({'手動' if manual else '朝刊'})\n\n{market_msg}{pf_msg}{guardian_msg}{earnings_msg}{scanner_msg}\n(詳細ニュースはアプリで確認)"
+        # Combine Analysis Text
+        # We combine the text-based parts (Guardian, Earnings, Scanner, extra market info) into the analysis section
+        # The main market indices and portfolio summary are now visual cards.
         
-        success, msg = send_line_message(full_msg)
+        analysis_text = f"{guardian_msg}{earnings_msg}{scanner_msg}".strip()
+        if not analysis_text:
+            analysis_text = "特筆すべきアラートはありません。"
+
+        # Create Flex Message
+        flex_message = get_daily_report_template(market_data, portfolio_data, analysis_text)
+        
+        # Send
+        success, msg = send_line_message(payload_messages=[flex_message])
         if success:
-            st.toast("高度な分析レポートを送信しました！")
+            st.toast("高度な分析レポート(Flex)を送信しました！")
         else:
             st.error(f"送信失敗: {msg}")
 

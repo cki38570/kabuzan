@@ -96,13 +96,49 @@ with st.sidebar:
                 st.session_state.watchlist.append({'code': new_ticker, 'name': '読み込み中...'})
                 save_watchlist(st.session_state.watchlist)
     
+    # Sort watchlist by code for consistency
+    st.session_state.watchlist.sort(key=lambda x: x['code'])
+
     selected_from_list = None
+    
+    # Pre-fetch data for watchlist to display mini-info (Optimize: batch fetch if possible, or cache)
+    # Using lightweight fetch loop for now as watchlist is usually small.
+    import yfinance as yf
+    
     for item in st.session_state.watchlist:
         # Cleanup name if it contains 'Mock:'
         clean_name = item['name'].replace('Mock: ', '')
-        label = f"{clean_name} ({item['code']})"
-        if st.button(label, key=f"btn_{item['code']}"):
-            selected_from_list = item['code']
+        code = item['code']
+        
+        # lightweight fetch for badge
+        try:
+             # Handle JP tickers suffix
+             fetch_code = code
+             if code.isdigit() and len(code) == 4:
+                 fetch_code = f"{code}.T"
+                 
+             # Use fast_info for minimal latency
+             t = yf.Ticker(fetch_code)
+             # Note: fast_info might not have 'regular_market_previous_close' reliably in all versions, 
+             # but usually has 'previous_close' or can derive change.
+             # We use a try-except block to be safe.
+             curr = t.fast_info.last_price
+             prev = t.fast_info.previous_close
+             
+             if curr and prev:
+                 chg = curr - prev
+                 pct = (chg / prev) * 100
+                 
+                 icon = "↗️" if chg > 0 else "↘️"
+                 label = f"{clean_name}\n{curr:,.0f} ({pct:+.1f}%)"
+             else:
+                 label = f"{clean_name} ({code})"
+        except Exception:
+             label = f"{clean_name} ({code})"
+
+        # Button with updated label
+        if st.button(label, key=f"btn_{code}_{label}", use_container_width=True):
+             selected_from_list = code
             
     if st.button("🗑️ リストをクリア"):
         st.session_state.watchlist = []
