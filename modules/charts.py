@@ -218,8 +218,16 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
     for ma_col, color in ma_list:
         if ma_col in df.columns:
             # Pass color directly to create_line
-            line = chart.create_line(name=ma_col, color=color)
-            line.set(pd.DataFrame({'time': chart_df['time'], 'value': df[ma_col]}))
+            # Use 'time' from chart_df (renamed) and value from df (original)
+            # Ensure indices align or use chart_df if ma_col was copied there (it wasn't copied above, so use df)
+            # Safe way: create a mini DF with aligned time and value
+            line_data = pd.DataFrame({'time': chart_df['time'], 'value': df[ma_col]})
+            # Filter out NaNs to prevent errors in lightweight-charts if any
+            line_data = line_data.dropna()
+            
+            if not line_data.empty:
+                line = chart.create_line(name=ma_col, color=color)
+                line.set(line_data)
 
     # Bollinger Bands
     if 'BB_Upper' in df.columns and 'BB_Lower' in df.columns:
