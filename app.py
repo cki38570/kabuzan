@@ -206,6 +206,9 @@ if st.session_state.comparison_mode:
             st.dataframe(pd.DataFrame(comparison_data), width='stretch')
 
 if ticker_input and not st.session_state.comparison_mode:
+    # Sanitize input: remove .0 if present
+    ticker_input = str(ticker_input).replace(".0", "")
+    
     with st.spinner('AIが市場データを分析中...'):
         dm = get_data_manager()
         df, info = dm.get_market_data(ticker_input)
