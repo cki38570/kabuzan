@@ -138,41 +138,11 @@ class DataManager:
             # print(f"FMP fetch error: {e}")
             return None, None
 
-    def _generate_mock_data(self, ticker_code: str) -> Tuple[pd.DataFrame, Dict[str, Any]]:
-        """Generate Mock Data when all APIs fail."""
-        dates = pd.date_range(end=datetime.datetime.now(), periods=250, freq='B')
-        base_price = 1000.0 + random.uniform(-200, 200)
-        prices = [base_price]
-        for _ in range(249):
-            change = random.uniform(-0.02, 0.02)
-            prices.append(prices[-1] * (1 + change))
-            
-        df = pd.DataFrame(index=dates)
-        df['Close'] = prices
-        df['Open'] = [p * (1 + random.uniform(-0.01, 0.01)) for p in prices]
-        df['High'] = [max(o, c) * (1 + random.uniform(0, 0.01)) for o, c in zip(df['Open'], df['Close'])]
-        df['Low'] = [min(o, c) * (1 - random.uniform(0, 0.01)) for o, c in zip(df['Open'], df['Close'])]
-        df['Volume'] = [int(random.uniform(100000, 1000000)) for _ in range(250)]
-        
-        current_price = prices[-1]
-        prev_close = prices[-2]
-        change = current_price - prev_close
-        change_percent = (change / prev_close) * 100
-        
-        return df, {
-            'current_price': current_price,
-            'change': change,
-            'change_percent': change_percent,
-            'name': f"Mock: {ticker_code} (Rate Limited)",
-            'source': 'mock',
-            'status': 'fallback'
-        }
-
     def get_market_data(self, ticker_code: str, period: str = "1y", interval: str = "1d") -> Tuple[pd.DataFrame, Dict[str, Any]]:
         """
         Fetch market data (price, charts) primarily from yfinance.
         Uses Caching to reduce API calls.
-        Falls back to Mock Data if Rate Limited.
+        Returns empty DataFrame on failure (No Mock Data).
         """
         if not str(ticker_code).endswith('.T') and str(ticker_code).isdigit():
             ticker_code = f"{ticker_code}.T"
@@ -182,14 +152,12 @@ class DataManager:
         # Check Cache
         cached_data = cache.get(cache_key)
         if cached_data:
-            # Basic validation of cached data
             df, meta, timestamp = cached_data
             if (datetime.datetime.now() - timestamp).total_seconds() < 300: # 5 min cache for price
                 return df, meta
                 
         try:
             # 1. Try FMP (Priority 1)
-            # Only try FMP if not explicitly known to fail? Just retry, we silenced the logs.
             df_fmp, meta_fmp = self._fetch_from_fmp(ticker_code, period, interval)
             if df_fmp is not None and not df_fmp.empty:
                 cache.set(cache_key, (df_fmp, meta_fmp, datetime.datetime.now()))
@@ -198,7 +166,6 @@ class DataManager:
             # 2. Try yfinance (Priority 2)
             ticker = yf.Ticker(ticker_code)
             
-            # Explicit try-catch for history
             try:
                 df = ticker.history(period=period, interval=interval)
             except Exception as e:
@@ -206,28 +173,19 @@ class DataManager:
                  df = pd.DataFrame()
 
             if df.empty:
-                # If history failed, we should probably fallback to Mock immediately or check why
-                # But let's verify if 'info' call below also fails or if we can salvage something?
-                # Usually if history fails, everything is toast.
-                # Fallback to Mock
-                return self._generate_mock_data(ticker_code)
+                return pd.DataFrame(), {}
                 
-            # 2. Get Metadata (Current Price, Change)
-            # Try fast info first, then history fallback
-            # WRAP THIS IN TRY-BLOCK specifically for Rate Limit
             try:
                 info = ticker.info
                 current_price = info.get('currentPrice') or info.get('regularMarketPrice') or df['Close'].iloc[-1]
                 name = info.get('longName', ticker_code)
             except Exception as e:
-                # Likely Rate Limited here
-                print(f"yfinance info fetch failed (Rate Limit suspected): {e}")
-                # Fallback to calculating from DF if we have DF
+                # Rate Limited handling: Use data we have if possible
                 if not df.empty:
                     current_price = df['Close'].iloc[-1]
-                    name = f"{ticker_code} (Data Only)"
+                    name = f"{ticker_code} (Price Only)"
                 else:
-                    return self._generate_mock_data(ticker_code)
+                    return pd.DataFrame(), {}
             
             if len(df) >= 2:
                 prev_close = df['Close'].iloc[-2]
@@ -246,16 +204,13 @@ class DataManager:
                 'status': 'fresh'
             }
             
-            # 3. Store in Cache
             cache.set(cache_key, (df, meta, datetime.datetime.now()))
             
             return df, meta
             
         except Exception as e:
             print(f"Error fetching market data: {e}")
-            # traceback.print_exc() # Reduce noise
-            # Final Fallback to Mock Data
-            return self._generate_mock_data(ticker_code)
+            return pd.DataFrame(), {}
         
     def get_macro_context(self) -> Dict[str, Any]:
         """
