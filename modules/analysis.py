@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-def calculate_indicators(df, params=None, interval="1d"):
+def calculate_indicators(df, params=None, interval="1d", **kwargs):
     """
     Add technical indicators to the DataFrame.
     """
@@ -80,8 +80,23 @@ def calculate_trading_strategy(df):
     price = last['Close']
     
     # Check for necessary columns
+    # Adjust check based on interval logic? 
+    # Usually this runs on Daily data which has SMA5/25/75.
+    # If weekly, it might lack SMA5.
+    # We should detect available columns.
+    
     needed = ['SMA5', 'SMA25', 'SMA75', 'BB_Upper', 'BB_Lower', 'ATR']
+    # If using weekly, we might have SMA13, SMA26, SMA52 instead.
     if not all(col in df.columns for col in needed):
+        # Graceful fallback or check for weekly
+        if 'SMA13' in df.columns:
+            # Remap for weekly strategy or return lighter strategy
+            sma13 = last.get('SMA13', 0)
+            sma26 = last.get('SMA26', 0)
+            sma52 = last.get('SMA52', 0)
+            # Use 13/26/52 as proxies for 5/25/75 (roughly)
+            # Just return basic trend, skip full strategy for now for weekly
+            return {}
         return {}
         
     sma5, sma25, sma75 = last['SMA5'], last['SMA25'], last['SMA75']
@@ -158,16 +173,17 @@ def generate_ai_report(df, credit_data, ticker_name, price_info=None, extra_cont
     prev = df.iloc[-2]
     
     price = last['Close']
-    sma5 = last['SMA5']
-    sma25 = last['SMA25']
-    sma75 = last['SMA75']
-    rsi = last['RSI']
-    macd = last['MACD']
-    macd_sig = last['MACD_Signal']
-    bb_up = last['BB_Upper']
-    bb_low = last['BB_Lower']
-    bb_mid = last['BB_Mid']
-    atr = last['ATR']
+    # Safe access to columns that might depend on interval
+    sma5 = last.get('SMA5', 0)
+    sma25 = last.get('SMA25', 0)
+    sma75 = last.get('SMA75', 0)
+    rsi = last.get('RSI', 50)
+    macd = last.get('MACD', 0)
+    macd_sig = last.get('MACD_Signal', 0)
+    bb_up = last.get('BB_Upper', price * 1.05)
+    bb_low = last.get('BB_Lower', price * 0.95)
+    bb_mid = last.get('BB_Mid', price)
+    atr = last.get('ATR', price * 0.02)
     
     # Calculate Enhanced Metrics
     enhanced_metrics = calculate_advanced_metrics(df, price)
@@ -183,10 +199,10 @@ def generate_ai_report(df, credit_data, ticker_name, price_info=None, extra_cont
     signals = []
     macd_status = "中立"
     
-    if macd > macd_sig and prev['MACD'] <= prev['MACD_Signal']:
+    if macd > macd_sig and prev.get('MACD', 0) <= prev.get('MACD_Signal', 0):
         signals.append("🚀 ゴールデンクロス (MACD)")
         macd_status = "ゴールデンクロス発生"
-    elif macd < macd_sig and prev['MACD'] >= prev['MACD_Signal']:
+    elif macd < macd_sig and prev.get('MACD', 0) >= prev.get('MACD_Signal', 0):
         signals.append("⚠️ デッドクロス (MACD)")
         macd_status = "デッドクロス発生"
     elif macd > macd_sig:
@@ -194,7 +210,7 @@ def generate_ai_report(df, credit_data, ticker_name, price_info=None, extra_cont
     else:
         macd_status = "売りシグナル継続"
     
-    bb_width = (bb_up - bb_low) / bb_mid
+    bb_width = (bb_up - bb_low) / bb_mid if bb_mid > 0 else 0
     volatility_msg = ""
     bb_status = "通常"
     if bb_width < 0.10: 

@@ -29,31 +29,18 @@ class DefeatBetaClient:
         self.con = duckdb.connect(database=':memory:')
         
         # Configure DuckDB for HTTP access
-        self.con.execute("INSTALL httpfs;") 
-        self.con.execute("LOAD httpfs;")
+        try:
+            self.con.execute("INSTALL httpfs;") 
+            self.con.execute("LOAD httpfs;")
+        except Exception as e:
+            print(f"Warning loading httpfs: {e}")
         
-        # Determine if we should set the secret
-        # Note: httpfs extension handles authentication if we set the s3_access_key_id logic or header
-        # But for HuggingFace simple Bearer auth, we can pass headers in the http_headers config
         if self.token:
-            # DuckDB >= 0.10.0 and 1.0+ uses SECRETS for configuration
+            # Simple and robust way for all versions
             try:
-                # Create a secret for httpfs to use headers
-                # We use the generic HTTP secret provider if available, or just rely on setting s3 variables if it was S3
-                # For generic HTTP headers in recent DuckDB, we might use:
-                self.con.execute(f"""
-                    CREATE SECRET IF NOT EXISTS hf_secret (
-                        TYPE HTTP,
-                        HEADER 'Authorization' 'Bearer {self.token}'
-                    );
-                """)
+                self.con.execute(f"SET http_headers = {{'Authorization': 'Bearer {self.token}'}};")
             except Exception as e:
-                # Fallback for older versions or if SECRET syntax fails
-                print(f"Warning: Could not create DuckDB secret: {e}. Trying legacy SET approach.")
-                try:
-                     self.con.execute(f"SET http_headers = {{'Authorization': 'Bearer {self.token}'}};")
-                except:
-                    pass
+                print(f"Warning: Could not set http_headers: {e}")
 
     def get_stock_history(self, ticker_code: str, limit: int = 365) -> pd.DataFrame:
         """

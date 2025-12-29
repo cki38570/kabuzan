@@ -62,9 +62,6 @@ class DataManager:
         fmp_ticker = f"{clean_ticker}.T" # Default fallback
         
         try:
-            # 1. Historical Data
-            # Note: interval mapping might be needed if not '1d'
-            # Try logic for Japan tickers (Free Tier typically blocks non-US)
             candidates = [f"{clean_ticker}.T", f"{clean_ticker}:JP", f"{clean_ticker}.TSE"]
             
             # Simple check for US tickers
@@ -81,7 +78,9 @@ class DataManager:
                         fmp_ticker = cand # Update to working ticker
                         break
                     elif res.status_code == 403:
-                        print(f"FMP Free Tier limitation for {cand} (403 Forbidden)")
+                        # Silently ignore 403 forbidden to reduce log spam
+                        # print(f"FMP Free Tier limitation for {cand} (403 Forbidden)")
+                        pass
                 except:
                     continue
             
@@ -135,7 +134,7 @@ class DataManager:
                 
             return df, meta
         except Exception as e:
-            print(f"FMP fetch error: {e}")
+            # print(f"FMP fetch error: {e}")
             return None, None
         
     def get_market_data(self, ticker_code: str, period: str = "1y", interval: str = "1d") -> Tuple[pd.DataFrame, Dict[str, Any]]:
@@ -158,6 +157,7 @@ class DataManager:
                 
         try:
             # 1. Try FMP (Priority 1)
+            # Only try FMP if not explicitly known to fail? Just retry, we silenced the logs.
             df_fmp, meta_fmp = self._fetch_from_fmp(ticker_code, period, interval)
             if df_fmp is not None and not df_fmp.empty:
                 cache.set(cache_key, (df_fmp, meta_fmp, datetime.datetime.now()))
@@ -168,7 +168,7 @@ class DataManager:
             df = ticker.history(period=period, interval=interval)
             
             if df.empty:
-                print(f"yfinance returned empty data for {ticker_code}")
+                # print(f"yfinance returned empty data for {ticker_code}")
                 return pd.DataFrame(), {}
                 
             # 2. Get Metadata (Current Price, Change)
@@ -392,7 +392,7 @@ class DataManager:
                         data['details']['sector'] = p.get('sector')
                         data['details']['name'] = p.get('companyName')
             except Exception as e:
-                print(f"FMP Financials error: {e}")
+                pass # Silently fail for financials
 
         # Try DefeatBeta (Priority 2) - For Credit Margin Data mostly
         try:
@@ -422,7 +422,8 @@ class DataManager:
                 'sector': info.get('sector'),
             }
         except Exception as e:
-            print(f"Financial data fetch failed: {e}")
+            # print(f"Financial data fetch failed: {e}")
+            pass
             
         return data
 

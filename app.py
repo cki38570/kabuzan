@@ -138,6 +138,7 @@ with st.sidebar:
              label = f"{clean_name} ({code})"
 
         # Button with updated label
+        # use_container_width is valid for buttons
         if st.button(label, key=f"btn_{code}_{label}", use_container_width=True):
              selected_from_list = code
             
@@ -593,7 +594,7 @@ if ticker_input and not st.session_state.comparison_mode:
                          st.success(f"{len(scan_result)}件の注目銘柄を検出しました！")
                          st.dataframe(
                              scan_result[['銘柄名', 'コード', '現在値', '前日比', '判定', 'シグナル', 'RSI']], 
-                             use_container_width=True
+                             width='stretch'
                          )
                          st.info("💡 コードをコピーして検索バーに入力すると詳細分析が可能です。")
                      else:
