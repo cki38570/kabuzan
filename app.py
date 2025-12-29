@@ -459,25 +459,25 @@ if ticker_input and not st.session_state.comparison_mode:
                         s_col1.markdown(f"""
                         <div style='background-color: #1a1c24; padding: 10px; border-radius: 5px; border-top: 3px solid #64ffda; text-align: center;'>
                             <small style='color: #8892b0;'>エントリー価格</small><br/>
-                            <span style='font-size: 1.2rem; font-weight: bold; color: #64ffda;'>¥{setup.get('entry_price', 0):,.1f}</span>
+                            <span style='font-size: 1.2rem; font-weight: bold; color: #64ffda;'>¥{float(setup.get('entry_price') or 0):,.1f}</span>
                         </div>
                         """, unsafe_allow_html=True)
                         s_col2.markdown(f"""
                         <div style='background-color: #1a1c24; padding: 10px; border-radius: 5px; border-top: 3px solid #00d4ff; text-align: center;'>
                             <small style='color: #8892b0;'>利確ターゲット</small><br/>
-                            <span style='font-size: 1.2rem; font-weight: bold; color: #00d4ff;'>¥{setup.get('target_price', 0):,.1f}</span>
+                            <span style='font-size: 1.2rem; font-weight: bold; color: #00d4ff;'>¥{float(setup.get('target_price') or 0):,.1f}</span>
                         </div>
                         """, unsafe_allow_html=True)
                         s_col3.markdown(f"""
                         <div style='background-color: #1a1c24; padding: 10px; border-radius: 5px; border-top: 3px solid #ff4b4b; text-align: center;'>
                             <small style='color: #8892b0;'>損切ライン</small><br/>
-                            <span style='font-size: 1.2rem; font-weight: bold; color: #ff4b4b;'>¥{setup.get('stop_loss', 0):,.1f}</span>
+                            <span style='font-size: 1.2rem; font-weight: bold; color: #ff4b4b;'>¥{float(setup.get('stop_loss') or 0):,.1f}</span>
                         </div>
                         """, unsafe_allow_html=True)
                         s_col4.markdown(f"""
                         <div style='background-color: #1a1c24; padding: 10px; border-radius: 5px; border-top: 3px solid #ffc107; text-align: center;'>
                             <small style='color: #8892b0;'>リスクリワード</small><br/>
-                            <span style='font-size: 1.2rem; font-weight: bold; color: #ffc107;'>{setup.get('risk_reward', 0):.2f}</span>
+                            <span style='font-size: 1.2rem; font-weight: bold; color: #ffc107;'>{float(setup.get('risk_reward') or 0):.2f}</span>
                         </div>
                         """, unsafe_allow_html=True)
                     

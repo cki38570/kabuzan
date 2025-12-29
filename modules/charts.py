@@ -234,11 +234,14 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
 
     # Bollinger Bands
     if 'BB_Upper' in df.columns and 'BB_Lower' in df.columns:
-        # Use slightly transparent colors if supported, or just light solid colors
-        upper = chart.create_line(name='BB Upper', color='rgba(0, 212, 255, 0.5)')
-        upper.set(pd.DataFrame({'time': chart_df['time'], 'value': df['BB_Upper']}))
-        lower = chart.create_line(name='BB Lower', color='rgba(0, 212, 255, 0.5)')
-        lower.set(pd.DataFrame({'time': chart_df['time'], 'value': df['BB_Lower']}))
+        try:
+            # Use slightly transparent colors if supported, or just light solid colors
+            upper = chart.create_line(name='BB Upper', color='rgba(0, 212, 255, 0.5)')
+            upper.set(pd.DataFrame({'time': chart_df['time'], 'value': df['BB_Upper']}))
+            lower = chart.create_line(name='BB Lower', color='rgba(0, 212, 255, 0.5)')
+            lower.set(pd.DataFrame({'time': chart_df['time'], 'value': df['BB_Lower']}))
+        except Exception as e:
+            print(f"Error adding BB to chart: {e}")
 
     # Strategic Lines (AI Target/Stop)
     if strategic_data:
