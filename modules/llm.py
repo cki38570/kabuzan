@@ -128,8 +128,8 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     error_details = []
     # Stable Model Candidates (2025 Free Tier Optimized)
     MODEL_CANDIDATES = [
-        'gemini-1.5-flash',
-        'gemini-1.5-pro'
+        'gemini-3-flash-preview',
+        'gemini-2.0-flash'
     ]
 
     # Use V1 SDK if available
