@@ -23,21 +23,21 @@ A comprehensive audit was performed across the core modules. Key improvements we
 - **File**: [storage.py](file:///C:/Users/GORO/Desktop/kabuzan/modules/storage.py)
 - **Improvement**: Added descriptive error logging and tracebacks for Google Sheets (GSpread) updates to make it easier to debug persistence issues in headless mode.
 
-### 📲 5. Fixed Repetitive LINE Notifications (Final Fix)
-- **File**: [storage.py](file:///C:/Users/GORO/Desktop/kabuzan/modules/storage.py), [notifications.py](file:///C:/Users/GORO/Desktop/kabuzan/modules/notifications.py), [app.py](file:///C:/Users/GORO/Desktop/kabuzan/app.py)
-- **Issue**: Google Sheets was likely rejecting updates because the "value" column contained mixed types (numbers and date strings). This caused the "last sent" date to never be saved.
+### 📲 5. Fixed Repetitive LINE Notifications (Final Solution)
+- **File**: [storage.py](file:///C:/Users/GORO/Desktop/kabuzan/modules/storage.py), [notifications.py](file:///C:/Users/GORO/Desktop/kabuzan/modules/notifications.py), [requirements.txt](file:///C:/Users/GORO/Desktop/kabuzan/requirements.txt)
+- **Issue**: Streamlit Cloud's ephemeral filesystem was resetting the `diskcache`-based rate-limiter, causing technical signals to re-trigger every 5 minutes during serverless wake-ups.
 - **Final Fix**: 
-    - **String-only Storage**: All settings are now converted to strings before saving to ensure GSheets compatibility.
-    - **Diagnostics**: Added a "Test Storage Connection" button in the notification settings.
-    - **Status Indicator**: Added a "Last Report" date and warning message in the sidebar to monitor storage health.
-    - **Time Window**: Added a guard to prevent notifications outside of 9 AM - 11 PM JST.
+    - **Persistent Log (GSheet)**: Moved all notification timestamps to a dedicated `notifications_log` sheet in your Google Spreadsheet. This ensures "memory" persists across all environments.
+    - **Dependency Fix**: Updated `requirements.txt` to resolve `pandas_ta` installation errors in GitHub Actions.
+    - **Diagnostics**: Enhanced the "Test Connection" button to verify the new logging sheet.
 
 ## Verification Results
 
-- ✅ **Sidebar Speed**: Verified caching is functional.
-- ✅ **Data Merging**: Verified hybrid source merging.
-- ✅ **GSheets Compatibility**: Verified string-only strategy with a dedicated test script.
+- ✅ **GSheet Memory**: Verified that signal timestamps are correctly saved and checked via a simulated persistent storage test.
+- ✅ **GitHub Actions**: Fixed the dependency mismatch that caused manual/scheduled runs to fail.
 - ✅ **Commit & Push**: All changes verified and pushed to the `main` branch.
+
+![GitHub Actions Check Result](file:///C:/Users/GORO/.gemini/antigravity/brain/72f94981-1924-4859-a0b0-64379efed9ac/check_github_actions_1767102055699.webp)
 
 ## Documentation
 Copies of the implementation plan and task tracking have been saved to `docs/codebase_audit/`.
