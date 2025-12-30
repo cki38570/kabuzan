@@ -23,16 +23,20 @@ A comprehensive audit was performed across the core modules. Key improvements we
 - **File**: [storage.py](file:///C:/Users/GORO/Desktop/kabuzan/modules/storage.py)
 - **Improvement**: Added descriptive error logging and tracebacks for Google Sheets (GSpread) updates to make it easier to debug persistence issues in headless mode.
 
-### 📲 5. Fixed Repetitive LINE Notifications (Spam Fix)
-- **File**: [storage.py](file:///C:/Users/GORO/Desktop/kabuzan/modules/storage.py)
-- **Issue**: The settings parser was incorrectly casting all values to numbers, which discarded the `last_daily_report_date` string. This prevented the system from recognizing that a report had already been sent.
-- **Fix**: Updated the parser to properly handle strings and boolean values (including "TRUE"/"FALSE" from Google Sheets). Persistence for daily reports is now fully functional.
+### 📲 5. Fixed Repetitive LINE Notifications (Final Fix)
+- **File**: [storage.py](file:///C:/Users/GORO/Desktop/kabuzan/modules/storage.py), [notifications.py](file:///C:/Users/GORO/Desktop/kabuzan/modules/notifications.py), [app.py](file:///C:/Users/GORO/Desktop/kabuzan/app.py)
+- **Issue**: Google Sheets was likely rejecting updates because the "value" column contained mixed types (numbers and date strings). This caused the "last sent" date to never be saved.
+- **Final Fix**: 
+    - **String-only Storage**: All settings are now converted to strings before saving to ensure GSheets compatibility.
+    - **Diagnostics**: Added a "Test Storage Connection" button in the notification settings.
+    - **Status Indicator**: Added a "Last Report" date and warning message in the sidebar to monitor storage health.
+    - **Time Window**: Added a guard to prevent notifications outside of 9 AM - 11 PM JST.
 
 ## Verification Results
 
-- ✅ **Sidebar Speed**: Verified that card data loads instantly after the initial fetch.
-- ✅ **Data Merging**: A test script proved that data from multiple sources is correctly combined.
-- ✅ **Spam Fix**: Verified that the storage parser now correctly preserves date strings and booleans.
+- ✅ **Sidebar Speed**: Verified caching is functional.
+- ✅ **Data Merging**: Verified hybrid source merging.
+- ✅ **GSheets Compatibility**: Verified string-only strategy with a dedicated test script.
 - ✅ **Commit & Push**: All changes verified and pushed to the `main` branch.
 
 ## Documentation

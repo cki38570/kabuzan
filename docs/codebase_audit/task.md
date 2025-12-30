@@ -14,4 +14,4 @@
 
 ## Verification
 - [x] Verify initial fixes <!-- id: 7 -->
-- [x] Verify persistence fix for notifications <!-- id: 9 -->
+- [x] Verify final persistence fix and diagnostics <!-- id: 9 -->

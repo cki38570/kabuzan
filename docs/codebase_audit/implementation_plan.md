@@ -11,12 +11,18 @@ The previous fix failed because the storage module's settings parser was discard
 
 ### [Robustness] Storage Module
 #### [MODIFY] [storage.py](file:///C:/Users/GORO/Desktop/kabuzan/modules/storage.py)
-- Update `parse_kv` inside `load_settings` to support string and boolean values.
-- Ensure that `last_daily_report_date` and `notify_line` (if stored as strings) are correctly interpreted.
+- Update `save_settings` to explicitly convert all values to `str` before saving to GSheets/Local. This prevents GSheets from rejecting updates due to "mixed types" in a column.
+- Update `parse_kv` inside `load_settings` to handle `Timestamp` or `Date` objects gracefully (in case GSheets auto-detects the date string).
 
 ### [Logic] Notification Module
 #### [MODIFY] [notifications.py](file:///C:/Users/GORO/Desktop/kabuzan/modules/notifications.py)
-- Add more explicit logging to `process_morning_notifications` to show when a report is skipped or sent, helping debug future issues.
+- Use `str(last_sent)` in `process_morning_notifications` to ensure robust date comparison.
+- Add a "Test Storage Connection" button in `show_notification_settings` to help the user verify if their GSheets allows writing.
+- Add a time-window guard (9 AM - 11 PM JST) to prevent weird midnight triggers if server clocks drift.
+
+### [UI] App Monitoring
+#### [MODIFY] [app.py](file:///C:/Users/GORO/Desktop/kabuzan/app.py)
+- Display a small status indicator in the sidebar if `last_daily_report_date` is not being saved correctly.
 
 ## Verification Plan
 
