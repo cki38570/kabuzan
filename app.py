@@ -112,9 +112,12 @@ with st.sidebar:
                     save_watchlist(st.session_state.watchlist)
                     st.rerun()
 
+# Ensure session state for active ticker
+    if 'active_ticker' not in st.session_state:
+        st.session_state.active_ticker = ""
+
     # Sort watchlist
     st.session_state.watchlist.sort(key=lambda x: x['code'])
-    selected_from_list = None
     
     import yfinance as yf
     
@@ -124,7 +127,6 @@ with st.sidebar:
         code = item['code']
         
         # Lightweight fetch for card info
-        # Optimization: Could cache this in session state to avoid re-fetch on every interaction
         try:
              fetch_code = f"{code}.T" if code.isdigit() and len(code) == 4 else code
              t = yf.Ticker(fetch_code)
@@ -135,19 +137,19 @@ with st.sidebar:
                  chg = curr - prev
                  pct = (chg / prev) * 100
              else:
-                 chg = 0
-                 pct = 0
-                 curr = 0
+                 chg = 0; pct = 0; curr = 0
         except:
              curr = 0; chg = 0; pct = 0
         
         # Use new Card Component
         if render_stock_card(code, clean_name, curr, chg, pct, key=f"card_{code}"):
-            selected_from_list = code
+            st.session_state.active_ticker = code
+            st.rerun()
 
     if st.button("🗑️ リストをクリア", key="clear_wl"):
         st.session_state.watchlist = []
         save_watchlist(st.session_state.watchlist)
+        st.session_state.active_ticker = "" # Clear active ticker too
         st.rerun()
     
     st.markdown("---")
@@ -161,25 +163,35 @@ market_trend = get_market_sentiment()
 market_badge_color = "#00ff00" if market_trend == "Bull" else "#ff4b4b" if market_trend == "Bear" else "#808080"
 
 # --- Main Content ---
-default_ticker = selected_from_list if selected_from_list else ""
 
 # Feature 4: Quick Select UX
 st.markdown("### 🔍 銘柄検索")
 col_q1, col_q2, col_q3, col_q4, col_q5 = st.columns(5)
 quick_tickers = QUICK_TICKERS
 
-clicked_quick = None
 # Create quick select buttons
-if col_q1.button(f"{quick_tickers[0]['name']}", type="primary"): clicked_quick = quick_tickers[0]['code']
-if col_q2.button(f"{quick_tickers[1]['name']}"): clicked_quick = quick_tickers[1]['code']
-if col_q3.button(f"{quick_tickers[2]['name']}"): clicked_quick = quick_tickers[2]['code']
-if col_q4.button(f"{quick_tickers[3]['name']}"): clicked_quick = quick_tickers[3]['code']
-if col_q5.button(f"{quick_tickers[4]['name']}"): clicked_quick = quick_tickers[4]['code']
+if col_q1.button(f"{quick_tickers[0]['name']}", type="primary"): st.session_state.active_ticker = quick_tickers[0]['code']; st.rerun()
+if col_q2.button(f"{quick_tickers[1]['name']}"): st.session_state.active_ticker = quick_tickers[1]['code']; st.rerun()
+if col_q3.button(f"{quick_tickers[2]['name']}"): st.session_state.active_ticker = quick_tickers[2]['code']; st.rerun()
+if col_q4.button(f"{quick_tickers[3]['name']}"): st.session_state.active_ticker = quick_tickers[3]['code']; st.rerun()
+if col_q5.button(f"{quick_tickers[4]['name']}"): st.session_state.active_ticker = quick_tickers[4]['code']; st.rerun()
 
-if clicked_quick:
-    default_ticker = clicked_quick
+# ⚠️ IMPORTANT: We use a callback or session value to sync this
+# If user types in box, we strictly take that using on_change or simple processing
+def update_ticker_from_input():
+    st.session_state.active_ticker = st.session_state.ticker_input_widget
 
-ticker_input = st.text_input("コード入力", value=default_ticker, placeholder="例: 7203", label_visibility="collapsed")
+ticker_input = st.text_input(
+    "コード入力", 
+    value=st.session_state.active_ticker, 
+    placeholder="例: 7203", 
+    label_visibility="collapsed",
+    key="ticker_input_widget",
+    on_change=update_ticker_from_input
+)
+# Sync back just in case (e.g. if code modifies active_ticker elsewhere)
+if ticker_input != st.session_state.active_ticker:
+    st.session_state.active_ticker = ticker_input
 
 if st.session_state.comparison_mode:
     st.info("📊 比較モード: 複数の銘柄を同時に表示します")
