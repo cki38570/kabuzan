@@ -97,18 +97,24 @@ def show_notification_settings():
                 else:
                     st.error("保存失敗")
     
-    if st.button("📊 今すぐレポートを送信"):
-        send_daily_report(manual=True)
-        
     st.divider()
     if st.button("🧪 ストレージ接続テスト"):
         test_settings = settings.copy()
         test_settings['test_connection'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        results = []
         if storage.save_settings(test_settings):
-            st.success("✅ スプレッドシートへの書き込みに成功しました。")
-            st.json(storage.load_settings())
+            results.append("✅ 設定の書き込みに成功しました。")
         else:
-            st.error("❌ スプレッドシートへの書き込みに失敗しました。認証情報またはシートの形式を確認してください。")
+            results.append("❌ 設定の書き込みに失敗しました。")
+            
+        if storage.save_notification_log("test_connection", test_settings['test_connection']):
+            results.append("✅ 通知ログ(notifications_log)の書き込みに成功しました。")
+        else:
+            results.append("❌ 通知ログの書き込みに失敗しました。シートが存在するか確認してください。")
+        
+        for r in results: st.markdown(r)
+        st.json(storage.load_settings())
 
 def send_daily_report(manual=False):
     """Generate and send comprehensive daily report with Advanced Features."""
@@ -206,7 +212,7 @@ def send_daily_report(manual=False):
         # 3. Sniper Alerts (Check Scenarios)
         # ... (Existing placeholder logic retained)
         # Ideally fetching data here.
-
+ 
         # 4. AI Scanner (News Impact Analysis)
         scanner_msg = ""
         try:
@@ -230,7 +236,7 @@ def send_daily_report(manual=False):
         except Exception as e:
             print(f"AI/News Error: {e}")
             scanner_msg = "\n⚠️ AI分析中にエラーが発生しました。\n"
-
+ 
         # 5. Earnings Alerts
         earnings_msg = ""
         today_date = datetime.datetime.now().date()
@@ -244,10 +250,10 @@ def send_daily_report(manual=False):
                 days = (edate - today_date).days
                 if 0 <= days <= 7:
                     earnings_msg += f"⚠️ {ticker} 決算まであと{days}日 ({edate})\n"
-
+ 
         if earnings_msg:
             earnings_msg = "\n📅 **決算アラート**\n" + earnings_msg
-
+ 
         # Combine Analysis Text
         # We combine the text-based parts (Guardian, Earnings, Scanner, extra market info) into the analysis section
         # The main market indices and portfolio summary are now visual cards.
@@ -255,7 +261,7 @@ def send_daily_report(manual=False):
         analysis_text = f"{guardian_msg}{earnings_msg}{scanner_msg}".strip()
         if not analysis_text:
             analysis_text = "特筆すべきアラートはありません。"
-
+ 
         # Create Flex Message
         flex_message = get_daily_report_template(market_data, portfolio_data, analysis_text)
         
@@ -265,7 +271,7 @@ def send_daily_report(manual=False):
             st.toast("高度な分析レポート(Flex)を送信しました！")
         else:
             st.error(f"送信失敗: {msg}")
-
+ 
 def process_morning_notifications():
     """
     Run daily report check.
@@ -291,7 +297,7 @@ def process_morning_notifications():
     if not (9 <= now_jst.hour <= 23):
         print(f"Skipping daily report: Outside active hours (Current: {now_jst.hour}h JST).")
         return
-
+ 
     today = now_jst.strftime('%Y-%m-%d')
     # Ensure last_sent is compared as a string
     last_sent = str(settings.get('last_daily_report_date', ''))
@@ -313,7 +319,7 @@ def process_morning_notifications():
     
     # Sync session state
     st.session_state.last_notified_date = today
-
+ 
 def check_price_alerts(price, ticker, name):
     alerts = st.session_state.get('alerts', [])
     triggered_alerts = []
@@ -324,11 +330,11 @@ def check_price_alerts(price, ticker, name):
             elif alert['condition'] == 'below' and price <= alert['price']:
                 triggered_alerts.append({'message': f"アラート: {name}が{alert['price']}円以下になりました", 'alert': alert})
     return triggered_alerts
-
+ 
 def remove_alert(alert_to_remove):
     alerts = st.session_state.get('alerts', [])
     st.session_state.alerts = [a for a in alerts if a != alert_to_remove]
-
+ 
 def show_alert_manager(ticker_input, name, current_price):
     st.markdown("### 📈 価格アラート設定")
     if 'alerts' not in st.session_state:
@@ -342,17 +348,18 @@ def show_alert_manager(ticker_input, name, current_price):
         cond_val = 'above' if condition == "以上" else 'below'
         st.session_state.alerts.append({'code': ticker_input, 'price': alert_price, 'condition': cond_val, 'name': name})
         st.success(f"{name} {alert_price}円 {condition} のアラートを設定")
-
+ 
     if st.session_state.alerts:
         st.markdown("設定中のアラート:")
         for i, alert in enumerate(st.session_state.alerts):
             if alert['code'] == ticker_input:
                 st.info(f"{alert['name']} {alert['price']}円 {'以上' if alert['condition'] == 'above' else '以下'}")
-
+ 
 def check_technical_signals(ticker, price, indicators, name):
     """
     Check for extended technical signals and send notifications if enabled.
-    Includes persistent rate limiting (diskcache) to prevent spam.
+    Includes persistent rate limiting via Google Sheets to prevent spam 
+    even after environment restarts.
     """
     if not st.session_state.get('notify_line'):
         return None
@@ -379,7 +386,7 @@ def check_technical_signals(ticker, price, indicators, name):
     # 3. Key Levels
     if price <= bb_low * 0.99:
         signals.append("💧 バンド下限ブレイク (逆張り検討)")
-
+ 
     # Send Notification Logic
     if signals:
         signal_text = "\n".join(signals)
@@ -391,33 +398,30 @@ def check_technical_signals(ticker, price, indicators, name):
             f"詳細分析を確認してください。"
         )
         
-        # Rate Limit Check (1 Hour Cooldown per Ticker)
+        # Rate Limit Check (Persistent via Storage)
+        # 1 Hour Cooldown per Ticker
         should_send = True
-        cache_key = f"last_notif_{ticker}"
+        cache_key = f"signal_{ticker}"
         
-        if notification_cache:
-            last_sent = notification_cache.get(cache_key)
-            import time
-            now = time.time()
-            
-            if last_sent:
-                # If less than 1 hour (3600s) has passed
+        from modules.storage import storage
+        log = storage.load_notification_log()
+        last_sent_str = log.get(cache_key)
+        
+        import time
+        now = time.time()
+        
+        if last_sent_str:
+            try:
+                last_sent = float(last_sent_str)
                 if (now - last_sent) < 3600:
                     should_send = False
-            
-            if should_send:
-                success, res = send_line_message(message)
-                if success:
-                    notification_cache.set(cache_key, now, expire=3600)
-                    st.toast(f"LINE通知: {signal_text}", icon="📲")
-        else:
-            # Fallback if diskcache not available (Session based)
-            state_key = f"notified_signal_{ticker}_{datetime.datetime.now().hour}"
-            if state_key not in st.session_state:
-                success, res = send_line_message(message)
-                if success:
-                    st.session_state[state_key] = True
-                    st.toast(f"LINE通知: {signal_text}", icon="📲")
-                    
+            except: pass
+        
+        if should_send:
+            success, res = send_line_message(message)
+            if success:
+                storage.save_notification_log(cache_key, str(now))
+                st.toast(f"LINE通知: {signal_text}", icon="📲")
+        
         return signals
     return None

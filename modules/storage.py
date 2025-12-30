@@ -257,5 +257,40 @@ class StorageManager:
         else:
             return self._save_local(filename, settings_dict)
 
+    # --- Persistent Notification Logs (Shared across sessions) ---
+    def load_notification_log(self):
+        """Loads persistent notification timestamps from GSheets or local."""
+        if self.mode == "streamlit":
+             try:
+                 df = self.conn.read(worksheet="notifications_log", ttl=0)
+                 if df.empty: return {}
+                 return {row['key']: row['value'] for row in df.to_dict('records')}
+             except: return {}
+        elif self.mode == "headless":
+             data = self._read_ws_headless("notifications_log")
+             return {row['key']: row['value'] for row in data} if data else {}
+        else:
+             data = self._load_local("notifications_log.json")
+             return data if isinstance(data, dict) else {}
+
+    def save_notification_log(self, key, timestamp_str):
+        """Saves a notification event to persistent storage."""
+        log = self.load_notification_log()
+        log[key] = timestamp_str
+        data_list = [{"key": k, "value": v} for k, v in log.items()]
+        df = pd.DataFrame(data_list)
+
+        if self.mode == "streamlit":
+            try:
+                self.conn.update(worksheet="notifications_log", data=df)
+                return True
+            except Exception:
+                # Attempt to create if missing (first time)
+                return False
+        elif self.mode == "headless":
+            return self._update_ws_headless("notifications_log", df)
+        else:
+            return self._save_local("notifications_log.json", log)
+
 # Singleton instance
 storage = StorageManager()
