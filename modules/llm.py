@@ -316,8 +316,8 @@ def analyze_news_impact(portfolio_items, news_data_map):
 
     # Consistently use the same stable candidates for news as well
     MODEL_CANDIDATES = [
-        'gemini-1.5-flash',
-        'gemini-1.5-pro'
+        'gemini-3-flash-preview',
+        'gemini-2.0-flash'
     ]
 
     client = get_gemini_client()
