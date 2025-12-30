@@ -211,11 +211,18 @@ class StorageManager:
                     if v.upper() == 'TRUE': v = True
                     elif v.upper() == 'FALSE': v = False
                 
+                # Handle GSheets auto-detected date objects if they occur
+                if hasattr(v, 'strftime'): # Likely a datetime/date object
+                    v = v.strftime('%Y-%m-%d')
+
                 try:
                     if isinstance(v, bool):
                         s[k] = v
                     else:
-                        s[k] = float(v)
+                        # Attempt to convert to float if it looks like a number
+                        f_val = float(v)
+                        # If it's a whole number, keep as float (consistency)
+                        s[k] = f_val
                 except (ValueError, TypeError):
                     # Keep as string or original type (e.g. for dates or titles)
                     s[k] = v
@@ -236,7 +243,8 @@ class StorageManager:
 
     def save_settings(self, settings_dict):
         filename = "settings.json"
-        data_list = [{"key": k, "value": v} for k, v in settings_dict.items()]
+        # CRITICAL: Convert all values to strings to prevent GSheets mixed-type errors
+        data_list = [{"key": k, "value": str(v)} for k, v in settings_dict.items()]
         
         if self.mode == "streamlit":
             try:

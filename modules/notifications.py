@@ -99,6 +99,16 @@ def show_notification_settings():
     
     if st.button("📊 今すぐレポートを送信"):
         send_daily_report(manual=True)
+        
+    st.divider()
+    if st.button("🧪 ストレージ接続テスト"):
+        test_settings = settings.copy()
+        test_settings['test_connection'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        if storage.save_settings(test_settings):
+            st.success("✅ スプレッドシートへの書き込みに成功しました。")
+            st.json(storage.load_settings())
+        else:
+            st.error("❌ スプレッドシートへの書き込みに失敗しました。認証情報またはシートの形式を確認してください。")
 
 def send_daily_report(manual=False):
     """Generate and send comprehensive daily report with Advanced Features."""
@@ -275,9 +285,16 @@ def process_morning_notifications():
     if not notify_enabled:
         return
     
-    # 2. Check Date
-    today = datetime.datetime.now().strftime('%Y-%m-%d')
-    last_sent = settings.get('last_daily_report_date', '')
+    # 2. Check Time and Date
+    # Time window guard: 9 AM to 11 PM JST
+    now_jst = datetime.datetime.now()
+    if not (9 <= now_jst.hour <= 23):
+        print(f"Skipping daily report: Outside active hours (Current: {now_jst.hour}h JST).")
+        return
+
+    today = now_jst.strftime('%Y-%m-%d')
+    # Ensure last_sent is compared as a string
+    last_sent = str(settings.get('last_daily_report_date', ''))
     
     if last_sent == today:
         print(f"Skipping daily report: Already sent today ({today}).")

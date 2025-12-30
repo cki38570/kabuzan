@@ -174,6 +174,12 @@ with st.sidebar:
 # --- Global Data ---
 # Load settings for process_morning_notifications inside
 process_morning_notifications() 
+settings = storage.load_settings()
+last_notified = settings.get('last_daily_report_date', 'Never')
+st.sidebar.caption(f"📅 Last Report: {last_notified}")
+if last_notified == 'Never' and settings.get('notify_line'):
+    st.sidebar.warning("⚠️ ストレージへの保存が未完了です。設定から接続テストを行ってください。")
+
 market_trend = get_market_sentiment()
 market_badge_color = "#00ff00" if market_trend == "Bull" else "#ff4b4b" if market_trend == "Bear" else "#808080"
 
