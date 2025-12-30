@@ -8,8 +8,10 @@
 - [x] Analyze recent logs for recurring issues <!-- id: 4 -->
 
 ## Fixes & Improvements
-- [x] Address identified bugs/edge cases <!-- id: 5 -->
-- [x] Optimize performance (caching, batch fetching) where applicable <!-- id: 6 -->
+- [x] Address previously identified bugs <!-- id: 5 -->
+- [x] Optimize performance (sidebar caching) <!-- id: 6 -->
+- [x] Fix repetitive LINE notifications (Persistence Bug) <!-- id: 8 -->
 
 ## Verification
-- [x] Verify functionality of applied fixes <!-- id: 7 -->
+- [x] Verify initial fixes <!-- id: 7 -->
+- [x] Verify persistence fix for notifications <!-- id: 9 -->

@@ -1,38 +1,30 @@
-# Implementation Plan - Codebase Audit & Improvement
+# Implementation Plan - Fix Repetitive LINE Notifications
 
-Based on the codebase audit, several critical and minor issues were identified. This plan aims to improve performance (especially mobile sidebar loading), data robustness, and code quality.
+The previous fix failed because the storage module's settings parser was discarding non-numeric values (like the date string), preventing the "already sent" check from working.
 
 ## User Review Required
 > [!IMPORTANT]
-> - **Sidebar Performance**: I will implement caching for the watchlist cards to prevent repeated `yfinance` calls, which currently slow down the app and risk rate limits.
-> - **Data Reliability**: I will fix the "data overwriting" bug in `data_manager.py` to ensure financial data from multiple sources (FMP/DefeatBeta) is properly merged rather than discarded.
-> - **AI Model Updates**: I will update the Gemini model names in `llm.py` to the latest stable ones (e.g., `gemini-1.5-flash`).
+> - **Bug in Storage**: The current code attempts to convert ALL settings to float numbers. This means the last notification date ("2025-12-31") is discarded, leading the system to think a report hasn't been sent.
+> - **Verification**: I will fix the parser to handle strings and booleans correctly.
 
 ## Proposed Changes
 
-### [Performance] Sidebar & Watchlist
-#### [MODIFY] [app.py](file:///C:/Users/GORO/Desktop/kabuzan/app.py)
-- Wrap the watchlist card data fetching logic in `st.cache_data` or use a ttl-based cache to avoid per-render API calls.
-- Optimize the layout for mobile responsiveness if possible.
-
-### [Robustness] Data Management
-#### [MODIFY] [data_manager.py](file:///C:/Users/GORO/Desktop/kabuzan/modules/data_manager.py)
-- Fix the `get_financial_data` method to use `.update()` instead of re-initializing the `details` dictionary, ensuring data from FMP/DefeatBeta is preserved.
-- Improve fallback logic in `get_market_data` to handle cases where both FMP and yfinance history fail.
-
-### [Code Quality] AI & Global
-#### [MODIFY] [llm.py](file:///C:/Users/GORO/Desktop/kabuzan/modules/llm.py)
-- Update `MODEL_CANDIDATES` to standard stable names: `['gemini-1.5-flash', 'gemini-1.5-pro']`.
-- Remove the duplicated return statement at the end of the file.
+### [Robustness] Storage Module
 #### [MODIFY] [storage.py](file:///C:/Users/GORO/Desktop/kabuzan/modules/storage.py)
-- Add basic error handling to the GSpread update logic to prevent data loss on failed updates.
+- Update `parse_kv` inside `load_settings` to support string and boolean values.
+- Ensure that `last_daily_report_date` and `notify_line` (if stored as strings) are correctly interpreted.
+
+### [Logic] Notification Module
+#### [MODIFY] [notifications.py](file:///C:/Users/GORO/Desktop/kabuzan/modules/notifications.py)
+- Add more explicit logging to `process_morning_notifications` to show when a report is skipped or sent, helping debug future issues.
 
 ## Verification Plan
 
 ### Automated Tests
-- None, but I will perform manual verification of the cached data loading.
+- Create a test script `verify_storage_fix.py` to:
+    1. Save a date string to settings.
+    2. Reload it and verify it's still a string and matches the original.
+    3. Verify that boolean settings are also preserved.
 
 ### Manual Verification
-1.  **Sidebar Speed**: Observe the sidebar loading speed; it should be near-instant after the first load.
-2.  **Data Completeness**: Verify that financial metrics (Market Cap, etc.) are correctly displayed even when switching between tickers.
-3.  **AI Analysis**: Run a sample AI analysis to ensure the updated model names work correctly.
+- I will check the logs (if possible) or rely on the user's feedback that the 5-minute interval has stopped.
