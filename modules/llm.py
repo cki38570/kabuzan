@@ -128,9 +128,8 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     error_details = []
     # Stable Model Candidates (2025 Free Tier Optimized)
     MODEL_CANDIDATES = [
-        'gemini-3-flash-preview',
-        'gemini-2.5-flash-lite',
-        'gemini-2.5-flash'
+        'gemini-1.5-flash',
+        'gemini-1.5-pro'
     ]
 
     # Use V1 SDK if available
@@ -317,9 +316,8 @@ def analyze_news_impact(portfolio_items, news_data_map):
 
     # Consistently use the same stable candidates for news as well
     MODEL_CANDIDATES = [
-        'gemini-3-flash-preview',
-        'gemini-2.5-flash-lite',
-        'gemini-2.5-flash'
+        'gemini-1.5-flash',
+        'gemini-1.5-pro'
     ]
 
     client = get_gemini_client()
@@ -346,6 +344,4 @@ def analyze_news_impact(portfolio_items, news_data_map):
                         print(f"News Analysis V1 ({model_name}) Failed: {e}")
                         break
             
-    return "ニュースのAI分析中にエラーが発生しました。接続可能なモデルが見つかりませんでした。"
-
     return "ニュースのAI分析中にエラーが発生しました。接続可能なモデルが見つかりませんでした。"

@@ -117,7 +117,8 @@ class StorageManager:
             ws.update(params)
             return True
         except Exception as e:
-            print(f"Headless update error: {e}")
+            print(f"CRITICAL: Headless Google Sheets update error for {ws_name}: {e}")
+            traceback.print_exc()
             return False
 
     def load_watchlist(self):

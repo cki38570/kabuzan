@@ -121,25 +121,40 @@ with st.sidebar:
     
     import yfinance as yf
     
-    # Render Cards
-    for item in st.session_state.watchlist:
-        clean_name = item['name'].replace('Mock: ', '')
-        code = item['code']
-        
-        # Lightweight fetch for card info
+    # Caching function for watchlist card data to improve performance
+    @st.cache_data(ttl=300) # Cache for 5 minutes
+    def get_cached_card_info(code):
         try:
              fetch_code = f"{code}.T" if code.isdigit() and len(code) == 4 else code
              t = yf.Ticker(fetch_code)
+             # Use fast_info to avoid heavy network calls if possible
              curr = t.fast_info.last_price
              prev = t.fast_info.previous_close
              
              if curr and prev:
                  chg = curr - prev
                  pct = (chg / prev) * 100
+                 return curr, chg, pct
              else:
-                 chg = 0; pct = 0; curr = 0
-        except:
-             curr = 0; chg = 0; pct = 0
+                 # Fallback to history if fast_info fails
+                 hist = t.history(period="2d")
+                 if len(hist) >= 2:
+                     curr = hist['Close'].iloc[-1]
+                     prev = hist['Close'].iloc[-2]
+                     chg = curr - prev
+                     pct = (chg / prev) * 100
+                     return curr, chg, pct
+        except Exception as e:
+             pass
+        return 0, 0, 0
+    
+    # Render Cards
+    for item in st.session_state.watchlist:
+        clean_name = item['name'].replace('Mock: ', '')
+        code = item['code']
+        
+        # Use cached fetch for card info
+        curr, chg, pct = get_cached_card_info(code)
         
         # Use new Card Component
         if render_stock_card(code, clean_name, curr, chg, pct, key=f"card_{code}"):

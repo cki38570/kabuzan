@@ -415,24 +415,30 @@ class DataManager:
         except Exception:
             pass
             
-        # Fallback to yfinance
+        # Fallback to yfinance (Fill in gaps)
         try:
             ticker = yf.Ticker(target_ticker)
-            
             try:
                  info = ticker.info
             except Exception:
                  info = {}
 
-            # Extract key metrics available in basic yfinance
-            data['details'] = {
+            # Update only if values are missing or better in info
+            y_data = {
                 'market_cap': info.get('marketCap'),
                 'pe_ratio': info.get('trailingPE'),
                 'pb_ratio': info.get('priceToBook'),
                 'dividend_yield': info.get('dividendYield'),
                 'roe': info.get('returnOnEquity'),
                 'sector': info.get('sector'),
+                'industry': info.get('industry')
             }
+            
+            # Merge: Keep existing values if not None, otherwise take from y_data
+            for k, v in y_data.items():
+                if data['details'].get(k) is None:
+                    data['details'][k] = v
+                    
         except Exception as e:
             # print(f"Financial data fetch failed: {e}")
             pass
