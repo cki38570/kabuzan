@@ -8,6 +8,14 @@ from modules.llm import analyze_news_impact
 from modules.line import send_line_message
 from modules.templates import get_daily_report_template, get_alert_template
 
+# Rate Limiting Cache
+try:
+    from diskcache import Cache
+    # Cache stored in .cache_notifications directory
+    notification_cache = Cache('./.cache_notifications')
+except ImportError:
+    notification_cache = None
+
 def get_market_indices():
     """Fetch major market indices."""
     indices = {
@@ -307,10 +315,8 @@ def show_alert_manager(ticker_input, name, current_price):
 
 def check_technical_signals(ticker, price, indicators, name):
     """
-    Check for extended technical signals including:
-    - RSI Oversold/Overbought
-    - Bollinger Band Squeeze
-    - Golden/Dead Cross (MACD)
+    Check for extended technical signals and send notifications if enabled.
+    Includes persistent rate limiting (diskcache) to prevent spam.
     """
     if not st.session_state.get('notify_line'):
         return None
@@ -318,12 +324,7 @@ def check_technical_signals(ticker, price, indicators, name):
     rsi = indicators.get('rsi', 50)
     bb_low = indicators.get('bb_lower', 0)
     bb_up = indicators.get('bb_upper', 0)
-    bb_mid = indicators.get('bb_mid', p*0.01 if (p:=price) else 1) # Avoid div by zero
-    macd_hist = indicators.get('macd_hist', 0)
-    
-    # Needs previous MACD for crossover check, but simplified: checks histogram sign change proxy or just state
-    # Ideally we pass more indicator context. For now, we use state based logic.
-    macd_status = indicators.get('macd_status', '') 
+    bb_mid = indicators.get('bb_mid', p*0.01 if (p:=price) else 1)
     
     signals = []
     
@@ -333,17 +334,17 @@ def check_technical_signals(ticker, price, indicators, name):
     elif rsi >= 80:
         signals.append("🔥 RSI超買われすぎ (80以上)")
         
-    # 2. Bollinger Band Squeeze (Volatility Contraction)
+    # 2. Bollinger Band Squeeze
     if bb_mid > 0:
         bandwidth = (bb_up - bb_low) / bb_mid
-        if bandwidth < 0.05: # Very tight squeeze
+        if bandwidth < 0.05:
             signals.append("⚡ バンドスクイーズ (変動予兆)")
             
     # 3. Key Levels
     if price <= bb_low * 0.99:
         signals.append("💧 バンド下限ブレイク (逆張り検討)")
 
-    # Send Notification if meaningful
+    # Send Notification Logic
     if signals:
         signal_text = "\n".join(signals)
         message = (
@@ -353,13 +354,34 @@ def check_technical_signals(ticker, price, indicators, name):
             f"{signal_text}\n\n"
             f"詳細分析を確認してください。"
         )
-        # Avoid spamming: Check cache or last notified time (omitted for simplicity, relies on re-run)
-        # In a real app, use session_state to debounce.
-        state_key = f"notified_signal_{ticker}_{datetime.datetime.now().hour}"
-        if state_key not in st.session_state:
-            success, res = send_line_message(message)
-            if success:
-                st.session_state[state_key] = True
-                st.toast(f"LINE通知: {signal_text}", icon="📲")
-            return signals
+        
+        # Rate Limit Check (1 Hour Cooldown per Ticker)
+        should_send = True
+        cache_key = f"last_notif_{ticker}"
+        
+        if notification_cache:
+            last_sent = notification_cache.get(cache_key)
+            import time
+            now = time.time()
+            
+            if last_sent:
+                # If less than 1 hour (3600s) has passed
+                if (now - last_sent) < 3600:
+                    should_send = False
+            
+            if should_send:
+                success, res = send_line_message(message)
+                if success:
+                    notification_cache.set(cache_key, now, expire=3600)
+                    st.toast(f"LINE通知: {signal_text}", icon="📲")
+        else:
+            # Fallback if diskcache not available (Session based)
+            state_key = f"notified_signal_{ticker}_{datetime.datetime.now().hour}"
+            if state_key not in st.session_state:
+                success, res = send_line_message(message)
+                if success:
+                    st.session_state[state_key] = True
+                    st.toast(f"LINE通知: {signal_text}", icon="📲")
+                    
+        return signals
     return None
