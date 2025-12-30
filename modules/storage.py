@@ -203,8 +203,22 @@ class StorageManager:
         def parse_kv(records):
             s = defaults.copy()
             for rec in records:
-                try: s[rec['key']] = float(rec['value'])
-                except: pass
+                k = rec['key']
+                v = rec['value']
+                
+                # Handle common boolean strings from GSheets/CSV
+                if isinstance(v, str):
+                    if v.upper() == 'TRUE': v = True
+                    elif v.upper() == 'FALSE': v = False
+                
+                try:
+                    if isinstance(v, bool):
+                        s[k] = v
+                    else:
+                        s[k] = float(v)
+                except (ValueError, TypeError):
+                    # Keep as string or original type (e.g. for dates or titles)
+                    s[k] = v
             return s
 
         if self.mode == "streamlit":

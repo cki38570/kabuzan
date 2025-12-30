@@ -280,16 +280,19 @@ def process_morning_notifications():
     last_sent = settings.get('last_daily_report_date', '')
     
     if last_sent == today:
-        # Already sent today
+        print(f"Skipping daily report: Already sent today ({today}).")
         return
         
     # 3. Send Report & Update Storage
-    print(f"Sending Daily Report for {today}...")
+    print(f"Triggering Daily Report for {today} (Last sent: {last_sent or 'Never'})...")
     send_daily_report(manual=False)
     
     # Save new date
     settings['last_daily_report_date'] = today
-    storage.save_settings(settings)
+    if storage.save_settings(settings):
+        print(f"Successfully updated last_daily_report_date to {today}")
+    else:
+        print(f"FAILED to update last_daily_report_date to {today}")
     
     # Sync session state
     st.session_state.last_notified_date = today
