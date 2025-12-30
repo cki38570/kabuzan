@@ -40,7 +40,7 @@ def add_to_portfolio(code, name, quantity, avg_price):
             'added_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         })
     
-    save_portfolio(portfolio)
+    return save_portfolio(portfolio)
 
 def remove_from_portfolio(code):
     """Remove a stock from the portfolio."""

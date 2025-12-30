@@ -139,7 +139,9 @@ class StorageManager:
                 df = pd.DataFrame(data)
                 self.conn.update(worksheet="watchlist", data=df)
                 return True
-            except: return False
+            except Exception as e:
+                print(f"Streamlit GSheets Error (watchlist): {e}")
+                return False
         elif self.mode == "headless":
             return self._update_ws_headless("watchlist", pd.DataFrame(data))
         else:
@@ -149,9 +151,12 @@ class StorageManager:
         if self.mode == "streamlit":
             try:
                 df = self.conn.read(worksheet="portfolio", ttl=0)
-                if df.empty: return []
-                return df.to_dict('records')
-            except: return []
+                if df is None or df.empty: return []
+                # Ensure we handle NaN values that come from GSheets
+                return df.fillna("").to_dict('records')
+            except Exception as e:
+                print(f"Streamlit load_portfolio error: {e}")
+                return []
         elif self.mode == "headless":
             return self._read_ws_headless("portfolio")
         else:
@@ -163,7 +168,9 @@ class StorageManager:
                 df = pd.DataFrame(data)
                 self.conn.update(worksheet="portfolio", data=df)
                 return True
-            except: return False
+            except Exception as e:
+                print(f"Streamlit GSheets Error (portfolio): {e}")
+                return False
         elif self.mode == "headless":
             return self._update_ws_headless("portfolio", pd.DataFrame(data))
         else:

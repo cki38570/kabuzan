@@ -576,9 +576,14 @@ if ticker_input and not st.session_state.comparison_mode:
                     p_price = col2.number_input("平均取得単価", min_value=0.0, step=10.0, value=float(info['current_price']))
                     submitted = col3.form_submit_button("ポートフォリオに追加/更新")
                     if submitted and p_qty > 0:
-                        add_to_portfolio(ticker_input, info['name'], p_qty, p_price)
-                        st.success(f"{info['name']} をポートフォリオに追加しました")
-                        st.rerun()
+                        success = add_to_portfolio(ticker_input, info['name'], p_qty, p_price)
+                        if success:
+                            st.success(f"{info['name']} をポートフォリオに追加しました")
+                            # Keep ticker_input in session state before rerun
+                            st.session_state.active_ticker = ticker_input
+                            st.rerun()
+                        else:
+                            st.error("保存に失敗しました。設定やネットワークを確認してください。")
 
                 # Display Logic
                 current_prices = {ticker_input: info['current_price']}
