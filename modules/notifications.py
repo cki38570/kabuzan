@@ -257,25 +257,41 @@ def send_daily_report(manual=False):
             st.error(f"送信失敗: {msg}")
 
 def process_morning_notifications():
-    """Run daily report check."""
-    # Load settings to check if notification is enabled (Persisted)
+    """
+    Run daily report check.
+    Uses persistent storage to ensure report is sent only once per day.
+    """
     from modules.storage import storage
+    
+    # 1. Load settings (Persisted)
     settings = storage.load_settings()
     notify_enabled = settings.get('notify_line', False)
     
-    # Sync to session state if needed
+    # Sync to session state for UI checkbox
     if 'notify_line' not in st.session_state:
         st.session_state.notify_line = notify_enabled
     
+    # If notifications disabled, exit
     if not notify_enabled:
         return
     
+    # 2. Check Date
     today = datetime.datetime.now().strftime('%Y-%m-%d')
-    if st.session_state.get('last_notified_date') == today:
+    last_sent = settings.get('last_daily_report_date', '')
+    
+    if last_sent == today:
+        # Already sent today
         return
         
-    # Send Report
+    # 3. Send Report & Update Storage
+    print(f"Sending Daily Report for {today}...")
     send_daily_report(manual=False)
+    
+    # Save new date
+    settings['last_daily_report_date'] = today
+    storage.save_settings(settings)
+    
+    # Sync session state
     st.session_state.last_notified_date = today
 
 def check_price_alerts(price, ticker, name):

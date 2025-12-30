@@ -46,9 +46,9 @@ def main():
         st.success = lambda x, **kwargs: print(f"[Success] {x}")
         st.markdown = lambda x, **kwargs: print(f"[Markdown] {x}")
         
-        # Run report
-        send_daily_report(manual=True)
-        print("Report generation processed.")
+        # Run report (Managed)
+        process_morning_notifications()
+        print("Daily check processed.")
         
     except Exception:
         print("!!! CRITICAL ERROR !!!")
