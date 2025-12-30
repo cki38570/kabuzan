@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from modules.styles import get_custom_css
+from modules.ui import get_card_css, render_stock_card
 from modules.data import get_stock_data, get_credit_data, get_next_earnings_date, get_market_sentiment
 from modules.analysis import calculate_indicators, calculate_trading_strategy
 import datetime
@@ -36,10 +37,9 @@ def save_watchlist(watchlist):
     storage.save_watchlist(watchlist)
 
 # Page Config
-# Force Deploy: Fix pandas-ta
 st.set_page_config(
     page_title="株価AI分析",
-    layout="wide", # Changed to wide for better dashboard view
+    layout="wide", 
     initial_sidebar_state="expanded"
 )
 
@@ -63,105 +63,101 @@ if ('serviceWorker' in navigator) {
 """
 st.markdown(pwa_meta, unsafe_allow_html=True)
 
-# Inject Custom CSS
+# Inject Custom CSS (Base + Mobile/Card UI)
 st.markdown(get_custom_css(), unsafe_allow_html=True)
+st.markdown(get_card_css(), unsafe_allow_html=True)
 
-# --- Sidebar: Analysis Settings ---
+# --- Sidebar: Navigation & Settings ---
 with st.sidebar:
-    st.header("🛠️ 分析設定")
-    with st.expander("テクニカル指標設定"):
+    st.header("⚙️ メニュー")
+    
+    # 1. Main Navigation / Analysis Settings
+    with st.expander("🛠️ 分析・表示設定", expanded=False):
+        st.caption("テクニカル指標のパラメータ")
         params = {}
         params['sma_short'] = st.number_input("短期移動平均 (日)", 3, 20, 5)
         params['sma_mid'] = st.number_input("中期移動平均 (日)", 10, 50, 25)
         params['sma_long'] = st.number_input("長期移動平均 (日)", 50, 200, 75)
         params['rsi_period'] = st.number_input("RSI期間", 5, 30, 14)
         params['bb_window'] = st.number_input("ボリンジャー期間", 10, 50, 20)
+        
+        st.divider()
+        if 'comparison_mode' not in st.session_state:
+            st.session_state.comparison_mode = False
+        
+        # Comparison Mode Toggle
+        comparison_mode = st.checkbox("📊 銘柄比較モード", value=st.session_state.comparison_mode)
+        if comparison_mode != st.session_state.comparison_mode:
+            st.session_state.comparison_mode = comparison_mode
+            st.rerun()
 
-# --- Sidebar: Watchlist ---
-if 'watchlist' not in st.session_state:
-    st.session_state.watchlist = load_watchlist()
-    if not st.session_state.watchlist:
-        st.session_state.watchlist = DEFAULT_WATCHLIST
+    # 2. Watchlist (Mobile Cards)
+    if 'watchlist' not in st.session_state:
+        st.session_state.watchlist = load_watchlist()
+        if not st.session_state.watchlist:
+            st.session_state.watchlist = DEFAULT_WATCHLIST
 
-if 'comparison_mode' not in st.session_state:
-    st.session_state.comparison_mode = False
-
-with st.sidebar:
     st.markdown("---")
     st.header("👀 ウォッチリスト")
-    new_ticker = st.text_input("追加", placeholder="コード (例: 7203)")
-    if st.button("リストに追加"):
-        if new_ticker:
-            exists = any(item['code'] == new_ticker for item in st.session_state.watchlist)
-            if not exists:
-                st.session_state.watchlist.append({'code': new_ticker, 'name': '読み込み中...'})
-                save_watchlist(st.session_state.watchlist)
     
-    # Sort watchlist by code for consistency
-    st.session_state.watchlist.sort(key=lambda x: x['code'])
+    # Add Ticker
+    with st.form("add_ticker_form", clear_on_submit=True):
+        col_mn1, col_mn2 = st.columns([3, 1])
+        new_ticker = col_mn1.text_input("追加", placeholder="コード (例: 7203)", label_visibility="collapsed")
+        if col_mn2.form_submit_button("＋"):
+            if new_ticker:
+                exists = any(item['code'] == new_ticker for item in st.session_state.watchlist)
+                if not exists:
+                    st.session_state.watchlist.append({'code': new_ticker, 'name': '読み込み中...'})
+                    save_watchlist(st.session_state.watchlist)
+                    st.rerun()
 
+    # Sort watchlist
+    st.session_state.watchlist.sort(key=lambda x: x['code'])
     selected_from_list = None
     
-    # Pre-fetch data for watchlist to display mini-info (Optimize: batch fetch if possible, or cache)
-    # Using lightweight fetch loop for now as watchlist is usually small.
     import yfinance as yf
     
+    # Render Cards
     for item in st.session_state.watchlist:
-        # Cleanup name if it contains 'Mock:'
         clean_name = item['name'].replace('Mock: ', '')
         code = item['code']
         
-        # lightweight fetch for badge
+        # Lightweight fetch for card info
+        # Optimization: Could cache this in session state to avoid re-fetch on every interaction
         try:
-             # Handle JP tickers suffix
-             fetch_code = code
-             if code.isdigit() and len(code) == 4:
-                 fetch_code = f"{code}.T"
-                 
-             # Use fast_info for minimal latency
+             fetch_code = f"{code}.T" if code.isdigit() and len(code) == 4 else code
              t = yf.Ticker(fetch_code)
-             # Note: fast_info might not have 'regular_market_previous_close' reliably in all versions, 
-             # but usually has 'previous_close' or can derive change.
-             # We use a try-except block to be safe.
              curr = t.fast_info.last_price
              prev = t.fast_info.previous_close
              
              if curr and prev:
                  chg = curr - prev
                  pct = (chg / prev) * 100
-                 
-                 icon = "↗️" if chg > 0 else "↘️"
-                 label = f"{clean_name}\n{curr:,.0f} ({pct:+.1f}%)"
              else:
-                 label = f"{clean_name} ({code})"
-        except Exception:
-             label = f"{clean_name} ({code})"
+                 chg = 0
+                 pct = 0
+                 curr = 0
+        except:
+             curr = 0; chg = 0; pct = 0
+        
+        # Use new Card Component
+        if render_stock_card(code, clean_name, curr, chg, pct, key=f"card_{code}"):
+            selected_from_list = code
 
-        # Button with updated label
-        # use_container_width is valid for buttons
-        if st.button(label, key=f"btn_{code}_{label}", use_container_width=True):
-             selected_from_list = code
-            
-    if st.button("🗑️ リストをクリア"):
+    if st.button("🗑️ リストをクリア", key="clear_wl"):
         st.session_state.watchlist = []
         save_watchlist(st.session_state.watchlist)
         st.rerun()
     
     st.markdown("---")
-    st.header("⚙️ 機能")
-    
-    comparison_mode = st.checkbox("📊 銘柄比較モード", value=st.session_state.comparison_mode)
-    if comparison_mode != st.session_state.comparison_mode:
-        st.session_state.comparison_mode = comparison_mode
-        st.rerun()
-
-    st.markdown("---")
-    st.markdown("---")
+    # Notification Settings (Persisted)
     show_notification_settings()
 
 # --- Global Data ---
+# Load settings for process_morning_notifications inside
+process_morning_notifications() 
 market_trend = get_market_sentiment()
-process_morning_notifications()
 market_badge_color = "#00ff00" if market_trend == "Bull" else "#ff4b4b" if market_trend == "Bear" else "#808080"
 
 # --- Main Content ---

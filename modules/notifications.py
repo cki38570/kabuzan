@@ -36,29 +36,55 @@ def show_notification_settings():
     from modules.storage import storage
     st.markdown("### 🔔 通知設定")
     
-    notify_line = st.checkbox("LINE通知 (Messaging API)", value=st.session_state.get('notify_line', False))
+    # Load settings from storage to persist state
+    settings = storage.load_settings()
+    current_notify_state = settings.get('notify_line', False)
+    
+    # Checkbox with persisted state
+    notify_line = st.checkbox("LINE通知 (Messaging API)", value=current_notify_state)
+    
+    # Save if changed
+    if notify_line != current_notify_state:
+        settings['notify_line'] = notify_line
+        storage.save_settings(settings)
+        # Update session state immediately
+        st.session_state.notify_line = notify_line
+        st.toast(f"LINE通知を {'ON' if notify_line else 'OFF'} にしました")
+    else:
+        # Sync session state
+        st.session_state.notify_line = notify_line
+
     if notify_line:
-        channel_token = st.secrets.get("LINE_CHANNEL_ACCESS_TOKEN", "")
+        # Auth Check with Fallback for GitHub Actions (Headless)
+        channel_token = None
+        try:
+             channel_token = st.secrets.get("LINE_CHANNEL_ACCESS_TOKEN", "")
+        except:
+             pass
+             
+        if not channel_token:
+             # Fallback to Environment Variable
+             channel_token = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN", "")
+             
         if not channel_token:
             st.error("⚠️ LINE認証情報未設定")
         else:
-            st.success("✅ LINE有効")
-    
-    st.session_state.notify_line = notify_line
+            # Mask token for security
+            masked = channel_token[:4] + "*" * 4
+            st.caption(f"✅ LINE有効 (Token: {masked})")
     
     # Advanced Features UI
     if notify_line:
         with st.expander("🛡️ PFガーディアン設定", expanded=False):
-            settings = storage.load_settings()
+            # Settings are already loaded above
             
             p_target = st.number_input("利確目安 (%)", value=float(settings.get("profit_target", 10.0)), step=1.0)
             l_limit = st.number_input("損切目安 (%)", value=float(settings.get("stop_loss_limit", -5.0)), step=1.0)
             
             if st.button("設定を保存"):
-                new_settings = settings.copy()
-                new_settings["profit_target"] = p_target
-                new_settings["stop_loss_limit"] = l_limit
-                if storage.save_settings(new_settings):
+                settings["profit_target"] = p_target
+                settings["stop_loss_limit"] = l_limit
+                if storage.save_settings(settings):
                     st.success("保存しました")
                 else:
                     st.error("保存失敗")
@@ -163,13 +189,29 @@ def send_daily_report(manual=False):
         # ... (Existing placeholder logic retained)
         # Ideally fetching data here.
 
-        # 4. AI Scanner (Mini-Scan)
+        # 4. AI Scanner (News Impact Analysis)
         scanner_msg = ""
         try:
-             # Simulated Scanner Output
-             scanner_msg = "\n🔭 **AI注目株 (Beta)**\n自動車セクターが過熱気味です。\n"
-        except:
-            pass
+             # Fetch news for portfolio tickers
+             news_map = {}
+             if portfolio_tickers:
+                 with st.spinner('📰 関連ニュースを収集中...'):
+                     for ticker in portfolio_tickers[:5]: # Cap at 5 to save time/tokens
+                         news = get_stock_news(ticker)
+                         if news:
+                             news_map[ticker] = news
+                 
+                 # Analyze Impact
+                 if news_map:
+                     ai_comment = analyze_news_impact(portfolio, news_map)
+                     scanner_msg = f"\n🔭 **AI市場分析**\n{ai_comment}\n"
+                 else:
+                     scanner_msg = "\n🔭 **AI市場分析**\n特筆すべき関連ニュースはありませんでした。\n"
+             else:
+                 scanner_msg = "\n🔭 **AI市場分析**\nポートフォリオが空のため、分析をスキップしました。\n"
+        except Exception as e:
+            print(f"AI/News Error: {e}")
+            scanner_msg = "\n⚠️ AI分析中にエラーが発生しました。\n"
 
         # 5. Earnings Alerts
         earnings_msg = ""
@@ -208,7 +250,16 @@ def send_daily_report(manual=False):
 
 def process_morning_notifications():
     """Run daily report check."""
-    if not st.session_state.get('notify_line'):
+    # Load settings to check if notification is enabled (Persisted)
+    from modules.storage import storage
+    settings = storage.load_settings()
+    notify_enabled = settings.get('notify_line', False)
+    
+    # Sync to session state if needed
+    if 'notify_line' not in st.session_state:
+        st.session_state.notify_line = notify_enabled
+    
+    if not notify_enabled:
         return
     
     today = datetime.datetime.now().strftime('%Y-%m-%d')
@@ -286,7 +337,7 @@ def check_technical_signals(ticker, price, indicators, name):
     if bb_mid > 0:
         bandwidth = (bb_up - bb_low) / bb_mid
         if bandwidth < 0.05: # Very tight squeeze
-            signals.append("⚡ バンドスクイーズ (爆発前夜)")
+            signals.append("⚡ バンドスクイーズ (変動予兆)")
             
     # 3. Key Levels
     if price <= bb_low * 0.99:

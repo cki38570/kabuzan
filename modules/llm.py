@@ -49,68 +49,67 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
         transcript_data = pd.DataFrame()
         
     # Advanced Prompt with Self-Reflection and Macro/Transcript Context
+    # Advanced Prompt with Self-Reflection, Limit Verification, and Macro/Transcript Context
     prompt = f"""
     # Role
     あなたは「世界トップクラスのヘッジファンド・シニア戦略アナリスト」です。
     機関投資家レベルの、多角的かつ論理的な投資判断を提供してください。
 
+    # System Signal Integration (重要な前提)
+    本システムのルールベース分析（テクニカル）は以下のシグナルを出しています：
+    - **判定**: {strategic_data.get('strategy_msg', 'N/A')}
+    - **方針**: {strategic_data.get('action_msg', 'N/A')}
+
+    **あなたのタスクは、このシステム判定を鵜呑みにせず、検証することです。**
+    - システム判定とあなたの分析が一致する場合 → その根拠を強化してください。
+    - システム判定と矛盾する場合（例：システムは買いだが、あなたはマクロリスクで売りと判断） → **なぜシステム判定が現状に適さないか**を論理的に反論し、あなたの判断を優先してください。
+
     # Self-Reflection Task (深層思考プロセス)
-    分析において、以下の2人のエキスパートの徹底的な対話を経て、最終結論（シニアアナリストとしてのあなた）を導き出してください：
-    1. **強気派アナリスト (Bull)**: 
-       - テクニカルの上昇サイン、好材料、マクロの追い風を最大評価する。
-       - 「なぜ今買うべきか」のポジティブな根拠を構築する。
-    2. **弱気派アナリスト (Bear)**: 
-       - 上値抵抗線、需給の悪化（信用残）、潜在的なマクロリスク、ニュースの裏側を厳しく指摘する。
-       - 「なぜ今買うべきではないか」「最悪のシナリオは何か」を突きつける。
+    以下の2人のエキスパートの対話を経て、最終結論を導き出してください：
+    1. **強気派 (Bull)**: テクニカル好転や好材料を強調。
+    2. **弱気派 (Bear)**: 上値抵抗、信用需給の悪化、マクロリスクを強調。
 
     # Strategic Analysis Priorities
-    - **時価総額と流動性**: 時価総額に基づき、値動きの軽重や機関投資家の参入可能性を考慮せよ。
-    - **財務の質 (ROE/PBR/利回り)**: 単なる割安さではなく、資本効率(ROE)と株主還元のバランスから真の価値を評価せよ。
-    - **マクロと個別株の相関**: 日経平均やドル円のトレンドが、この銘柄にどのようなベータ（連動性）をもたらすか分析せよ。
-    - **イベントリスク (決算)**: 直近の決算日が近い場合、その不確実性を最大の考慮事項とせよ。
-
-    # Mission
-    曖昧さを排除し、「期待値（勝率×利益幅）」が最大化される、具体的かつ実行可能なエントリー・利確・損切戦略を提示すること。
+    - **時間軸の明確化**: 推奨されるトレードの時間軸（短期：数日〜1週間 / 中期：1〜3ヶ月）を必ず指定せよ。
+    - **時価総額と流動性**: 値動きの軽重や機関投資家の参入可能性を考慮せよ。
+    - **イベントリスク**: 決算またぎのリスクを考慮せよ。
 
     # Signal & Trade Plan Requirements (必須事項)
-    - **明確な判定**: 「BUY ENTRY」「SELL ENTRY」「NEUTRAL (様子見)」のいずれかを断定せよ。理由なき「様子見」は避け、テクニカル的根拠に基づいて判断せよ。
-    - **トレードプラン**: エントリー価格、利確ターゲット、損切ラインを、現在のボラティリティ(ATR)や主要な抵抗/支持線から論理的に算出せよ。
-    - **テクニカル数値の義務化**: 判断の根拠として、必ず「RSIが〇〇で乖離している」「SMA25が〇〇円で上値を抑えている」など、提供された数値を引用せよ。
+    - **明確な判定**: 「BUY ENTRY」「SELL ENTRY」「NEUTRAL (様子見)」のいずれかを断定せよ。
+    - **不確実性の排除**: 空売り推奨の場合は明確に「SELL ENTRY」とせよ。買い推奨なら「BUY ENTRY」。
+    - **トレードプラン**: エントリー、利確、損切価格を具体的数値で提示せよ。
 
     # Input Data (市場データ)
     - 銘柄: {ticker}
-    - 現在値: ¥{price_info.get('current_price') or 0:,.1f}
-    - 変化率: {price_info.get('change_percent') or 0:+.2f}%
+    - 現在値: ¥{price_info.get('current_price') or 0:,.1f} ({price_info.get('change_percent') or 0:+.2f}%)
     
     ## テクニカル指標
-    - 【日足】: {indicators.get('trend_desc', 'N/A')}, SMA(5/25/75): {indicators.get('sma_short')}/{indicators.get('sma_mid')}/{indicators.get('sma_long')}, RSI: {indicators.get('rsi')}, ATR: {indicators.get('atr')}
-    - 【週足】: {weekly_indicators.get('trend_desc', 'N/A')}, SMA(13/26/52): {weekly_indicators.get('sma_short')}/{weekly_indicators.get('sma_mid')}/{weekly_indicators.get('sma_long')}
+    - 【日足】: {indicators.get('trend_desc', 'N/A')}, RSI: {indicators.get('rsi')}, ATR: {indicators.get('atr')}
+    - 【週足】: {weekly_indicators.get('trend_desc', 'N/A')}
     
     ## マクロ経済環境
-    - 日経平均平均 (^N225): {macro_data.get('n225', {}).get('price', 'N/A')} ({macro_data.get('n225', {}).get('change_pct', 0):+.2f}%, {macro_data.get('n225', {}).get('trend', 'N/A')})
-    - ドル円 (USD/JPY): {macro_data.get('usdjpy', {}).get('price', 'N/A')} ({macro_data.get('usdjpy', {}).get('change_pct', 0):+.2f}%, {macro_data.get('usdjpy', {}).get('trend', 'N/A')})
+    - 日経平均: {macro_data.get('n225', {}).get('price', 'N/A')}
     
     ## 検出パターン
     {_format_patterns_for_prompt(patterns)}
     
-    ## 需給・ファンダ (Supply/Demand)
+    ## 需給・ファンダ
     {_format_fundamentals_for_prompt(credit_data)}
     
-    ## 直近ニュース (Sentiment)
+    ## 直近ニュース & 決算
     {_format_news_for_prompt(news_data)}
-
-    ## 決算説明会文字起こし要約 (Transcripts)
     {_format_transcripts_for_prompt(transcript_data)}
 
     # Output Format (Structured JSON)
-    必ず以下の構造のJSON形式で出力してください。Markdownのコードブロック（```json ... ```）で囲んでください。
+    ```json
     {{
         "status": "【BUY ENTRY / SELL ENTRY / NEUTRAL】",
+        "timeframe": "【短期 / 中期 / 長期】",
         "total_score": 0-100,
-        "conclusion": "要約された結論（1行）",
-        "bull_view": "強気派の詳細な視点（テクニカル数値を含む）",
-        "bear_view": "弱気派の詳細な視点（テクニカル数値を含む）",
-        "final_reasoning": "シニアアナリストとして両者を統合した、多角的な最終判断根拠",
+        "conclusion": "結論（1行）",
+        "bull_view": "強気派の視点",
+        "bear_view": "弱気派の視点",
+        "final_reasoning": "システム判定({strategic_data.get('strategy_msg')})に対する評価（一致/不一致の理由）を含む最終根拠",
         "setup": {{
             "entry_price": 数値,
             "target_price": 数値,
@@ -120,10 +119,10 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
         "details": {{
             "technical_score": 0-60,
             "sentiment_score": 0-40,
-            "sentiment_label": "ポジティブ/中立/ネガティブ",
-            "notes": "特記事項（決算日、マクロ要因、需給の数値的懸念等）"
+            "sentiment_label": "ポジティブ/中立/ネガティブ"
         }}
     }}
+    ```
     """
     
     error_details = []
