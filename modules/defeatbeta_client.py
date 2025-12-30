@@ -36,11 +36,20 @@ class DefeatBetaClient:
             print(f"Warning loading httpfs: {e}")
         
         if self.token:
-            # Simple and robust way for all versions
+            # Try modern Secret API (DuckDB 0.10+) with CORRECT syntax for 1.4.3
             try:
-                self.con.execute(f"SET http_headers = {{'Authorization': 'Bearer {self.token}'}};")
-            except Exception as e:
-                print(f"Warning: Could not set http_headers: {e}")
+                self.con.execute(f"""
+                    CREATE OR REPLACE SECRET hf_token (
+                        TYPE HTTP,
+                        EXTRA_HTTP_HEADERS {{'Authorization': 'Bearer {self.token}'}}
+                    );
+                """)
+            except Exception as e1:
+                # Fallback to legacy http_headers
+                try:
+                    self.con.execute(f"SET http_headers = {{'Authorization': 'Bearer {self.token}'}};")
+                except Exception as e2:
+                    print(f"Warning: Could not set auth headers. Modern: {e1}, Legacy: {e2}")
 
     def get_stock_history(self, ticker_code: str, limit: int = 365) -> pd.DataFrame:
         """
