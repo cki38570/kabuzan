@@ -108,9 +108,10 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     - 銘柄: {ticker}
     - 現在値: ¥{price_info.get('current_price') or 0:,.1f} ({price_info.get('change_percent') or 0:+.2f}%)
     
-    ## テクニカル指標
+    ## テクニカル指標・需給
     - 【日足】: {indicators.get('trend_desc', 'N/A')}, RSI: {indicators.get('rsi')}, ATR: {indicators.get('atr')}
     - 【週足】: {weekly_indicators.get('trend_desc', 'N/A')}
+    - 【出来高】: {'🔥 出来高が急増（過去20日平均の {:.1f}倍）' .format(strategic_data.get('volume_ratio', 1.0)) if strategic_data.get('volume_spike') else '平常。'}
     
     ## マクロ経済環境
     - 日経平均: {macro_data.get('n225', {}).get('price', 'N/A')}

@@ -162,6 +162,9 @@ def calculate_trading_strategy(df, settings=None):
     if is_high_risk:
         action_msg += f"\n\n⚠️ **リスク警告**: ボラティリティが非常に高いため、通常の損切り設定({sl_limit_pct}%)を優先しました。リスク許容度に注意してください。"
 
+    # --- Volume Spike Detection ---
+    volume_spike_data = detect_volume_spike(df)
+
     return {
         'trend_desc': trend_desc,
         'trend_score': trend_score,
@@ -173,8 +176,33 @@ def calculate_trading_strategy(df, settings=None):
         'risk_reward': rr_ratio,
         'sl_source': sl_source,
         'is_high_risk': is_high_risk,
-        'atr_value': atr
+        'atr_value': atr,
+        'volume_spike': volume_spike_data['is_spike'],
+        'volume_ratio': volume_spike_data['ratio']
     }
+
+def detect_volume_spike(df, window=20, threshold=2.0):
+    """
+    Detect if the latest volume is significantly higher than the simple moving average of volume.
+    Returns: dict with 'is_spike' (bool) and 'ratio' (float)
+    """
+    if df is None or len(df) < window:
+        return {'is_spike': False, 'ratio': 1.0}
+    
+    # Calculate volume MA
+    df = df.copy()
+    df['VolMA'] = df['Volume'].rolling(window=window).mean()
+    
+    last_vol = df['Volume'].iloc[-1]
+    avg_vol = df['VolMA'].iloc[-1]
+    
+    if avg_vol == 0 or pd.isna(avg_vol):
+        return {'is_spike': False, 'ratio': 1.0}
+        
+    ratio = last_vol / avg_vol
+    is_spike = ratio >= threshold
+    
+    return {'is_spike': is_spike, 'ratio': ratio}
 
 def calculate_relative_strength(stock_df, macro_data):
     """
