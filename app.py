@@ -319,7 +319,8 @@ if ticker_input and not st.session_state.comparison_mode:
                 # But the charts might need the specific columns from calculate_indicators.
                 df = calculate_indicators(df, params) 
                 
-                credit_data = dm.get_financial_data(ticker_input)
+                financial_data = dm.get_financial_data(ticker_input)
+                credit_df = get_credit_data(ticker_input)
                 
                 # --- Pre-calculation for Dashboard ---
                 strategic_data = calculate_trading_strategy(df, settings=settings)
@@ -335,7 +336,7 @@ if ticker_input and not st.session_state.comparison_mode:
                 enhanced_metrics = calculate_advanced_metrics(df, info['current_price'])
                 
                 report_raw = generate_gemini_analysis(
-                    ticker_input, info, indicators, credit_data, strategic_data, 
+                    ticker_input, info, indicators, financial_data, strategic_data, 
                     enhanced_metrics=enhanced_metrics, patterns=patterns,
                     extra_context=extra_context, weekly_indicators=weekly_indicators,
                     news_data=news_data, macro_data=macro_context,
@@ -422,9 +423,9 @@ if ticker_input and not st.session_state.comparison_mode:
                  tcol2.metric("地合い差分", f"{relative_strength['diff']:+.1f}%")
                  tcol3.metric("現在値", f"¥{info['current_price']:,.0f}")
                  
-                 if credit_data:
+                 if credit_df is not None and not credit_df.empty:
                     st.markdown("#### 信用残推移")
-                    c_chart_data = create_credit_chart(credit_data)
+                    c_chart_data = create_credit_chart(credit_df)
                     if c_chart_data is not None:
                         st.bar_chart(c_chart_data)
                  
