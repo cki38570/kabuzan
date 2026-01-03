@@ -101,6 +101,7 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     # Strategic Analysis Priorities
     - **時間軸の明確化**: 推奨されるトレードの時間軸（短期：数日〜1週間 / 中期：1〜3ヶ月）を必ず指定せよ。
     - **イベントリスク**: 決算またぎのリスクを考慮せよ。
+    - **論理性**: なぜその結論に至ったか、ファンダメンタルズとテクニカルの両面から深く論述せよ。表面的で短い分析は禁止する。
 
     # Signal & Trade Plan Requirements (必須事項)
     - **明確な判定**: 「BUY ENTRY」「SELL ENTRY」「NEUTRAL (様子見)」のいずれかを断定せよ。
@@ -135,20 +136,20 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
         "status": "【BUY ENTRY / SELL ENTRY / NEUTRAL】",
         "timeframe": "【短期 / 中期 / 長期】",
         "total_score": 0-100,
-        "conclusion": "結論（1行）",
-        "sector_analysis": "セクター内での立ち位置やバリュエーション評価（1-2行）",
-        "bull_view": "強気派の視点",
-        "bear_view": "弱気派の視点",
+        "conclusion": "結論（投資家に向けた明確なメッセージ）",
+        "sector_analysis": "セクター内での立ち位置やバリュエーション評価（詳細に記述）",
+        "bull_view": "強気派の視点（具体的な材料を挙げて詳細に）",
+        "bear_view": "弱気派の視点（リスク要因を具体的に挙げて詳細に）",
         "transcript_score": 1-5,
-        "transcript_reason": "決算説明会スコアの理由（短く）",
+        "transcript_reason": "決算説明会データの評価理由",
         "backtest_feedback": "過去の勝率・成績を踏まえた戦略へのアドバイス",
-        "final_reasoning": "システム判定({strategic_data.get('strategy_msg')})に対する評価（一致/不一致の理由）を含む最終根拠",
+        "final_reasoning": "システム判定({strategic_data.get('strategy_msg')})に対する評価を含む最終根拠（200文字程度で論理的に記述）",
         "action_plan": {{
             "recommended_action": "【成行買い / 指値注文 / 様子見 / 利益確定 / 損切り】",
             "buy_limit": 数値(指値目安、成行なら0),
             "sell_limit": 数値(利確目安),
             "stop_loss": 数値(損切目安),
-            "rationale": "この価格設定の根拠（例: 直近安値をサポートラインとしたため）"
+            "rationale": "この価格設定の根拠（サポートライン、ボリンジャーバンド等を引用して具体的に）"
         }},
         "setup": {{
             "entry_price": 数値,
