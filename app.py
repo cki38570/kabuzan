@@ -390,12 +390,25 @@ if ticker_input and not st.session_state.comparison_mode:
                 st.markdown(dashboard_html, unsafe_allow_html=True)
                 
                 # 2. AI Reasoning
-                with st.container(): # Use container instead of expander for main view
+                with st.container():
                     if report_data:
-                        st.markdown(f"### {report_data.get('headline', '分析レポート')}")
-                        st.markdown(report_data.get('analysis_body', '詳細な分析データを取得できませんでした。'))
+                        # Header
+                        conclusion = report_data.get('conclusion', 'AI分析レポート')
+                        st.markdown(f"### {conclusion}")
+                        
+                        # Bull vs Bear
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            st.info(f"**🐂 強気派の視点**\n\n{report_data.get('bull_view', 'データ不足')}")
+                        with c2:
+                            st.error(f"**🐻 弱気派の視点**\n\n{report_data.get('bear_view', 'データ不足')}")
+                        
+                        # Final Conclusion
+                        st.markdown("#### 💬 総合判断")
+                        st.markdown(report_data.get('final_reasoning', '現在、詳細な分析を生成できませんでした。'))
+
                         if report_data.get('transcript_reason'):
-                             st.info(f"💬 **決算自信度 ({stars}):** {report_data['transcript_reason']}")
+                             st.caption(f"決算自信度 ({stars}): {report_data['transcript_reason']}")
                              
                 with st.expander("🔄 バックテスト結果"):
                      st.markdown(format_backtest_results(backtest_results))
