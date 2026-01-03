@@ -363,21 +363,22 @@ if ticker_input and not st.session_state.comparison_mode:
                 stars = "★" * int(t_score) + "☆" * (5 - int(t_score)) if t_score else "N/A"
                 
                 dashboard_html = f"""
-                <div style='background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(244, 63, 94, 0.1) 100%); 
-                            padding: 24px; border-radius: 20px; border: 1px solid {accent_color}66; margin-bottom: 25px; 
-                            backdrop-filter: blur(10px); box-shadow: 0 8px 32px rgba(0,0,0,0.3);'>
-                    <div style='display: flex; justify-content: space-between; align-items: flex-start;'>
-                        <div>
-                            <span style='font-size: 2.5rem; font-weight: 900; color: {accent_color}; text-shadow: 0 0 10px {accent_color}33;'>{status}</span>
-                            {f"<div style='background: #ff4b4b; color: white; padding: 4px 12px; border-radius: 50px; display: inline-block; font-size: 0.8rem; font-weight: bold; margin-left: 10px; box-shadow: 0 0 10px rgba(255,75,75,0.5); vertical-align: middle; margin-top: -10px;'>🔥 出来高急増！</div>" if strategic_data.get('volume_spike') else ""}
-                        </div>
-                        <div style='text-align: right;'>
-                            <span style='font-size: 0.8rem; color: #8892b0;'>AI SCORE</span><br/>
-                            <span style='font-size: 3rem; font-weight: 1000; color: {accent_color};'>{total_score}<small style='font-size: 1rem; color: #8892b0;'>/100</small></span>
-                        </div>
-                    </div>
-                </div>
-                """
+<div style='background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(244, 63, 94, 0.1) 100%); 
+            padding: 24px; border-radius: 20px; border: 1px solid {accent_color}66; margin-bottom: 25px; 
+            backdrop-filter: blur(10px); box-shadow: 0 8px 32px rgba(0,0,0,0.3);'>
+    <div style='display: flex; justify-content: space-between; align-items: flex-start;'>
+        <div>
+            <span style='font-size: 0.8rem; color: #8892b0; text-transform: uppercase; letter-spacing: 2px;'>Gemini Analyst</span><br/>
+            <span style='font-size: 2.5rem; font-weight: 900; color: {accent_color}; text-shadow: 0 0 10px {accent_color}33;'>{status}</span>
+            {f"<div style='background: #ff4b4b; color: white; padding: 4px 12px; border-radius: 50px; display: inline-block; font-size: 0.8rem; font-weight: bold; margin-left: 10px; box-shadow: 0 0 10px rgba(255,75,75,0.5); vertical-align: middle; margin-top: -10px;'>🔥 出来高急増！</div>" if strategic_data.get('volume_spike') else ""}
+        </div>
+        <div style='text-align: right;'>
+            <span style='font-size: 0.8rem; color: #8892b0;'>AI SCORE</span><br/>
+            <span style='font-size: 3rem; font-weight: 1000; color: {accent_color};'>{total_score}<small style='font-size: 1rem; color: #8892b0;'>/100</small></span>
+        </div>
+    </div>
+</div>
+"""
                 st.markdown(dashboard_html, unsafe_allow_html=True)
                 
                 # 2. AI Reasoning & Setup
