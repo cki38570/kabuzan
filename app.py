@@ -362,100 +362,100 @@ if ticker_input and not st.session_state.comparison_mode:
                         "analysis_body": f"AIからの応答を正しく読み取れませんでした。システム管理者に連絡してください。\nエラー: {e}"
                     }
 
-            # --- Portfolio Quick Add (Moved Top) ---
-            with st.expander("💰 ポートフォリオに追加", expanded=False):
-                 with st.form("portfolio_quick_add"):
-                    p_col1, p_col2 = st.columns(2)
-                    p_qty = p_col1.number_input("株数", min_value=0, step=100)
-                    p_p = p_col2.number_input("単価", min_value=0.0, value=float(info['current_price']))
-                    if st.form_submit_button("ポートフォリオに反映"):
-                        add_to_portfolio(ticker_input, info['name'], p_qty, p_p)
-                        st.success(f"{info['name']} を追加しました")
-                        st.rerun()
+                # --- Portfolio Quick Add (Moved Top) ---
+                with st.expander("💰 ポートフォリオに追加", expanded=False):
+                     with st.form("portfolio_quick_add"):
+                        p_col1, p_col2 = st.columns(2)
+                        p_qty = p_col1.number_input("株数", min_value=0, step=100)
+                        p_p = p_col2.number_input("単価", min_value=0.0, value=float(info['current_price']))
+                        if st.form_submit_button("ポートフォリオに反映"):
+                            add_to_portfolio(ticker_input, info['name'], p_qty, p_p)
+                            st.success(f"{info['name']} を追加しました")
+                            st.rerun()
 
-            # --- Main Content via Tabs ---
-            tab_ai, tab_chart, tab_data = st.tabs(["🤖 AI分析", "📈 チャート", "📊 データ・詳細"])
+                # --- Main Content via Tabs ---
+                tab_ai, tab_chart, tab_data = st.tabs(["🤖 AI分析", "📈 チャート", "📊 データ・詳細"])
 
-            with tab_ai:
-                 # 1. Summary Dashboard
-                st.markdown("### 📊 Decision Center")
-                total_score = report_data.get('total_score', 0)
-                status = report_data.get('status', 'NEUTRAL')
-                accent_color = "#10b981" if "BUY" in status else "#f43f5e" if "SELL" in status else "#64748b"
-                t_score = report_data.get('transcript_score', 0)
-                stars = "★" * int(t_score) + "☆" * (5 - int(t_score)) if t_score else "N/A"
+                with tab_ai:
+                     # 1. Summary Dashboard
+                    st.markdown("### 📊 Decision Center")
+                    total_score = report_data.get('total_score', 0)
+                    status = report_data.get('status', 'NEUTRAL')
+                    accent_color = "#10b981" if "BUY" in status else "#f43f5e" if "SELL" in status else "#64748b"
+                    t_score = report_data.get('transcript_score', 0)
+                    stars = "★" * int(t_score) + "☆" * (5 - int(t_score)) if t_score else "N/A"
+                    
+                    badge_html = f"<div style='background: #ff4b4b; color: white; padding: 4px 12px; border-radius: 50px; display: inline-block; font-size: 0.8rem; font-weight: bold; margin-left: 10px; box-shadow: 0 0 10px rgba(255,75,75,0.5); vertical-align: middle; margin-top: -10px;'>🔥 出来高急増！</div>" if strategic_data.get('volume_spike') else ""
+                    dashboard_html = f"<div style='background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(244, 63, 94, 0.1) 100%); padding: 24px; border-radius: 20px; border: 1px solid {accent_color}66; margin-bottom: 25px; backdrop-filter: blur(10px); box-shadow: 0 8px 32px rgba(0,0,0,0.3);'><div style='display: flex; justify-content: space-between; align-items: flex-start;'><div><span style='font-size: 0.8rem; color: #8892b0; text-transform: uppercase; letter-spacing: 2px;'>Gemini Analyst</span><br/><span style='font-size: 2.5rem; font-weight: 900; color: {accent_color}; text-shadow: 0 0 10px {accent_color}33;'>{status}</span>{badge_html}</div><div style='text-align: right;'><span style='font-size: 0.8rem; color: #8892b0;'>AI SCORE</span><br/><span style='font-size: 3rem; font-weight: 1000; color: {accent_color};'>{total_score}<small style='font-size: 1rem; color: #8892b0;'>/100</small></span></div></div></div>"
+                    st.markdown(dashboard_html, unsafe_allow_html=True)
+                    
+                    # 2. AI Reasoning
+                    with st.container():
+                        if report_data:
+                            # Header
+                            conclusion = report_data.get('conclusion', 'AI分析レポート')
+                            st.markdown(f"### {conclusion}")
+                            
+                            # Bull vs Bear
+                            c1, c2 = st.columns(2)
+                            with c1:
+                                st.info(f"**🐂 強気派の視点**\n\n{report_data.get('bull_view', 'データ不足')}")
+                            with c2:
+                                st.error(f"**🐻 弱気派の視点**\n\n{report_data.get('bear_view', 'データ不足')}")
+                            
+                            # Final Conclusion
+                            st.markdown("#### 💬 総合判断")
+                            st.markdown(report_data.get('final_reasoning', '現在、詳細な分析を生成できませんでした。'))
+
+                            if report_data.get('transcript_reason'):
+                                 st.caption(f"決算自信度 ({stars}): {report_data['transcript_reason']}")
+                                 
+                    with st.expander("🔄 バックテスト結果"):
+                         st.markdown(format_backtest_results(backtest_results))
+                         if report_data.get('backtest_feedback'):
+                              st.warning(f"💡 AIの反省: {report_data['backtest_feedback']}")
+
+                with tab_chart:
+                     # Lightweight Charts (No Plotly)
+                     st.markdown(f"**{info['name']} ({ticker_input})** | {info.get('sector', '')}")
+                     
+                     chart_daily = create_lightweight_chart(df, info['name'], strategic_data, interval="1d")
+                     if chart_daily:
+                         st.markdown("##### 日足")
+                         chart_daily.load()
+                     
+                     if not df_weekly.empty:
+                         chart_weekly = create_lightweight_chart(df_weekly, info['name'], strategic_data, interval="1wk")
+                         if chart_weekly:
+                             st.markdown("##### 週足")
+                             chart_weekly.load()
+
+                with tab_data:
+                     tcol1, tcol2, tcol3 = st.columns(3)
+                     tcol1.metric("RSI", f"{indicators.get('rsi', 0):.1f}")
+                     tcol2.metric("地合い差分", f"{relative_strength['diff']:+.1f}%")
+                     tcol3.metric("現在値", f"¥{info['current_price']:,.0f}")
+                     
+                     if credit_df is not None and not credit_df.empty:
+                        st.markdown("#### 信用残推移")
+                        c_chart_data = create_credit_chart(credit_df)
+                        if c_chart_data is not None:
+                            st.bar_chart(c_chart_data)
+                     
+                st.markdown("#### 関連ニュース")
+                if news_data:
+                    for n in news_data[:5]:
+                        st.markdown(f"• **[{n['title']}]({n['link']})**")
+                        st.caption(f"{n.get('publisher', '')} | {n.get('published', '')}")
+                else:
+                    st.info("ニュースはありません")
                 
-                badge_html = f"<div style='background: #ff4b4b; color: white; padding: 4px 12px; border-radius: 50px; display: inline-block; font-size: 0.8rem; font-weight: bold; margin-left: 10px; box-shadow: 0 0 10px rgba(255,75,75,0.5); vertical-align: middle; margin-top: -10px;'>🔥 出来高急増！</div>" if strategic_data.get('volume_spike') else ""
-                dashboard_html = f"<div style='background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(244, 63, 94, 0.1) 100%); padding: 24px; border-radius: 20px; border: 1px solid {accent_color}66; margin-bottom: 25px; backdrop-filter: blur(10px); box-shadow: 0 8px 32px rgba(0,0,0,0.3);'><div style='display: flex; justify-content: space-between; align-items: flex-start;'><div><span style='font-size: 0.8rem; color: #8892b0; text-transform: uppercase; letter-spacing: 2px;'>Gemini Analyst</span><br/><span style='font-size: 2.5rem; font-weight: 900; color: {accent_color}; text-shadow: 0 0 10px {accent_color}33;'>{status}</span>{badge_html}</div><div style='text-align: right;'><span style='font-size: 0.8rem; color: #8892b0;'>AI SCORE</span><br/><span style='font-size: 3rem; font-weight: 1000; color: {accent_color};'>{total_score}<small style='font-size: 1rem; color: #8892b0;'>/100</small></span></div></div></div>"
-                st.markdown(dashboard_html, unsafe_allow_html=True)
-                
-                # 2. AI Reasoning
-                with st.container():
-                    if report_data:
-                        # Header
-                        conclusion = report_data.get('conclusion', 'AI分析レポート')
-                        st.markdown(f"### {conclusion}")
-                        
-                        # Bull vs Bear
-                        c1, c2 = st.columns(2)
-                        with c1:
-                            st.info(f"**🐂 強気派の視点**\n\n{report_data.get('bull_view', 'データ不足')}")
-                        with c2:
-                            st.error(f"**🐻 弱気派の視点**\n\n{report_data.get('bear_view', 'データ不足')}")
-                        
-                        # Final Conclusion
-                        st.markdown("#### 💬 総合判断")
-                        st.markdown(report_data.get('final_reasoning', '現在、詳細な分析を生成できませんでした。'))
-
-                        if report_data.get('transcript_reason'):
-                             st.caption(f"決算自信度 ({stars}): {report_data['transcript_reason']}")
-                             
-                with st.expander("🔄 バックテスト結果"):
-                     st.markdown(format_backtest_results(backtest_results))
-                     if report_data.get('backtest_feedback'):
-                          st.warning(f"💡 AIの反省: {report_data['backtest_feedback']}")
-
-            with tab_chart:
-                 # Lightweight Charts (No Plotly)
-                 st.markdown(f"**{info['name']} ({ticker_input})** | {info.get('sector', '')}")
-                 
-                 chart_daily = create_lightweight_chart(df, info['name'], strategic_data, interval="1d")
-                 if chart_daily:
-                     st.markdown("##### 日足")
-                     chart_daily.load()
-                 
-                 if not df_weekly.empty:
-                     chart_weekly = create_lightweight_chart(df_weekly, info['name'], strategic_data, interval="1wk")
-                     if chart_weekly:
-                         st.markdown("##### 週足")
-                         chart_weekly.load()
-
-            with tab_data:
-                 tcol1, tcol2, tcol3 = st.columns(3)
-                 tcol1.metric("RSI", f"{indicators.get('rsi', 0):.1f}")
-                 tcol2.metric("地合い差分", f"{relative_strength['diff']:+.1f}%")
-                 tcol3.metric("現在値", f"¥{info['current_price']:,.0f}")
-                 
-                 if credit_df is not None and not credit_df.empty:
-                    st.markdown("#### 信用残推移")
-                    c_chart_data = create_credit_chart(credit_df)
-                    if c_chart_data is not None:
-                        st.bar_chart(c_chart_data)
-                 
-            st.markdown("#### 関連ニュース")
-            if news_data:
-                for n in news_data[:5]:
-                    st.markdown(f"• **[{n['title']}]({n['link']})**")
-                    st.caption(f"{n.get('publisher', '')} | {n.get('published', '')}")
-            else:
-                st.info("ニュースはありません")
-            
-            st.markdown("#### クイックスキャン")
-            category = st.selectbox("カテゴリ", list(SCREENER_CATEGORIES.keys()), key="fold_scan_mini")
-            if st.button("🚀 スキャン実行"):
-                scan_result = scan_market(category_name=category)
-                if not scan_result.empty:
-                   st.dataframe(scan_result[['銘柄名', 'コード', '判定', 'RSI']])
+                st.markdown("#### クイックスキャン")
+                category = st.selectbox("カテゴリ", list(SCREENER_CATEGORIES.keys()), key="fold_scan_mini")
+                if st.button("🚀 スキャン実行"):
+                    scan_result = scan_market(category_name=category)
+                    if not scan_result.empty:
+                       st.dataframe(scan_result[['銘柄名', 'コード', '判定', 'RSI']])
             else:
                 st.error(f"銘柄コード {ticker_input} のデータを取得できませんでした。")
     except Exception as e:
