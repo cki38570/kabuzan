@@ -80,12 +80,16 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     - **日経平均との差分**: {relative_strength.get('diff', 0):+.2f}%
     市場より強い銘柄か、地合いに引きずられているかを考慮せよ。
 
-    ## 2. 決算説明会スコアリング (Transcripts)
+    ## 2. セクター比較・バリュエーション
+    - セクター: {credit_data.get('details', {}).get('sector', 'N/A')}
+    - ファンダメンタル(PER/PBR)とセクター特性を考慮し、同業他社と比較して割安か割高かを評価せよ。
+
+    ## 3. 決算説明会スコアリング (Transcripts)
     提供された決算説明会の文字起こしを深く読み込み、1〜5の5段階でスコアリングしてください：
     - 経営陣の自信度、将来の成長見通しの明快さ、リスクへの言及の誠実さを評価。
     - 5: 非常に有望、1: 懸念が強い。
 
-    ## 3. バックテスト分析（反省会）
+    ## 4. バックテスト分析（反省会）
     {_format_backtest_for_prompt(backtest_results)}
     この過去の成績を見て、現在の戦略がこの銘柄に適しているか評価し、勝率が低い場合は警戒を強めてください。
 
@@ -96,13 +100,12 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
 
     # Strategic Analysis Priorities
     - **時間軸の明確化**: 推奨されるトレードの時間軸（短期：数日〜1週間 / 中期：1〜3ヶ月）を必ず指定せよ。
-    - **時価総額と流動性**: 値動きの軽重や機関投資家の参入可能性を考慮せよ。
     - **イベントリスク**: 決算またぎのリスクを考慮せよ。
 
     # Signal & Trade Plan Requirements (必須事項)
     - **明確な判定**: 「BUY ENTRY」「SELL ENTRY」「NEUTRAL (様子見)」のいずれかを断定せよ。
     - **不確実性の排除**: 空売り推奨の場合は明確に「SELL ENTRY」とせよ。買い推奨なら「BUY ENTRY」。
-    - **トレードプラン**: エントリー、利確、損切価格を具体的数値で提示せよ。
+    - **具体的アクション**: 現在値付近での成行か、押し目待ち（指値）か、具体的な数値を提示せよ。
 
     # Input Data (市場データ)
     - 銘柄: {ticker}
@@ -133,12 +136,20 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
         "timeframe": "【短期 / 中期 / 長期】",
         "total_score": 0-100,
         "conclusion": "結論（1行）",
+        "sector_analysis": "セクター内での立ち位置やバリュエーション評価（1-2行）",
         "bull_view": "強気派の視点",
         "bear_view": "弱気派の視点",
         "transcript_score": 1-5,
         "transcript_reason": "決算説明会スコアの理由（短く）",
         "backtest_feedback": "過去の勝率・成績を踏まえた戦略へのアドバイス",
         "final_reasoning": "システム判定({strategic_data.get('strategy_msg')})に対する評価（一致/不一致の理由）を含む最終根拠",
+        "action_plan": {{
+            "recommended_action": "【成行買い / 指値注文 / 様子見 / 利益確定 / 損切り】",
+            "buy_limit": 数値(指値目安、成行なら0),
+            "sell_limit": 数値(利確目安),
+            "stop_loss": 数値(損切目安),
+            "rationale": "この価格設定の根拠（例: 直近安値をサポートラインとしたため）"
+        }},
         "setup": {{
             "entry_price": 数値,
             "target_price": 数値,
