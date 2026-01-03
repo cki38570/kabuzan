@@ -3,7 +3,7 @@ yfinance>=0.2.40
 pandas_ta
 gspread-dataframe
 pandas
-plotly
+
 requests
 beautifulsoup4
 lxml
