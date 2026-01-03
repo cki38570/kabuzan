@@ -352,8 +352,14 @@ if ticker_input and not st.session_state.comparison_mode:
                         report_data = json.loads(json_match.group(1))
                     else:
                         report_data = json.loads(report_raw)
-                except:
-                    pass
+                except Exception as e:
+                    # Fallback on parse error
+                    report_data = {
+                        "status": "NEUTRAL",
+                        "total_score": 50,
+                        "headline": "分析データの解析失敗",
+                        "analysis_body": f"AIからの応答を正しく読み取れませんでした。システム管理者に連絡してください。\nエラー: {e}"
+                    }
 
             # --- Portfolio Quick Add (Moved Top) ---
             with st.expander("💰 ポートフォリオに追加", expanded=False):
@@ -385,8 +391,8 @@ if ticker_input and not st.session_state.comparison_mode:
                 # 2. AI Reasoning
                 with st.container(): # Use container instead of expander for main view
                     if report_data:
-                        st.markdown(f"### {report_data['headline']}")
-                        st.markdown(report_data['analysis_body'])
+                        st.markdown(f"### {report_data.get('headline', '分析レポート')}")
+                        st.markdown(report_data.get('analysis_body', '詳細な分析データを取得できませんでした。'))
                         if report_data.get('transcript_reason'):
                              st.info(f"💬 **決算自信度 ({stars}):** {report_data['transcript_reason']}")
                              
