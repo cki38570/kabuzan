@@ -216,7 +216,7 @@ class DataManager:
         """
         Fetch macro indicators (USD/JPY, Nikkei 225) to provide market context.
         """
-        cache_key = "macro_context"
+        cache_key = "macro_context_v2"
         cached = cache.get(cache_key)
         if cached:
             data, timestamp = cached
@@ -227,28 +227,30 @@ class DataManager:
         try:
             # Nikkei 225
             n225 = yf.Ticker("^N225")
-            n225_hist = n225.history(period="1mo")
-            if not n225_hist.empty:
+            n225_hist = n225.history(period="5d") # Get enough for change calc
+            if len(n225_hist) >= 2:
                 current = n225_hist['Close'].iloc[-1]
                 prev = n225_hist['Close'].iloc[-2]
                 change = ((current - prev) / prev) * 100
                 context['n225'] = {
                     'price': current,
                     'change_pct': change,
-                    'trend': 'Bull' if change > 0 else 'Bear'
+                    'trend': 'Bull' if change > 0 else 'Bear',
+                    'prev_close': prev
                 }
             
             # USD/JPY
             usdjpy = yf.Ticker("JPY=X")
-            usdjpy_hist = usdjpy.history(period="1mo")
-            if not usdjpy_hist.empty:
+            usdjpy_hist = usdjpy.history(period="5d")
+            if len(usdjpy_hist) >= 2:
                 current = usdjpy_hist['Close'].iloc[-1]
                 prev = usdjpy_hist['Close'].iloc[-2]
                 change = ((current - prev) / prev) * 100
                 context['usdjpy'] = {
                     'price': current,
                     'change_pct': change,
-                    'trend': 'Weak Yen' if change > 0 else 'Strong Yen'
+                    'trend': 'Weak Yen' if change > 0 else 'Strong Yen',
+                    'prev_close': prev
                 }
                 
             cache.set(cache_key, (context, datetime.datetime.now()))

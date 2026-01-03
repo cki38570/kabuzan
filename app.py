@@ -3,8 +3,9 @@ import pandas as pd
 from modules.styles import get_custom_css
 from modules.ui import get_card_css, render_stock_card
 from modules.data import get_stock_data, get_credit_data, get_next_earnings_date, get_market_sentiment
-from modules.analysis import calculate_indicators, calculate_trading_strategy
+from modules.analysis import calculate_indicators, calculate_trading_strategy, calculate_relative_strength
 import datetime
+import traceback
 from modules.charts import create_main_chart, create_credit_chart, create_lightweight_chart
 from modules.notifications import (
     check_price_alerts, 
@@ -239,14 +240,15 @@ if ticker_input and not st.session_state.comparison_mode:
     # Sanitize input: remove .0 if present
     ticker_input = str(ticker_input).replace(".0", "")
     
-    with st.spinner('AIが市場データを分析中...'):
-        dm = get_data_manager()
-        df, info = dm.get_market_data(ticker_input)
-        indicators = dm.get_technical_indicators(df, interval="1d")
-        
-        # Prepare weekly indicators for AI analysis
-        df_weekly, _ = dm.get_market_data(ticker_input, interval="1wk")
-        weekly_indicators = dm.get_technical_indicators(df_weekly, interval="1wk") if not df_weekly.empty else {}
+    try:
+        with st.spinner('AIが市場データを分析中...'):
+            dm = get_data_manager()
+            df, info = dm.get_market_data(ticker_input)
+            indicators = dm.get_technical_indicators(df, interval="1d")
+            
+            # Prepare weekly indicators for AI analysis
+            df_weekly, _ = dm.get_market_data(ticker_input, interval="1wk")
+            weekly_indicators = dm.get_technical_indicators(df_weekly, interval="1wk") if not df_weekly.empty else {}
         
         # Fetch News Data for sentiment analysis
         news_data = get_stock_news(ticker_input)
@@ -306,380 +308,187 @@ if ticker_input and not st.session_state.comparison_mode:
             
             credit_data = dm.get_financial_data(ticker_input)
             
-            # Fast Strategy Calculation for lines
-            strategic_data = calculate_trading_strategy(df)
+            # --- Pre-calculation for Dashboard ---
+            strategic_data = calculate_trading_strategy(df, settings=settings)
+            relative_strength = calculate_relative_strength(df, macro_context)
+            backtest_results = backtest_strategy(df, strategic_data)
             
-            # --- Tabs Layout ---
-            tab_titles = ["📈 チャート", "🤖 AI分析", "💰 ポートフォリオ", "🔍 市場スキャン", "📰 ニュース", "📊 データ"]
-            tabs = st.tabs(tab_titles)
-            tab1, tab2, tab3, tab4, tab5, tab6 = tabs[0], tabs[1], tabs[2], tabs[3], tabs[4], tabs[5]
+            # AI Analysis Triggered immediately to show results on Dashboard
+            extra_context = {
+                'earnings_date': earnings_date,
+                'market_trend': market_trend
+            }
+            patterns = enhance_ai_analysis_with_patterns(df)
+            enhanced_metrics = calculate_advanced_metrics(df, info['current_price'])
             
-            # Tab 1: Chart
-            with tab1:
-                col1, col2 = st.columns([3, 1])
-                with col1:
-                    st.markdown(f"### {info['name']} ({ticker_input})")
-                    if 'sector' in info and info['sector'] != '不明':
-                        st.caption(f"{info.get('sector', '')} | {info.get('industry', '')}")
-                with col2:
-                     price_color = "#00ffbd" if info['change'] >= 0 else "#ff4b4b"
-                     st.markdown(f"<div style='text-align:right; font-size: 1.5rem; color:{price_color}'>¥{info['current_price']:,.0f}</div>", unsafe_allow_html=True)
-                
-                # Multi-Timeframe Tabs for Charts
-                chart_daily_tab, chart_weekly_tab = st.tabs(["日足 (Daily)", "週足 (Weekly)"])
-                
-                with chart_daily_tab:
-                    eng_col1, eng_col2 = st.columns([1, 4])
-                    chart_engine = eng_col1.radio("Engine", ["TV", "Plotly"], horizontal=True, key="engine_daily")
-                    
-                    try:
-                        if chart_engine == "TV":
-                            fig_tv = create_lightweight_chart(df, info['name'], strategic_data, interval="1d")
-                            if fig_tv:
-                                fig_tv.load()
-                        else:
-                            fig_main = create_main_chart(df, info['name'], strategic_data, interval="1d")
-                            st.plotly_chart(fig_main, use_container_width=True, key="chart_daily_plotly")
-                    except Exception as e:
-                        st.error(f"チャートの描画中にエラーが発生しました: {e}")
-                        st.info("チャートエンジンを Plotly に切り替えてお試しください。")
-                
-                with chart_weekly_tab:
-                    # Fetch weekly data
-                    df_weekly, meta_weekly = dm.get_market_data(ticker_input, interval="1wk")
-                    if not df_weekly.empty:
-                        # Calculate indicators for weekly
-                        df_weekly_calc = calculate_indicators(df_weekly, params, interval="1wk") 
-                        
-                        eng_w1, eng_w2 = st.columns([1, 4])
-                        chart_engine_w = eng_w1.radio("Engine", ["TV", "Plotly"], horizontal=True, key="engine_weekly")
-                        
-                        try:
-                            if chart_engine_w == "TV":
-                                fig_tv_w = create_lightweight_chart(df_weekly_calc, info['name'], interval="1wk")
-                                if fig_tv_w:
-                                    fig_tv_w.load()
-                            else:
-                                fig_weekly = create_main_chart(df_weekly_calc, info['name'], interval="1wk")
-                                st.plotly_chart(fig_weekly, use_container_width=True, key="chart_weekly_plotly")
-                        except Exception as e:
-                            st.error(f"週足チャートの描画中にエラーが発生しました: {e}")
-                            st.info("チャートエンジンを Plotly に切り替えてお試しください。")
-                    else:
-                        st.warning("週足データを取得できませんでした。")
-                
-                # Performance Metrics
-                st.markdown("#### パフォーマンス概要")
-                perf_col1, perf_col2, perf_col3 = st.columns(3)
-                week_ago = df.iloc[-5]['Close'] if len(df) >= 5 else df.iloc[0]['Close']
-                month_ago = df.iloc[-20]['Close'] if len(df) >= 20 else df.iloc[0]['Close']
-                week_change = ((info['current_price'] - week_ago) / week_ago) * 100
-                month_change = ((info['current_price'] - month_ago) / month_ago) * 100
-                
-                perf_col1.metric("1週間", f"{week_change:+.2f}%")
-                perf_col2.metric("1ヶ月", f"{month_change:+.2f}%")
-                perf_col3.metric("ボラティリティ", f"{df['Close'].pct_change().std() * 100:.2f}%")
+            report_raw = generate_gemini_analysis(
+                ticker_input, info, indicators, credit_data, strategic_data, 
+                enhanced_metrics=enhanced_metrics, patterns=patterns,
+                extra_context=extra_context, weekly_indicators=weekly_indicators,
+                news_data=news_data, macro_data=macro_context,
+                transcript_data=transcript_data, relative_strength=relative_strength,
+                backtest_results=backtest_results
+            )
+            
+            # Parse AI Result
+            report_data = {}
+            try:
+                import re
+                json_match = re.search(r'```json\s*(.*?)\s*```', report_raw, re.DOTALL)
+                if json_match:
+                    report_data = json.loads(json_match.group(1))
+                else:
+                    report_data = json.loads(report_raw)
+            except:
+                pass
 
-            # Tab 2: AI Analysis
-            with tab2:
-                st.markdown("### 🤖 Gemini AI アナリスト")
+            # --- 🚀 Summary Dashboard (Global Top) ---
+            st.markdown("### 📊 サマリーダッシュボード")
+            
+            # Dynamic Colors
+            total_score = report_data.get('total_score', 0)
+            status = report_data.get('status', 'NEUTRAL')
+            
+            # emerald for buy, rose for sell, slate for neutral
+            # --- 🚀 Adaptive 2-Pane Layout (Foldable Ready) ---
+            main_col1, main_col2 = st.columns([1.2, 1], gap="large")
+            
+            with main_col1:
+                # 1. Summary Dashboard
+                st.markdown("### 📊 Decision Center")
+                total_score = report_data.get('total_score', 0)
+                status = report_data.get('status', 'NEUTRAL')
+                accent_color = "#10b981" if "BUY" in status else "#f43f5e" if "SELL" in status else "#64748b"
+                t_score = report_data.get('transcript_score', 0)
+                stars = "★" * int(t_score) + "☆" * (5 - int(t_score)) if t_score else "N/A"
                 
-                # --- Fundamental Briefing Section ---
-                if credit_data and credit_data.get('details'):
-                    details = credit_data['details']
-                    def format_large_number(num):
-                        if not num: return "N/A"
-                        if num >= 1e12: return f"{num/1e12:.1f}兆円"
-                        if num >= 1e8: return f"{num/1e8:.1f}億円"
-                        return f"{num:,.0f}円"
-
-                    st.markdown("#### 💎 銘柄概況 (Fundamentals)")
-                    f_col1, f_col2, f_col3, f_col4 = st.columns(4)
-                    f_col1.metric("時価総額", format_large_number(details.get('market_cap')))
-                    f_col2.metric("PER (実績)", f"{details.get('pe_ratio', 0):.1f}倍" if details.get('pe_ratio') else "N/A")
-                    f_col3.metric("PBR", f"{details.get('pb_ratio', 0):.2f}倍" if details.get('pb_ratio') else "N/A")
-                    f_col4.metric("配当利回り", f"{details.get('dividend_yield', 0):.2f}%" if details.get('dividend_yield') else "N/A")
-                    st.divider()
-                
-                # Pass Extra Context to AI
-                extra_context = {
-                    'earnings_date': earnings_date,
-                    'market_trend': market_trend
-                }
-                
-                # Use the new structured analysis from modules/llm.py directly
-                patterns = enhance_ai_analysis_with_patterns(df)
-                enhanced_metrics = calculate_advanced_metrics(df, info['current_price'])
-                
-                report_raw = generate_gemini_analysis(
-                    ticker_input, 
-                    info, 
-                    indicators, 
-                    credit_data, 
-                    strategic_data, 
-                    enhanced_metrics=enhanced_metrics,
-                    patterns=patterns,
-                    extra_context=extra_context,
-                    weekly_indicators=weekly_indicators,
-                    news_data=news_data,
-                    macro_data=macro_context,
-                    transcript_data=transcript_data
-                )
-                
-                # Parse JSON if possible
-                report_data = {}
-                try:
-                    # Look for JSON block in markdown
-                    import re
-                    json_match = re.search(r'```json\s*(.*?)\s*```', report_raw, re.DOTALL)
-                    if json_match:
-                        report_data = json.loads(json_match.group(1))
-                    else:
-                        report_data = json.loads(report_raw)
-                except:
-                    pass
-
-                if report_data:
-                    # 1. Total Score Gauge
-                    total_score = report_data.get('total_score', 0)
-                    score_color = "#64ffda" if total_score >= 80 else "#00d4ff" if total_score >= 60 else "#ffff00" if total_score >= 40 else "#ff4b4b"
-                    status = report_data.get('status', 'MONITOR')
-                    
-                    st.markdown(f"""
-                    <div style='background-color: rgba(10, 25, 47, 0.7); padding: 20px; border-radius: 10px; border: 2px solid {score_color}; margin-bottom: 20px;'>
-                        <div style='display: flex; justify-content: space-between; align-items: center;'>
-                            <div>
-                                <span style='font-size: 0.9rem; color: #8892b0;'>JUDGMENT</span><br/>
-                                <span style='font-size: 1.8rem; font-weight: bold; color: {score_color};'>{status}</span>
-                            </div>
-                            <div style='text-align: right;'>
-                                <span style='font-size: 2.5rem; font-weight: bold; color: {score_color};'>{total_score}<small style='font-size: 1rem;'>/100</small></span>
-                            </div>
+                dashboard_html = f"""
+                <div style='background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(244, 63, 94, 0.1) 100%); 
+                            padding: 24px; border-radius: 20px; border: 1px solid {accent_color}66; margin-bottom: 25px; 
+                            backdrop-filter: blur(10px); box-shadow: 0 8px 32px rgba(0,0,0,0.3);'>
+                    <div style='display: flex; justify-content: space-between; align-items: flex-start;'>
+                        <div>
+                            <span style='font-size: 0.8rem; color: #8892b0; text-transform: uppercase; letter-spacing: 2px;'>Gemini Analyst</span><br/>
+                            <span style='font-size: 2.5rem; font-weight: 900; color: {accent_color}; text-shadow: 0 0 10px {accent_color}33;'>{status}</span>
                         </div>
-                        <div style='background-color: #233554; height: 10px; border-radius: 5px; margin-top: 10px;'>
-                            <div style='background-color: {score_color}; width: {total_score}%; height: 10px; border-radius: 5px; transition: width 1.5s;'></div>
+                        <div style='text-align: right;'>
+                            <span style='font-size: 0.8rem; color: #8892b0;'>AI SCORE</span><br/>
+                            <span style='font-size: 3rem; font-weight: 1000; color: {accent_color};'>{total_score}<small style='font-size: 1rem; color: #8892b0;'>/100</small></span>
                         </div>
                     </div>
-                    """, unsafe_allow_html=True)
-
-                    # 2. Bull vs Bear Perspectives (Self-Reflection)
-                    st.markdown("#### ⚖️ Self-Reflection: 多角的な分析")
-                    bcol1, bcol2 = st.columns(2)
-                    with bcol1:
-                        st.markdown(f"""
-                        <div style='background-color: rgba(0, 255, 189, 0.1); padding: 15px; border-radius: 8px; border-left: 4px solid #00ffbd; height: 100%;'>
-                            <b style='color: #00ffbd;'>🐂 強気派の見極め</b><br/>
-                            <small>{report_data.get('bull_view', 'N/A')}</small>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    with bcol2:
-                        st.markdown(f"""
-                        <div style='background-color: rgba(255, 75, 75, 0.1); padding: 15px; border-radius: 8px; border-left: 4px solid #ff4b4b; height: 100%;'>
-                            <b style='color: #ff4b4b;'>🐻 弱気派の懸念</b><br/>
-                            <small>{report_data.get('bear_view', 'N/A')}</small>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    
-                    # 3. Trade Setup (具体的トレードプラン)
-                    st.markdown("#### 🎯 具体的トレードプラン (Setup)")
-                    setup = report_data.get('setup', {})
-                    if setup:
-                        s_col1, s_col2, s_col3, s_col4 = st.columns(4)
-                        s_col1.markdown(f"""
-                        <div style='background-color: #1a1c24; padding: 10px; border-radius: 5px; border-top: 3px solid #64ffda; text-align: center;'>
-                            <small style='color: #8892b0;'>エントリー価格</small><br/>
-                            <span style='font-size: 1.2rem; font-weight: bold; color: #64ffda;'>¥{float(setup.get('entry_price') or 0):,.1f}</span>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        s_col2.markdown(f"""
-                        <div style='background-color: #1a1c24; padding: 10px; border-radius: 5px; border-top: 3px solid #00d4ff; text-align: center;'>
-                            <small style='color: #8892b0;'>利確ターゲット</small><br/>
-                            <span style='font-size: 1.2rem; font-weight: bold; color: #00d4ff;'>¥{float(setup.get('target_price') or 0):,.1f}</span>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        s_col3.markdown(f"""
-                        <div style='background-color: #1a1c24; padding: 10px; border-radius: 5px; border-top: 3px solid #ff4b4b; text-align: center;'>
-                            <small style='color: #8892b0;'>損切ライン</small><br/>
-                            <span style='font-size: 1.2rem; font-weight: bold; color: #ff4b4b;'>¥{float(setup.get('stop_loss') or 0):,.1f}</span>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        s_col4.markdown(f"""
-                        <div style='background-color: #1a1c24; padding: 10px; border-radius: 5px; border-top: 3px solid #ffc107; text-align: center;'>
-                            <small style='color: #8892b0;'>リスクリワード</small><br/>
-                            <span style='font-size: 1.2rem; font-weight: bold; color: #ffc107;'>{float(setup.get('risk_reward') or 0):.2f}</span>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    
-                    # 4. Final Conclusion
-                    st.markdown("#### 📝 最終判断と根拠")
-                    st.info(report_data.get('conclusion', ''))
-                    st.markdown(f"<div style='background-color: #112240; padding: 15px; border-radius: 8px;'>{report_data.get('final_reasoning', '')}</div>", unsafe_allow_html=True)
-                    
-                    # 4. Indicators Table
-                    st.markdown("#### 📋 分析詳細")
-                    details = report_data.get('details', {})
-                    d1, d2, d3 = st.columns(3)
-                    d1.metric("テクニカル", f"{details.get('technical_score', 0)}/60")
-                    d2.metric("センチメント", f"{details.get('sentiment_score', 0)}/40")
-                    d3.metric("判定", details.get('sentiment_label', '中立'))
-                    
-                else:
-                    # Fallback to Text report
-                    st.markdown(f"<div style='background-color: #112240; padding: 15px; border-radius: 8px;'>{report_raw}</div>", unsafe_allow_html=True)
+                </div>
+                """
+                st.markdown(dashboard_html, unsafe_allow_html=True)
                 
-                # Feature: Backtest Integration
-                st.markdown("---")
-                st.markdown("### 📊 戦略バックテスト")
-                backtest_results = backtest_strategy(df, strategic_data)
-                st.markdown(format_backtest_results(backtest_results))
-                
-                st.markdown("---")
-                show_alert_manager(ticker_input, info['name'], info['current_price'])
-                
-            # Tab 3: Portfolio
-            with tab3:
-                st.markdown("### 💰 ポートフォリオ管理")
-                
-                # Feature: Position Size Calculator
-                with st.expander("🧮 適正ポジショニング計算機"):
-                    col_calc1, col_calc2 = st.columns(2)
-                    total_capital = col_calc1.number_input("運用資金 (円)", min_value=0, value=1000000, step=100000)
-                    risk_per_trade = col_calc2.number_input("1トレードの許容損失 (%)", min_value=0.1, max_value=5.0, value=1.0, step=0.1)
-                    
-                    if strategic_data.get('entry_price') and strategic_data.get('stop_loss'):
-                        entry = strategic_data['entry_price']
-                        stop = strategic_data['stop_loss']
-                        risk_per_share = abs(entry - stop)
+                # 2. AI Reasoning & Setup
+                with st.expander("🤖 AI の深層分析とトレードプラン", expanded=True):
+                    if report_data:
+                        st.markdown(f"<div style='background-color: #112240; padding: 20px; border-radius: 12px; border: 1px solid #233554;'>{report_data.get('final_reasoning', report_raw)}</div>", unsafe_allow_html=True)
                         
-                        if risk_per_share and risk_per_share > 0:
-                            allowed_loss = total_capital * (risk_per_trade / 100)
-                            suggested_qty = int(allowed_loss / risk_per_share)
-                            # Align to 100 shares (Standard in Japan)
-                            suggested_qty_standard = (suggested_qty // 100) * 100
-                            
-                            st.info(f"""
-                            **計算結果:**
-                            - 1トレードの許容損失額: ¥{allowed_loss:,.0f}
-                            - 1株あたりのリスク: ¥{risk_per_share:,.0f}
-                            - 推奨購入株数: **{suggested_qty:,}株** (単元株ベース: {suggested_qty_standard:,}株)
-                            - 想定投資額: ¥{suggested_qty * entry:,.0f}
-                            """)
-                        else:
-                            st.warning("損切り価格とエントリー価格が同一です。")
-                    else:
-                        st.warning("戦略データ（エントリー・損切価格）が取得できないため計算できません。")
-
-                # Input Form
-                with st.form("portfolio_add"):
-                    col1, col2, col3 = st.columns(3)
-                    p_qty = col1.number_input("保有株数", min_value=0, step=100)
-                    p_price = col2.number_input("平均取得単価", min_value=0.0, step=10.0, value=float(info['current_price']))
-                    submitted = col3.form_submit_button("ポートフォリオに追加/更新")
-                    if submitted and p_qty > 0:
-                        success = add_to_portfolio(ticker_input, info['name'], p_qty, p_price)
-                        if success:
-                            st.success(f"{info['name']} をポートフォリオに追加しました")
-                            # Keep ticker_input in session state before rerun
-                            st.session_state.active_ticker = ticker_input
-                            st.rerun()
-                        else:
-                            st.error("保存に失敗しました。設定やネットワークを確認してください。")
-
-                # Display Logic
-                current_prices = {ticker_input: info['current_price']}
-                port_df, total_inv, total_val = get_portfolio_df(current_prices)
-                
-                if not port_df.empty:
-                    # Summary Metrics
-                    total_pl = total_val - total_inv
-                    m1, m2, m3 = st.columns(3)
-                    m1.metric("総投資額", f"¥{total_inv:,.0f}")
-                    m2.metric("評価額合計", f"¥{total_val:,.0f}")
-                    m3.metric("総損益", f"¥{total_pl:,.0f}", delta=f"{(total_pl/total_inv)*100:.1f}%" if total_inv else "0%")
-                    
-                    st.dataframe(port_df, width='stretch')
-                    
-                    del_code = st.selectbox("削除する銘柄", port_df['コード'].tolist())
-                    if st.button("選択した銘柄を削除"):
-                        remove_from_portfolio(del_code)
-                        st.warning(f"{del_code} を削除しました")
-                        st.rerun()
-                else:
-                    st.info("ポートフォリオは空です。上部のフォームから追加してください。")
-
-            # Tab 4: Screener (NEW)
-            with tab4:
-                 st.markdown("### 🔍 市場スクリーニング")
-                 st.caption("対象となる銘柄群を選択してスキャンを実行します。")
-                 
-
-                 
-                 # from modules.screener import CATEGORIES # Removed in favor of constants
-                 category = st.selectbox("銘柄カテゴリ", list(SCREENER_CATEGORIES.keys()))
-                 
-                 if st.button("🚀 スキャン開始"):
-                     progress_text = f"{category} をスキャン中..."
-                     my_bar = st.progress(0, text=progress_text)
-                     
-                     scan_result = scan_market(category_name=category, progress_bar=my_bar)
-                     my_bar.empty()
-                     
-                     if not scan_result.empty:
-                         st.success(f"{len(scan_result)}件の注目銘柄を検出しました！")
-                         st.dataframe(
-                             scan_result[['銘柄名', 'コード', '現在値', '前日比', '判定', 'シグナル', 'RSI']], 
-                             width='stretch'
-                         )
-                         st.info("💡 コードをコピーして検索バーに入力すると詳細分析が可能です。")
-                     else:
-                         st.warning("現在、特定のシグナル条件に合致する銘柄はありませんでした。")
-
-            # Tab 5: News (NEW)
-            with tab5:
-                st.markdown("### 📰 最新ニュース")
-                if news_data:
-                    for news in news_data:
-                        pub_time = news.get("provider_publish_time", "")
-                        st.markdown(f"""
-                        <div style="background-color: #112240; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
-                            <a href="{news.get('link')}" target="_blank" style="text-decoration: none; color: #e6f1ff; font-weight: bold; font-size: 1.1em;">
-                                {news.get('title')}
-                            </a>
-                            <div style="color: #8892b0; font-size: 0.8em; margin-top: 5px;">
-                                {news.get('publisher')} | {pub_time}
+                        st.markdown("#### ⚖️ 多角的な見極め (Bull vs Bear)")
+                        bcol1, bcol2 = st.columns(2)
+                        with bcol1:
+                            st.markdown(f"<div style='background: rgba(16, 185, 129, 0.1); padding: 15px; border-radius: 10px; border-left: 4px solid #10b981; min-height: 120px;'><b style='color: #10b981;'>🐂 Bull Case</b><br/><small>{report_data.get('bull_view', 'N/A')}</small></div>", unsafe_allow_html=True)
+                        with bcol2:
+                            st.markdown(f"<div style='background: rgba(244, 63, 94, 0.1); padding: 15px; border-radius: 10px; border-left: 4px solid #f43f5e; min-height: 120px;'><b style='color: #f43f5e;'>🐻 Bear Case</b><br/><small>{report_data.get('bear_view', 'N/A')}</small></div>", unsafe_allow_html=True)
+                        
+                        st.markdown("#### 🎯 戦略設定 (Trade Setup)")
+                        setup = report_data.get('setup', {})
+                        if setup:
+                            s_col1, s_col2, s_col3 = st.columns(3)
+                            st.markdown(f"""
+                            <div style='display: flex; gap: 10px; margin-bottom: 20px;'>
+                                <div style='flex: 1; background:#1a1c24; padding:12px; border-radius:10px; border-bottom:3px solid #64ffda; text-align:center;'>
+                                    <small style='color:#8892b0;'>Entry</small><br/><b style='font-size:1.2rem; color:#64ffda;'>¥{float(setup.get('entry_price') or 0):,.0f}</b>
+                                </div>
+                                <div style='flex: 1; background:#1a1c24; padding:12px; border-radius:10px; border-bottom:3px solid #00d4ff; text-align:center;'>
+                                    <small style='color:#8892b0;'>Target</small><br/><b style='font-size:1.2rem; color:#00d4ff;'>¥{float(setup.get('target_price') or 0):,.0f}</b>
+                                </div>
+                                <div style='flex: 1; background:#1a1c24; padding:12px; border-radius:10px; border-bottom:3px solid #f43f5e; text-align:center;'>
+                                    <small style='color:#8892b0;'>Stop</small><br/><b style='font-size:1.2rem; color:#f43f5e;'>¥{float(setup.get('stop_loss') or 0):,.0f}</b>
+                                </div>
                             </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                else:
-                     st.info("関連ニュースが見つかりませんでした。")
+                            """, unsafe_allow_html=True)
+                        
+                        st.success(f"🏁 **AI結論:** {report_data.get('conclusion', '')}")
+                        if report_data.get('transcript_reason'):
+                             st.info(f"💬 **決算自信度 ({stars}):** {report_data['transcript_reason']}")
+                             
+                with st.expander("🔄 バックテスト & 資産管理"):
+                    st.markdown("#### 戦略バックテスト成績")
+                    st.markdown(format_backtest_results(backtest_results))
+                    if report_data.get('backtest_feedback'):
+                         st.warning(f"💡 AIの反省: {report_data['backtest_feedback']}")
+                    
+                    st.divider()
+                    st.markdown("#### 💰 ポートフォリオ管理")
+                    with st.form("portfolio_foldable_add"):
+                        p_col1, p_col2 = st.columns(2)
+                        p_qty = p_col1.number_input("株数", min_value=0, step=100)
+                        p_p = p_col2.number_input("単価", min_value=0.0, value=float(info['current_price']))
+                        if st.form_submit_button("ポートフォリオに反映"):
+                            add_to_portfolio(ticker_input, info['name'], p_qty, p_p)
+                            st.rerun()
 
-            # Tab 6: Data
-            with tab6:
-                st.markdown("### 📊 詳細データ")
-                enhanced_metrics = calculate_advanced_metrics(df, info['current_price'])
-                if enhanced_metrics:
-                    st.markdown(format_metrics_display(enhanced_metrics))
+            with main_col2:
+                # 3. Visualization Center
+                st.markdown("### 📈 Visualization")
                 
-                if credit_data and credit_data.get('details'):
-                     st.markdown("#### 信用需給・財務概況")
-                     # st.json(credit_data['details']) # Replaced with cleaner display
-                     details = credit_data['details']
-                     
-                     def format_val(v):
-                         if isinstance(v, float): return f"{v:.2f}"
-                         if isinstance(v, (int, float)) and v > 1000000:
-                            if v >= 1e12: return f"{v/1e12:.2f}兆円"
-                            return f"{v/1e8:.2f}億円"
-                         return str(v)
+                # Chart Section
+                with st.expander("📊 インタラクティブ・チャート", expanded=True):
+                    st.markdown(f"**{info['name']} ({ticker_input})** | {info.get('sector', '')}")
+                    c_tabs = st.tabs(["日足", "週足"])
+                    with c_tabs[0]:
+                        fig_main = create_main_chart(df, info['name'], strategic_data, interval="1d")
+                        st.plotly_chart(fig_main, use_container_width=True, key="p_fold_daily")
+                    with c_tabs[1]:
+                        df_weekly, _ = dm.get_market_data(ticker_input, interval="1wk")
+                        if not df_weekly.empty:
+                            df_weekly_calc = calculate_indicators(df_weekly, params, interval="1wk") 
+                            fig_weekly = create_main_chart(df_weekly_calc, info['name'], interval="1wk")
+                            st.plotly_chart(fig_weekly, use_container_width=True, key="p_fold_weekly")
 
-                     # Show as a table for better readability on mobile
-                     detail_df = pd.DataFrame([
-                         {"項目": k, "値": format_val(v)} for k, v in details.items() if v is not None
-                     ])
-                     st.table(detail_df)
+                # Technical & Market
+                with st.expander("📐 テクニカル指標 & 需給詳細", expanded=True):
+                    tcol1, tcol2, tcol3 = st.columns(3)
+                    tcol1.metric("RSI", f"{indicators.get('rsi', 0):.1f}")
+                    tcol2.metric("地合い差分", f"{relative_strength['diff']:+.1f}%")
+                    tcol3.metric("現在値", f"¥{info['current_price']:,.0f}")
+                    
+                    if credit_data and credit_data.get('details'):
+                        details = credit_data['details']
+                        st.divider()
+                        fcol1, fcol2 = st.columns(2)
+                        fcol1.metric("PER", f"{details.get('pe_ratio', 0):.1f}倍" if details.get('pe_ratio') else "N/A")
+                        fcol2.metric("PBR", f"{details.get('pb_ratio', 0):.2f}倍" if details.get('pb_ratio') else "N/A")
                 
-                st.markdown("#### 時系列データ")
-                st.dataframe(df.tail(10), width='stretch')
-
+                # News & Screener
+                with st.expander("📰 関連ニュース"):
+                    if news_data:
+                        for n in news_data[:5]:
+                            st.markdown(f"• **[{n['title']}]({n['link']})**")
+                            st.caption(f"{n.get('publisher', '')} | {n.get('published', '')}")
+                    else:
+                        st.info("ニュースはありません")
+                
+                with st.expander("🔍 クイックスキャン"):
+                    category = st.selectbox("カテゴリ", list(SCREENER_CATEGORIES.keys()), key="fold_scan_mini")
+                    scan_result = pd.DataFrame()
+                    if st.button("🚀 スキャン"):
+                        scan_result = scan_market(category_name=category)
+                    if not scan_result.empty:
+                         st.dataframe(scan_result[['銘柄名', 'コード', '判定', 'RSI']])
         else:
-            st.error("銘柄が見つかりません。")
+            st.error(f"銘柄コード {ticker_input} のデータを取得できませんでした。")
+    except Exception as e:
+        import traceback
+        st.error(f"エラーが発生しました: {e}")
+        st.code(traceback.format_exc())
+
+# Sidebar Watchlist
+if 'watchlist' not in st.session_state:
+    st.session_state.watchlist = load_watchlist()
+
+# Footer
+st.markdown("---")
+st.caption("© 2026 Kabuzan | Pixel Fold Optimized Terminal")

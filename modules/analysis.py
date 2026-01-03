@@ -68,34 +68,24 @@ from modules.llm import generate_gemini_analysis
 from modules.enhanced_metrics import calculate_advanced_metrics
 from modules.patterns import enhance_ai_analysis_with_patterns
 
-def calculate_trading_strategy(df):
+def calculate_trading_strategy(df, settings=None):
     """
     Calculate trading strategy levels (Entry, TP, SL) and trend status.
+    Now supports dynamic ATR-based Stop Loss with a safety guardrail from settings.
     Returns strategic_data dict.
     """
     if df is None or df.empty:
         return {}
 
+    if settings is None:
+        settings = {}
+
     last = df.iloc[-1]
     price = last['Close']
     
-    # Check for necessary columns
-    # Adjust check based on interval logic? 
-    # Usually this runs on Daily data which has SMA5/25/75.
-    # If weekly, it might lack SMA5.
-    # We should detect available columns.
-    
     needed = ['SMA5', 'SMA25', 'SMA75', 'BB_Upper', 'BB_Lower', 'ATR']
-    # If using weekly, we might have SMA13, SMA26, SMA52 instead.
     if not all(col in df.columns for col in needed):
-        # Graceful fallback or check for weekly
         if 'SMA13' in df.columns:
-            # Remap for weekly strategy or return lighter strategy
-            sma13 = last.get('SMA13', 0)
-            sma26 = last.get('SMA26', 0)
-            sma52 = last.get('SMA52', 0)
-            # Use 13/26/52 as proxies for 5/25/75 (roughly)
-            # Just return basic trend, skip full strategy for now for weekly
             return {}
         return {}
         
@@ -126,15 +116,35 @@ def calculate_trading_strategy(df):
     support_level = max(support_candidates) if support_candidates else price * 0.95
     resistance_level = bb_up
     
+    # --- Dynamic Stop Loss Logic ---
     buy_zone_min = support_level
     buy_zone_max = support_level * 1.015
-    stop_loss = support_level - (1.5 * atr)
-    target_price = resistance_level
-    
     entry_price = int((buy_zone_min + buy_zone_max) / 2)
     
-    risk = buy_zone_max - stop_loss
-    reward = target_price - buy_zone_max
+    # ATR-based SL (Standard: 1.5x - 2.0x ATR)
+    multiplier = 2.0
+    atr_stop_loss = entry_price - (multiplier * atr)
+    
+    # Guardrail from Settings (Default -5% if not set)
+    sl_limit_pct = float(settings.get('stop_loss_limit', -5.0))
+    limit_stop_loss = entry_price * (1 + (sl_limit_pct / 100))
+    
+    # Choose the safer (tighter) stop loss if ATR SL is too deep
+    # but also respect the volatility if it's within limits
+    stop_loss = atr_stop_loss
+    sl_source = "ATR"
+    is_high_risk = False
+    
+    if atr_stop_loss < limit_stop_loss:
+        # ATR suggests a deeper cut than our fixed limit
+        stop_loss = limit_stop_loss
+        sl_source = "Fixed Limit (-5%)"
+        is_high_risk = True # Signal that volatility exceeds safety limit
+    
+    target_price = resistance_level
+    
+    risk = entry_price - stop_loss
+    reward = target_price - entry_price
     rr_ratio = reward / risk if risk > 0 else 0
     
     strategy_msg = ""
@@ -148,6 +158,9 @@ def calculate_trading_strategy(df):
     else:
         strategy_msg = "⚖️ レンジ戦略"
         action_msg = f"方向感が乏しい展開。**¥{entry_price:,}円付近**まで待ってからエントリーを検討。"
+    
+    if is_high_risk:
+        action_msg += f"\n\n⚠️ **リスク警告**: ボラティリティが非常に高いため、通常の損切り設定({sl_limit_pct}%)を優先しました。リスク許容度に注意してください。"
 
     return {
         'trend_desc': trend_desc,
@@ -157,7 +170,54 @@ def calculate_trading_strategy(df):
         'stop_loss': int(stop_loss),
         'entry_price': entry_price,
         'strategy_msg': strategy_msg,
-        'risk_reward': rr_ratio
+        'risk_reward': rr_ratio,
+        'sl_source': sl_source,
+        'is_high_risk': is_high_risk,
+        'atr_value': atr
+    }
+
+def calculate_relative_strength(stock_df, macro_data):
+    """
+    Compare stock performance against Nikkei 225.
+    Returns relative strength status and description.
+    """
+    if stock_df is None or stock_df.empty or 'n225' not in macro_data:
+        return {"status": "中立", "diff": 0, "desc": "地合いデータ不足"}
+
+    n225 = macro_data['n225']
+    stock_last = stock_df.iloc[-1]
+    stock_prev = stock_df.iloc[-2] if len(stock_df) > 1 else stock_last
+    
+    stock_change = ((stock_last['Close'] - stock_prev['Close']) / stock_prev['Close']) * 100
+    market_change = n225['change_pct']
+    
+    diff = stock_change - market_change
+    
+    status = "中立"
+    desc = ""
+    
+    if stock_change > 0 and market_change <= 0:
+        status = "強力（逆行高）"
+        desc = "市場が軟調な中で上昇しており、非常に強い買い需要があります。"
+    elif diff > 2.0:
+        status = "買い優勢（アウトパフォーム）"
+        desc = "市場平均を大きく上回る強さを見せています。"
+    elif diff < -2.0:
+        status = "売り優勢（アンダーパフォーム）"
+        desc = "市場平均を下回る弱さです。地合いの悪化に敏感な可能性があります。"
+    elif stock_change < 0 and market_change >= 0:
+        status = "軟調（逆行安）"
+        desc = "市場が堅調な中で下落しており、独自の売り要因が警戒されます。"
+    else:
+        status = "連動"
+        desc = "市場全体と概ね連動した動きです。"
+
+    return {
+        "status": status,
+        "diff": diff,
+        "stock_change": stock_change,
+        "market_change": market_change,
+        "desc": desc
     }
 
 def generate_ai_report(df, credit_data, ticker_name, price_info=None, extra_context=None):

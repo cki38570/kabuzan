@@ -37,18 +37,27 @@ def get_gemini_client():
         print(f"Failed to initialize Gemini Client: {e}")
         return None
 
-def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strategic_data, enhanced_metrics=None, patterns=None, extra_context=None, weekly_indicators=None, news_data=None, macro_data=None, transcript_data=None):
+def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strategic_data, enhanced_metrics=None, patterns=None, extra_context=None, weekly_indicators=None, news_data=None, macro_data=None, transcript_data=None, relative_strength=None, backtest_results=None):
     """
     Generate a highly advanced professional stock analysis report using Gemini.
-    Implements Self-Reflection (Bull/Bear perspectives) and Macro/Transcript integration.
+    Implements Self-Reflection, Macro/Transcript scoring, and Backtest feedback.
     Returns structured JSON if possible, otherwise Markdown.
     """
+    if price_info is None:
+        price_info = {}
+    if indicators is None:
+        indicators = {}
     if macro_data is None:
         macro_data = {}
     if transcript_data is None:
         transcript_data = pd.DataFrame()
+    if relative_strength is None:
+        relative_strength = {}
+    if weekly_indicators is None:
+        weekly_indicators = {}
+    if news_data is None:
+        news_data = []
         
-    # Advanced Prompt with Self-Reflection and Macro/Transcript Context
     # Advanced Prompt with Self-Reflection, Limit Verification, and Macro/Transcript Context
     prompt = f"""
     # Role
@@ -63,6 +72,22 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     **あなたのタスクは、このシステム判定を鵜呑みにせず、検証することです。**
     - システム判定とあなたの分析が一致する場合 → その根拠を強化してください。
     - システム判定と矛盾する場合（例：システムは買いだが、あなたはマクロリスクで売りと判断） → **なぜシステム判定が現状に適さないか**を論理的に反論し、あなたの判断を優先してください。
+
+    # New Analysis Modules (重要)
+    ## 1. 相対比較分析（市場の空気）
+    - **市場比較**: {relative_strength.get('status', 'N/A')}
+    - **詳細**: {relative_strength.get('desc', 'N/A')}
+    - **日経平均との差分**: {relative_strength.get('diff', 0):+.2f}%
+    市場より強い銘柄か、地合いに引きずられているかを考慮せよ。
+
+    ## 2. 決算説明会スコアリング (Transcripts)
+    提供された決算説明会の文字起こしを深く読み込み、1〜5の5段階でスコアリングしてください：
+    - 経営陣の自信度、将来の成長見通しの明快さ、リスクへの言及の誠実さを評価。
+    - 5: 非常に有望、1: 懸念が強い。
+
+    ## 3. バックテスト分析（反省会）
+    {_format_backtest_for_prompt(backtest_results)}
+    この過去の成績を見て、現在の戦略がこの銘柄に適しているか評価し、勝率が低い場合は警戒を強めてください。
 
     # Self-Reflection Task (深層思考プロセス)
     以下の2人のエキスパートの対話を経て、最終結論を導き出してください：
@@ -109,6 +134,9 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
         "conclusion": "結論（1行）",
         "bull_view": "強気派の視点",
         "bear_view": "弱気派の視点",
+        "transcript_score": 1-5,
+        "transcript_reason": "決算説明会スコアの理由（短く）",
+        "backtest_feedback": "過去の勝率・成績を踏まえた戦略へのアドバイス",
         "final_reasoning": "システム判定({strategic_data.get('strategy_msg')})に対する評価（一致/不一致の理由）を含む最終根拠",
         "setup": {{
             "entry_price": 数値,
@@ -274,6 +302,20 @@ def _format_transcripts_for_prompt(transcript_data):
         lines.append(f"- **市場全体の地合い (日経平均)**: {desc}")
     
     return "\n".join(lines) if lines else "特になし"
+
+def _format_backtest_for_prompt(results):
+    """Format backtest results for AI consumption."""
+    if not results or not isinstance(results, dict):
+        return "直近のバックテストデータはありません。"
+    
+    lines = [
+        f"- **勝率**: {results.get('win_rate', 0):.1f}%",
+        f"- **総取引数**: {results.get('total_trades', 0)}回",
+        f"- **平均利益率**: {results.get('avg_profit', 0):.2f}%",
+        f"- **リスクリワード比**: {results.get('risk_reward', 0):.2f}",
+        f"- **総損益**: {results.get('total_pl', 0):.2f}%"
+    ]
+    return "### 過去30日の運用成績（バックテスト）\n" + "\n".join(lines)
         
 def analyze_news_impact(portfolio_items, news_data_map):
     """
