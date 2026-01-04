@@ -252,10 +252,11 @@ def render_home(params):
                 news_data = cache['news_data']
                 macro_context, transcript_data = cache['macro_context'], cache['transcript_data']
                 df_weekly = cache['df_weekly']
+                earnings_date = cache.get('earnings_date') # Retrieve earnings_date from cache
             else:
                 # Fetch New Data
                 with st.spinner('AIが市場データを分析中...'):
-                    dm = get_data_manager() # Ensure dm is available here
+                    dm = get_data_manager()
                     df, info = dm.get_market_data(ticker_input)
                     indicators, df = dm.get_technical_indicators(df, interval="1d")
                     
@@ -268,6 +269,12 @@ def render_home(params):
                 
                 # Fetch News Data for sentiment analysis
                 news_data = get_stock_news(ticker_input)
+            
+                # Get earnings date
+                try:
+                    earnings_date = info.get('earnings_date')
+                except:
+                    earnings_date = None
             
                 # v3.0: Fetch Macro context and Transcripts
                 macro_context = dm.get_macro_context()
@@ -336,6 +343,7 @@ def render_home(params):
                          st.caption(f"📅 次回決算予定: {e_date} (残り{days_left}日)")
 
                 # Technical calculation
+                dm = get_data_manager()
                 df = calculate_indicators(df, params) 
                 
                 financial_data = dm.get_financial_data(ticker_input)
@@ -579,8 +587,11 @@ def render_scanner():
             scan_result = scan_market(category_name=category)
             if not scan_result.empty:
                st.success(f"{len(scan_result)} 件の銘柄がヒットしました")
+               # Safe column selection
+               display_cols = ['銘柄名', 'コード', '判定', '現在値', 'RSI', '出来高倍率']
+               available_cols = [c for c in display_cols if c in scan_result.columns]
                st.dataframe(
-                   scan_result[['銘柄名', 'コード', '判定', '現在値', 'RSI', '出来高倍率']], 
+                   scan_result[available_cols], 
                    width='stretch'
                )
             else:
