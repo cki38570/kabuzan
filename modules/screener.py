@@ -89,5 +89,8 @@ def scan_market(category_name="主要大型株 (48)", progress_bar=None):
                 
     if results:
         res_df = pd.DataFrame(results)
-        return res_df.sort_values('raw_score', ascending=False)
+        # Fix: Ensure columns exist before sorting/returning
+        if 'raw_score' in res_df.columns:
+            return res_df.sort_values('raw_score', ascending=False)
+        return res_df
     return pd.DataFrame()

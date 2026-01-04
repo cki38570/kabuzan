@@ -242,6 +242,7 @@ def render_home(params):
         ticker_input = str(ticker_input).replace(".0", "")
         
         try:
+            # Fix: Define dm outside the conditional block or ensure it's always accessible
             dm = get_data_manager()
             if ticker_input in st.session_state.analysis_cache:
                 # Load from Cache
@@ -454,7 +455,7 @@ def render_home(params):
                                 <div style="text-align: right; background: {status_color}10; padding: 10px 15px; border-radius: 12px; border: 1px solid {status_color}33;">
                                     <div style="font-size: 0.7rem; color: #cbd5e1;">CONFIDENCE</div>
                                     <div style="font-size: 1.8rem; font-weight: 800; color: #60a5fa; line-height: 1;">
-                                        {report_data.get('confidence_score', 0)}<span style="font-size: 0.8rem; color: #64748b;">%</span>
+                                        {report_data.get('confidence', report_data.get('confidence_score', 0))}<span style="font-size: 0.8rem; color: #64748b;">%</span>
                                     </div>
                                 </div>
                                 <div style="text-align: right; background: {status_color}10; padding: 10px 15px; border-radius: 12px; border: 1px solid {status_color}33;">

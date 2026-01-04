@@ -82,5 +82,12 @@
     "score": 50,
     "status": "NEUTRAL",
     "price": 3356.0
+  },
+  {
+    "ticker": "7203",
+    "date": "2026-01-05 03:49:26",
+    "score": 50,
+    "status": "NEUTRAL",
+    "price": 3356.0
   }
 ]
