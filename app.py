@@ -349,13 +349,17 @@ def render_home(params):
                 patterns = enhance_ai_analysis_with_patterns(df)
                 enhanced_metrics = calculate_advanced_metrics(df, info['current_price'])
                 
+                # Load AI Analysis History for feedback loop
+                past_history = storage.load_ai_analysis_history(ticker_input)
+
                 report_raw = generate_gemini_analysis(
                     ticker_input, info, indicators, financial_data, strategic_data, 
                     enhanced_metrics=enhanced_metrics, patterns=patterns,
                     extra_context=extra_context, weekly_indicators=weekly_indicators,
                     news_data=news_data, macro_data=macro_context,
                     transcript_data=transcript_data, relative_strength=relative_strength,
-                    backtest_results=backtest_results
+                    backtest_results=backtest_results,
+                    past_history=past_history
                 )
                 
                 # Parse AI Result
@@ -373,8 +377,17 @@ def render_home(params):
                         "status": "NEUTRAL",
                         "total_score": 50,
                         "headline": "分析データの解析失敗",
-                        "analysis_body": f"AIからの応答を正しく読み取れませんでした。システム管理者に連絡してください。\nエラー: {e}"
+                        "final_reasoning": f"AIからの応答を正しく読み取れませんでした。システム管理者に連絡してください。\nエラー: {e}"
                     }
+                
+                # Save AI Analysis Log to storage (Memory)
+                if report_data.get('status'):
+                    storage.save_ai_analysis_log(
+                        ticker_input, 
+                        report_data.get('total_score', 50), 
+                        report_data.get('status'), 
+                        info['current_price']
+                    )
 
                 # --- Main Content via Tabs ---
                 # Changed order as requested: Chart -> AI -> Data
@@ -445,34 +458,51 @@ def render_home(params):
                     """
                     st.markdown(dashboard_html, unsafe_allow_html=True)
                     
-                    # 2. Action Plan Card (NEW)
+                    # 2. Action Plan Cards (Visual Enhancement)
                     action_plan = report_data.get('action_plan', {})
                     if action_plan:
-                        col_p1, col_p2 = st.columns([2, 1])
-                        with col_p1:
-                             st.info(f"💡 **推奨アクション**: {action_plan.get('recommended_action', 'N/A')}\n\n"
-                                     f"_{action_plan.get('rationale', '')}_")
-                        with col_p2:
-                             st.markdown(f"""
-                             <div style="background:#1e293b; padding:10px; border-radius:8px; border:1px solid #334155;">
-                                 <div style="font-size:0.8rem; color:#94a3b8;">指値目安</div>
-                                 <div style="font-size:1.1rem; color:#fff;">¥{action_plan.get('buy_limit', 0):,.0f}</div>
-                                 <div style="font-size:0.8rem; color:#94a3b8; margin-top:5px;">利確 / 損切</div>
-                                 <div style="font-size:1.1rem; color:#10b981;">¥{action_plan.get('sell_limit', 0):,.0f} <span style="color:#64748b;">/</span> <span style="color:#f43f5e;">¥{action_plan.get('stop_loss', 0):,.0f}</span></div>
-                             </div>
-                             """, unsafe_allow_html=True)
+                        st.markdown("#### 🎯 戦略アクションプラン")
+                        
+                        # Use a 3-column minimalist layout with theme colors
+                        c_entry, c_target, c_stop = st.columns(3)
+                        
+                        def price_card(label, price, color, subtext=""):
+                            return f"""
+                            <div style="background: {color}15; border-left: 5px solid {color}; padding: 12px; border-radius: 8px; border: 1px solid {color}33;">
+                                <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 3px;">{label}</div>
+                                <div style="font-size: 1.4rem; font-weight: 800; color: {color}; line-height: 1;">¥{price:,.0f}</div>
+                                <div style="font-size: 0.7rem; color: #64748b; margin-top: 5px;">{subtext}</div>
+                            </div>
+                            """
 
-                    # 3. AI Reasoning
+                        with c_entry:
+                            st.markdown(price_card("エントリー目安", action_plan.get('buy_limit', 0), "#10b981", "想定買付価格"), unsafe_allow_html=True)
+                        with c_target:
+                            st.markdown(price_card("利確ターゲット", action_plan.get('sell_limit', 0), "#fbbf24", "目標利益"), unsafe_allow_html=True)
+                        with c_stop:
+                            st.markdown(price_card("損切りライン", action_plan.get('stop_loss', 0), "#f43f5e", "リスク許容限界"), unsafe_allow_html=True)
+                        
+                        st.info(f"💡 **推奨アクション**: {action_plan.get('recommended_action', 'N/A')}\n\n_{action_plan.get('rationale', '')}_")
+
+                    # 3. AI Reasoning (Expert Committee Results)
                     st.divider()
                     
-                    # Sector Analysis (NEW)
+                    # Headline and Key Details
+                    headline = report_data.get('headline', 'AI分析レポート')
+                    st.markdown(f"### {headline}")
+
                     if 'sector_analysis' in report_data:
                         st.markdown(f"**🏢 セクター分析**: {report_data['sector_analysis']}")
                     
-                    conclusion = report_data.get('conclusion', 'AI分析レポート')
-                    st.markdown(f"### {conclusion}")
+                    with st.expander("🔍 専門家別の詳細分析", expanded=True):
+                        if 'technical_detail' in report_data:
+                            st.markdown(f"**📏 テクニカル分析**: {report_data['technical_detail']}")
+                        if 'macro_sentiment_detail' in report_data:
+                            st.markdown(f"**🌐 地合い・需給相関**: {report_data['macro_sentiment_detail']}")
+                        if report_data.get('memory_feedback'):
+                            st.info(f"🧠 **過去の反省**: {report_data['memory_feedback']}")
                     
-                    # Bull vs Bear
+                    # Bull vs Bear (Reinforced with quantitative reasoning)
                     c1, c2 = st.columns(2)
                     with c1:
                         st.success(f"**🐂 強気派 (Bull)**\n\n{report_data.get('bull_view', 'データ不足')}")
@@ -480,7 +510,7 @@ def render_home(params):
                         st.error(f"**🐻 弱気派 (Bear)**\n\n{report_data.get('bear_view', 'データ不足')}")
                     
                     # Final Conclusion
-                    st.markdown("#### 💬 総合判断")
+                    st.markdown("#### 💬 最終統合判断")
                     st.markdown(report_data.get('final_reasoning', '現在、詳細な分析を生成できませんでした。'))
 
                     t_score = report_data.get('transcript_score', 0)

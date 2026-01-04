@@ -299,5 +299,73 @@ class StorageManager:
         else:
             return self._save_local("notifications_log.json", log)
 
+    # --- AI Analysis Memory (For feedback loop) ---
+    def save_ai_analysis_log(self, ticker, score, status, price):
+        """Saves simplified analysis log for later feedback."""
+        log_entry = {
+            "ticker": ticker,
+            "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            "score": score,
+            "status": status,
+            "price": price
+        }
+        
+        # Load existing
+        filename = "ai_analysis_history.json"
+        if self.mode == "streamlit":
+            try:
+                df = self.conn.read(worksheet="ai_history", ttl=0)
+                if df is None: df = pd.DataFrame(columns=["ticker", "date", "score", "status", "price"])
+            except:
+                df = pd.DataFrame(columns=["ticker", "date", "score", "status", "price"])
+            
+            new_df = pd.concat([df, pd.DataFrame([log_entry])], ignore_index=True)
+            # Keep last 100 entries to prevent sheet bloating
+            if len(new_df) > 100: new_df = new_df.tail(100)
+            
+            try:
+                self.conn.update(worksheet="ai_history", data=new_df)
+                return True
+            except: return False
+        elif self.mode == "headless":
+            try:
+                data = self._read_ws_headless("ai_history")
+                df = pd.DataFrame(data) if data else pd.DataFrame(columns=["ticker", "date", "score", "status", "price"])
+                new_df = pd.concat([df, pd.DataFrame([log_entry])], ignore_index=True)
+                if len(new_df) > 100: new_df = new_df.tail(100)
+                return self._update_ws_headless("ai_history", new_df)
+            except: return False
+        else:
+            history = self._load_local(filename)
+            if not isinstance(history, list): history = []
+            history.append(log_entry)
+            if len(history) > 100: history = history[-100:]
+            return self._save_local(filename, history)
+
+    def load_ai_analysis_history(self, ticker):
+        """Loads analysis history specifically for one ticker."""
+        filename = "ai_analysis_history.json"
+        history = []
+        if self.mode == "streamlit":
+            try:
+                df = self.conn.read(worksheet="ai_history", ttl=0)
+                # Ensure we have data and it's not empty
+                if df is not None and not df.empty:
+                    history = df.to_dict('records')
+            except: pass
+        elif self.mode == "headless":
+            history = self._read_ws_headless("ai_history")
+        else:
+            history = self._load_local(filename)
+        
+        if not history: return None
+        
+        # Filter by ticker and get the latest
+        ticker_history = [h for h in history if str(h.get('ticker')) == str(ticker)]
+        if not ticker_history: return None
+        
+        # Return the latest one
+        return ticker_history[-1]
+
 # Singleton instance
 storage = StorageManager()

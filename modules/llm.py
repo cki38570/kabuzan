@@ -37,130 +37,87 @@ def get_gemini_client():
         print(f"Failed to initialize Gemini Client: {e}")
         return None
 
-def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strategic_data, enhanced_metrics=None, patterns=None, extra_context=None, weekly_indicators=None, news_data=None, macro_data=None, transcript_data=None, relative_strength=None, backtest_results=None):
+def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strategic_data, enhanced_metrics=None, patterns=None, extra_context=None, weekly_indicators=None, news_data=None, macro_data=None, transcript_data=None, relative_strength=None, backtest_results=None, past_history=None):
     """
-    Generate a highly advanced professional stock analysis report using Gemini.
-    Implements Self-Reflection, Macro/Transcript scoring, and Backtest feedback.
-    Returns structured JSON if possible, otherwise Markdown.
+    Generate a professional stock analysis report using a 'Virtual Investment Committee' flow.
+    Integrates detailed evidence-based Bull/Bear logic and feedback from past predictions.
     """
-    if price_info is None:
-        price_info = {}
-    if indicators is None:
-        indicators = {}
-    if macro_data is None:
-        macro_data = {}
-    if transcript_data is None:
-        transcript_data = pd.DataFrame()
-    if relative_strength is None:
-        relative_strength = {}
-    if weekly_indicators is None:
-        weekly_indicators = {}
-    if news_data is None:
-        news_data = []
+    if price_info is None: price_info = {}
+    if indicators is None: indicators = {}
+    if macro_data is None: macro_data = {}
+    if transcript_data is None: transcript_data = pd.DataFrame()
+    if relative_strength is None: relative_strength = {}
+    if weekly_indicators is None: weekly_indicators = {}
+    if news_data is None: news_data = []
+
+    # Prepare historical feedback if available
+    history_context = ""
+    if past_history:
+        history_context = f"""
+        ## 過去の分析フィードバック (Memory Feedback)
+        前回分析日: {past_history.get('date')}
+        前回判定: {past_history.get('status')} (スコア: {past_history.get('score')})
+        当時の価格: ¥{past_history.get('price'):,.1f}
+        現在の価格: ¥{price_info.get('current_price', 0):,.1f}
+        **反省タスク**: 前回の予測が当たっていたか検証し、その傾向（強気すぎた、あるいはリスクを見落としていた等）を今回の分析に活かしてください。
+        """
         
-    # Advanced Prompt with Self-Reflection, Limit Verification, and Macro/Transcript Context
+    # Advanced Prompt: Virtual Investment Committee
     prompt = f"""
-    # Role
-    あなたは「世界トップクラスのヘッジファンド・シニア戦略アナリスト」です。
-    機関投資家レベルの、多角的かつ論理的な投資判断を提供してください。
+    # Role: 仮想投資戦略会議 (Virtual Investment Committee)
+    最高峰のヘッジファンドにおける「投資委員会」として、以下の3名の専門家による独立した分析と、最終決定プロセスを経てレポートを作成してください。
 
-    # System Signal Integration (重要な前提)
-    本システムのルールベース分析（テクニカル）は以下のシグナルを出しています：
-    - **判定**: {strategic_data.get('strategy_msg', 'N/A')}
-    - **方針**: {strategic_data.get('action_msg', 'N/A')}
+    {history_context}
 
-    **あなたのタスクは、このシステム判定を鵜呑みにせず、検証することです。**
-    - システム判定とあなたの分析が一致する場合 → その根拠を強化してください。
-    - システム判定と矛盾する場合（例：システムは買いだが、あなたはマクロリスクで売りと判断） → **なぜシステム判定が現状に適さないか**を論理的に反論し、あなたの判断を優先してください。
+    # Stage 1: 専門家別分析 (Specialized Insights)
+    
+    ## 1. テクニカル分析担当 (Technical Specialist)
+    - 指標の具体的な数値（RSI, 移動平均乖離率, ボリンジャーバンドの位置, ATR）に基づき、論理的にトレンドを定義せよ。
+    - **厳守**: 単に「上昇傾向」とするのではなく、「RSIが{indicators.get('rsi')}であり過熱圏に近づいているため、一時的な押し目が必要」といった具体的な根拠を示せ。
+    
+    ## 2. 需給・市場心理担当 (Supply/Demand Expert)
+    - 信用倍率、出来高倍率、地合い（日経平均・ドル円）との相関から、上値の重さや底堅さを分析せよ。
+    - **マクロ環境連携**: ドル円が{macro_data.get('usdjpy', {}).get('price', 'N/A')} ({macro_data.get('usdjpy', {}).get('trend', 'N/A')}) であることが、この銘柄の輸出/輸入採算や株価にどう影響するか言語化せよ。
+    
+    ## 3. ファンダメンタル・材料担当 (Fundamental/News Analyst)
+    - PBR/PERの見地、直近ニュース、決算発表内容から、中長期的な価値を評価せよ。
 
-    # New Analysis Modules (重要)
-    ## 1. 相対比較分析（市場の空気）
-    - **市場比較**: {relative_strength.get('status', 'N/A')}
-    - **詳細**: {relative_strength.get('desc', 'N/A')}
-    - **日経平均との差分**: {relative_strength.get('diff', 0):+.2f}%
-    市場より強い銘柄か、地合いに引きずられているかを考慮せよ。
+    # Stage 2: 深層自己反省 (Bull/Bear Deep Reflection)
+    テクニカル・需給・ファンダすべての情報を統合し、以下の2名に**徹底的な論理バトル**を行わせてください。
+    1. **強気派 (Bull)**: 200〜300文字で、具体的な指標数値を根拠に、なぜ今「買い」なのかを論証せよ。
+    2. **弱気派 (Bear)**: 200〜300文字で、潜在的リスクやテクニカルの弱点、マクロ懸念を根拠に、なぜ今「見送り/売り」なのかを反論せよ。
+    **条件**: 「期待できる」といった抽象的な表現を禁じ、「SMA25が下向きである」「信用買残が過去平均より30%多い」といった定量的根拠を必ず含めること。
 
-    ## 2. セクター比較・バリュエーション
-    - セクター: {credit_data.get('details', {}).get('sector', 'N/A')}
-    - ファンダメンタル(PER/PBR)とセクター特性を考慮し、同業他社と比較して割安か割高かを評価せよ。
-
-    ## 3. 決算説明会スコアリング (Transcripts)
-    提供された決算説明会の文字起こしを深く読み込み、1〜5の5段階でスコアリングしてください：
-    - 経営陣の自信度、将来の成長見通しの明快さ、リスクへの言及の誠実さを評価。
-    - 5: 非常に有望、1: 懸念が強い。
-
-    ## 4. バックテスト分析（反省会）
-    {_format_backtest_for_prompt(backtest_results)}
-    この過去の成績を見て、現在の戦略がこの銘柄に適しているか評価し、勝率が低い場合は警戒を強めてください。
-
-    # Self-Reflection Task (深層思考プロセス)
-    以下の2人のエキスパートの対話を経て、最終結論を導き出してください：
-    1. **強気派 (Bull)**: テクニカル好転や好材料を強調。
-    2. **弱気派 (Bear)**: 上値抵抗、信用需給の悪化、マクロリスクを強調。
-
-    # Strategic Analysis Priorities
-    - **時間軸の明確化**: 推奨されるトレードの時間軸（短期：数日〜1週間 / 中期：1〜3ヶ月）を必ず指定せよ。
-    - **イベントリスク**: 決算またぎのリスクを考慮せよ。
-    - **論理性**: なぜその結論に至ったか、ファンダメンタルズとテクニカルの両面から深く論述せよ。表面的で短い分析は禁止する。
-
-    # Signal & Trade Plan Requirements (必須事項)
-    - **明確な判定**: 「BUY ENTRY」「SELL ENTRY」「NEUTRAL (様子見)」のいずれかを断定せよ。
-    - **不確実性の排除**: 空売り推奨の場合は明確に「SELL ENTRY」とせよ。買い推奨なら「BUY ENTRY」。
-    - **具体的アクション**: 現在値付近での成行か、押し目待ち（指値）か、具体的な数値を提示せよ。
-
-    # Input Data (市場データ)
+    # Stage 3: 最終投資判断 (Final Directive)
+    
+    # Input Data
     - 銘柄: {ticker}
     - 現在値: ¥{price_info.get('current_price') or 0:,.1f} ({price_info.get('change_percent') or 0:+.2f}%)
-    
-    ## テクニカル指標・需給
-    - 【日足】: {indicators.get('trend_desc', 'N/A')}, RSI: {indicators.get('rsi')}, ATR: {indicators.get('atr')}
-    - 【週足】: {weekly_indicators.get('trend_desc', 'N/A')}
-    - 【出来高】: {'🔥 出来高が急増（過去20日平均の {:.1f}倍）' .format(strategic_data.get('volume_ratio', 1.0)) if strategic_data.get('volume_spike') else '平常。'}
-    
-    ## マクロ経済環境
-    - 日経平均: {macro_data.get('n225', {}).get('price', 'N/A')}
-    
-    ## 検出パターン
-    {_format_patterns_for_prompt(patterns)}
-    
-    ## 需給・ファンダ
-    {_format_fundamentals_for_prompt(credit_data)}
-    
-    ## 直近ニュース & 決算
-    {_format_news_for_prompt(news_data)}
-    {_format_transcripts_for_prompt(transcript_data)}
+    - テクニカル: RSI:{indicators.get('rsi')}, MACD:{indicators.get('macd_status')}, BB:{indicators.get('bb_status')}
+    - 市場環境: 日経平均 ¥{macro_data.get('n225', {}).get('price', 'N/A')}, ドル円 ¥{macro_data.get('usdjpy', {}).get('price', 'N/A')}
+    - 需給: {_format_fundamentals_for_prompt(credit_data)}
+    - ニュース: {_format_news_for_prompt(news_data)}
+    - 過去のバックテスト成績: {_format_backtest_for_prompt(backtest_results)}
 
-    # Output Format (Structured JSON)
+    # Output Format (Strict JSON)
     ```json
     {{
         "status": "【BUY ENTRY / SELL ENTRY / NEUTRAL】",
-        "timeframe": "【短期 / 中期 / 長期】",
         "total_score": 0-100,
-        "conclusion": "結論（投資家に向けた明確なメッセージ）",
+        "headline": "結論を一言で",
         "sector_analysis": "セクター内での立ち位置やバリュエーション評価（詳細に記述）",
-        "bull_view": "強気派の視点（具体的な材料を挙げて詳細に）",
-        "bear_view": "弱気派の視点（リスク要因を具体的に挙げて詳細に）",
-        "transcript_score": 1-5,
-        "transcript_reason": "決算説明会データの評価理由",
-        "backtest_feedback": "過去の勝率・成績を踏まえた戦略へのアドバイス",
-        "final_reasoning": "システム判定({strategic_data.get('strategy_msg')})に対する評価を含む最終根拠（200文字程度で論理的に記述）",
+        "technical_detail": "テクニカル担当の具体的分析結果",
+        "macro_sentiment_detail": "需給とマクロ（ドル円等）の相関分析",
+        "bull_view": "強気派の論理的根拠（200-300文字、定量的基準）",
+        "bear_view": "弱気派の論理的根拠（200-300文字、定量的基準）",
+        "memory_feedback": "過去の分析との答え合わせ結果と今回の修正点（あれば）",
+        "final_reasoning": "全専門家の意見を統合した最終根拠（250文字程度で論理的に記述）",
         "action_plan": {{
-            "recommended_action": "【成行買い / 指値注文 / 様子見 / 利益確定 / 損切り】",
-            "buy_limit": 数値(指値目安、成行なら0),
-            "sell_limit": 数値(利確目安),
-            "stop_loss": 数値(損切目安),
-            "rationale": "この価格設定の根拠（サポートライン、ボリンジャーバンド等を引用して具体的に）"
-        }},
-        "setup": {{
-            "entry_price": 数値,
-            "target_price": 数値,
+            "recommended_action": "具体的アクション",
+            "buy_limit": 数値,
+            "sell_limit": 数値,
             "stop_loss": 数値,
-            "risk_reward": 数値
-        }},
-        "details": {{
-            "technical_score": 0-60,
-            "sentiment_score": 0-40,
-            "sentiment_label": "ポジティブ/中立/ネガティブ"
+            "rationale": "価格設定の具体的・論理的根拠"
         }}
     }}
     ```
@@ -223,21 +180,19 @@ def _create_mock_report(strategic_data, enhanced_metrics, indicators, credit_dat
     mock_json = {
         "status": trend_status,
         "total_score": 50,
+        "headline": "AI分析エラーによる簡易リポート",
         "conclusion": conclusion,
+        "technical_detail": "ルールベースによるテクニカル判定のみを生成しています。",
+        "macro_sentiment_detail": "市場ニュースとの相関分析をスキップしました。",
         "bull_view": "テクニカル指標の一部に下げ止まりの兆候が見られるが、確定的な反転サインではない。",
         "bear_view": "短期的な移動平均線が下向きであり、地合いの悪化が継続するリスクがある。",
-        "final_reasoning": f"AI分析エラー({error_info})のため、暫定的なテクニカル判断のみを表示しています。",
-        "setup": {
-            "entry_price": strategic_data.get('entry_price', 0),
-            "target_price": strategic_data.get('target_price', 0),
+        "final_reasoning": f"AI分析エラー({error_info})のため、暫定的な判定を表示しています。",
+        "action_plan": {
+            "recommended_action": "様子見",
+            "buy_limit": strategic_data.get('entry_price', 0),
+            "sell_limit": strategic_data.get('target_price', 0),
             "stop_loss": strategic_data.get('stop_loss', 0),
-            "risk_reward": strategic_data.get('risk_reward', 0)
-        },
-        "details": {
-            "technical_score": 30,
-            "sentiment_score": 20,
-            "sentiment_label": "中立",
-            "notes": f"エラー情報: {error_info}"
+            "rationale": "AI分析不能のため、テクニカル計算値を指値目安としています。"
         }
     }
 
