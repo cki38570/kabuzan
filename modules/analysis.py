@@ -361,7 +361,9 @@ def generate_ai_report(df, credit_data, ticker_name, price_info=None, extra_cont
         strategic_data,
         enhanced_metrics=enhanced_metrics,
         patterns=patterns,
-        extra_context=extra_context
+        extra_context=extra_context,
+        weekly_indicators=kwargs.get('weekly_indicators'),
+        relative_strength=kwargs.get('relative_strength')
     )
     
     if llm_report:

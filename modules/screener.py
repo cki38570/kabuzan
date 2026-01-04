@@ -49,6 +49,10 @@ def scan_single_stock(stock):
         elif score <= -1: recommendation = "🟣 売り検討"
         
         if signals or score != 0:
+            vol_ratio = 1.0
+            if last['Volume'] > 0 and df['Volume'].rolling(20).mean().iloc[-1] > 0:
+                vol_ratio = last['Volume'] / df['Volume'].rolling(20).mean().iloc[-1]
+
             return {
                 'コード': stock['code'],
                 '銘柄名': stock['name'],
@@ -57,6 +61,7 @@ def scan_single_stock(stock):
                 '判定': recommendation,
                 'シグナル': ", ".join(signals),
                 'RSI': f"{rsi:.1f}",
+                '出来高倍率': f"{vol_ratio:.1f}倍",
                 'raw_score': score
             }
     except Exception:

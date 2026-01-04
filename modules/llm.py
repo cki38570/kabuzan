@@ -93,31 +93,40 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     # Input Data
     - 銘柄: {ticker}
     - 現在値: ¥{price_info.get('current_price') or 0:,.1f} ({price_info.get('change_percent') or 0:+.2f}%)
-    - テクニカル: RSI:{indicators.get('rsi')}, MACD:{indicators.get('macd_status')}, BB:{indicators.get('bb_status')}
+    - 日足テクニカル: RSI:{indicators.get('rsi')}, MACD:{indicators.get('macd_status')}, BB:{indicators.get('bb_status')}
+    - 週足テクニカル: {_format_indicators_for_prompt(weekly_indicators, "週足")}
     - 市場環境: 日経平均 ¥{macro_data.get('n225', {}).get('price', 'N/A')}, ドル円 ¥{macro_data.get('usdjpy', {}).get('price', 'N/A')}
+    - 相対比較: {relative_strength.get('status', 'N/A')} ({relative_strength.get('desc', 'N/A')})
     - 需給: {_format_fundamentals_for_prompt(credit_data)}
     - ニュース: {_format_news_for_prompt(news_data)}
     - 過去のバックテスト成績: {_format_backtest_for_prompt(backtest_results)}
 
     # Output Format (Strict JSON)
+    # 重要: 各テキストフィールド（sector_analysis, technical_detail, macro_sentiment_detail, bull_view, bear_view, final_reasoning）は、
+    # 決して一言で終わらせず、背景・根拠・展望を含めて200〜300文字程度で非常に詳細に論理を展開してください。
+    # 確信度 (confidence_score) は0-100で、データの鮮度やシグナルの合致度から算定せよ。
     ```json
     {{
         "status": "【BUY ENTRY / SELL ENTRY / NEUTRAL】",
         "total_score": 0-100,
+        "confidence_score": 0-100,
         "headline": "結論を一言で",
-        "sector_analysis": "セクター内での立ち位置やバリュエーション評価（詳細に記述）",
-        "technical_detail": "テクニカル担当の具体的分析結果",
-        "macro_sentiment_detail": "需給とマクロ（ドル円等）の相関分析",
-        "bull_view": "強気派の論理的根拠（200-300文字、定量的基準）",
-        "bear_view": "弱気派の論理的根拠（200-300文字、定量的基準）",
+        "sector_analysis": "セクター内での立ち位置やバリュエーション評価（詳細かつ論理的に）",
+        "technical_detail": "日足・週足のマルチタイムフレーム分析に基づく具体的かつ網羅的な分析結果",
+        "macro_sentiment_detail": "需給とマクロ（ドル円等）の相関および市場心理の深掘り分析",
+        "bull_view": "強気派の論理的根拠（200-300文字、定量的数値を3つ以上含めること）",
+        "bear_view": "弱気派の論理的根拠（200-300文字、定量的数値を3つ以上含めること）",
         "memory_feedback": "過去の分析との答え合わせ結果と今回の修正点（あれば）",
-        "final_reasoning": "全専門家の意見を統合した最終根拠（250文字程度で論理的に記述）",
+        "final_reasoning": "全専門家の意見を統合した最終根拠（250-300文字程度で極めて詳細に記述）",
+        "transcript_score": 1-5,
+        "transcript_reason": "決算説明会や定性的材料に基づく自信度の根拠（100文字程度）",
+        "backtest_feedback": "精度向上したバックテスト結果に基づく戦略の妥当性評価",
         "action_plan": {{
             "recommended_action": "具体的アクション",
             "buy_limit": 数値,
             "sell_limit": 数値,
             "stop_loss": 数値,
-            "rationale": "価格設定の具体的・論理的根拠"
+            "rationale": "価格設定の具体的・論理的根拠（支持線・抵抗線の具体的数値を含む）"
         }}
     }}
     ```
@@ -126,7 +135,8 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     error_details = []
     # Stable Model Candidates (2025 Free Tier Optimized)
     MODEL_CANDIDATES = [
-        'gemini-3-flash-preview',
+        'gemini-2.0-flash-exp',
+        'gemini-1.5-flash',
         'gemini-2.0-flash'
     ]
 
@@ -180,6 +190,7 @@ def _create_mock_report(strategic_data, enhanced_metrics, indicators, credit_dat
     mock_json = {
         "status": trend_status,
         "total_score": 50,
+        "confidence_score": 30,
         "headline": "AI分析エラーによる簡易リポート",
         "conclusion": conclusion,
         "technical_detail": "ルールベースによるテクニカル判定のみを生成しています。",
@@ -197,6 +208,19 @@ def _create_mock_report(strategic_data, enhanced_metrics, indicators, credit_dat
     }
 
     return f"```json\n{json.dumps(mock_json, ensure_ascii=False, indent=4)}\n```"
+
+def _format_indicators_for_prompt(indicators, label="日足"):
+    """Format technical indicators for the prompt."""
+    if not indicators:
+        return f"{label}データ不足"
+    
+    lines = [
+        f"RSI: {indicators.get('rsi', 'N/A')}",
+        f"MACD: {indicators.get('macd_status', 'N/A')}",
+        f"BB: {indicators.get('bb_status', 'N/A')}",
+        f"トレンド: {indicators.get('trend_desc', 'N/A')}"
+    ]
+    return ", ".join(lines)
 
 def _format_patterns_for_prompt(patterns):
     """Format detected patterns for inclusion in prompt."""
@@ -326,7 +350,8 @@ def analyze_news_impact(portfolio_items, news_data_map):
 
     # Consistently use the same stable candidates for news as well
     MODEL_CANDIDATES = [
-        'gemini-3-flash-preview',
+        'gemini-2.0-flash-exp',
+        'gemini-1.5-flash',
         'gemini-2.0-flash'
     ]
 

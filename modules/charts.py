@@ -57,9 +57,9 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
 
     # Moving Averages (Synced with Plotly colors)
     if interval == "1wk":
-        ma_list = [('SMA13', '#2962FF'), ('SMA26', '#FF6D00'), ('SMA52', '#00C853')] # Blue, Orange, Green
+        ma_list = [('SMA_13', '#2962FF'), ('SMA_26', '#FF6D00'), ('SMA_52', '#00C853')] # Blue, Orange, Green
     else:
-        ma_list = [('SMA5', '#FFFF00'), ('SMA25', '#FF00FF'), ('SMA75', '#00E676')] # Yellow, Magenta, Green
+        ma_list = [('SMA_5', '#FFFF00'), ('SMA_25', '#FF00FF'), ('SMA_75', '#00E676')] # Yellow, Magenta, Green
 
     for ma_col, color in ma_list:
         if ma_col in df.columns:
@@ -79,13 +79,13 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
                     print(f"Error setting line {ma_col}: {e}")
 
     # Bollinger Bands
-    if 'BB_Upper' in df.columns and 'BB_Lower' in df.columns:
+    if 'BBU_20_2.0' in df.columns and 'BBL_20_2.0' in df.columns:
         try:
             # Use slightly transparent colors if supported, or just light solid colors
             upper = chart.create_line(name='BB Upper', color='rgba(0, 212, 255, 0.5)')
-            upper.set(pd.DataFrame({'time': chart_df['time'], 'value': df['BB_Upper']}))
+            upper.set(pd.DataFrame({'time': chart_df['time'], 'value': df['BBU_20_2.0']}))
             lower = chart.create_line(name='BB Lower', color='rgba(0, 212, 255, 0.5)')
-            lower.set(pd.DataFrame({'time': chart_df['time'], 'value': df['BB_Lower']}))
+            lower.set(pd.DataFrame({'time': chart_df['time'], 'value': df['BBL_20_2.0']}))
         except Exception as e:
             print(f"Error adding BB to chart: {e}")
 

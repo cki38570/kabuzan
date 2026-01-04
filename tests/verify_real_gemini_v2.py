@@ -15,9 +15,9 @@ def test_real_gemini_analysis():
     dm = get_data_manager()
     ticker = "7203"
     df, info = dm.get_market_data(ticker)
-    indicators = dm.get_technical_indicators(df)
+    indicators, df = dm.get_technical_indicators(df)
     df_weekly, _ = dm.get_market_data(ticker, interval="1wk")
-    weekly_indicators = dm.get_technical_indicators(df_weekly, interval="1wk")
+    weekly_indicators, df_weekly = dm.get_technical_indicators(df_weekly, interval="1wk")
     credit_data = dm.get_financial_data(ticker)
     
     # We use empty dicts for extras to keep it simple

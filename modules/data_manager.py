@@ -341,16 +341,27 @@ class DataManager:
                 else:
                     results['trend_desc'] = "Moderate Downtrend (緩やかな下落/調整)"
             
+            # Explicitly Rename to match charts.py expected names
+            rename_map = {
+                'BBU_20_2.0': 'BBU_20_2.0',
+                'BBL_20_2.0': 'BBL_20_2.0'
+            }
+            if 'BBU_20_2' in calc_df.columns: rename_map['BBU_20_2'] = 'BBU_20_2.0'
+            if 'BBL_20_2' in calc_df.columns: rename_map['BBL_20_2'] = 'BBL_20_2.0'
+            
+            calc_df.rename(columns=rename_map, inplace=True)
+
             # 5. ATR (14)
             calc_df.ta.atr(length=14, append=True)
             if 'ATRr_14' in calc_df.columns:
                 results['atr'] = calc_df['ATRr_14'].iloc[-1]
                 
-            return results
+            # print(f"DEBUG: Calculated Columns: {list(calc_df.columns)}")
+            return results, calc_df
             
         except Exception as e:
             print(f"Error calculating technicals: {e}")
-            return results
+            return results, df
 
     def get_financial_data(self, ticker_code: str) -> Dict[str, Any]:
         """

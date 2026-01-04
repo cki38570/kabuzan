@@ -242,6 +242,7 @@ def render_home(params):
         ticker_input = str(ticker_input).replace(".0", "")
         
         try:
+            dm = get_data_manager()
             if ticker_input in st.session_state.analysis_cache:
                 # Load from Cache
                 cache = st.session_state.analysis_cache[ticker_input]
@@ -253,13 +254,15 @@ def render_home(params):
             else:
                 # Fetch New Data
                 with st.spinner('AIが市場データを分析中...'):
-                    dm = get_data_manager()
                     df, info = dm.get_market_data(ticker_input)
-                    indicators = dm.get_technical_indicators(df, interval="1d")
+                    indicators, df = dm.get_technical_indicators(df, interval="1d")
                     
                     # Prepare weekly indicators for AI analysis
                     df_weekly, _ = dm.get_market_data(ticker_input, interval="1wk")
-                    weekly_indicators = dm.get_technical_indicators(df_weekly, interval="1wk") if not df_weekly.empty else {}
+                    if not df_weekly.empty:
+                        weekly_indicators, df_weekly = dm.get_technical_indicators(df_weekly, interval="1wk")
+                    else:
+                        weekly_indicators = {}
                 
                 # Fetch News Data for sentiment analysis
                 news_data = get_stock_news(ticker_input)
@@ -447,10 +450,18 @@ def render_home(params):
                                 </div>
                                 <div style="font-size: 1rem; color: {status_color}; font-weight: bold;">{status_ja} {badge_html}</div>
                             </div>
-                            <div style="text-align: right; background: {status_color}10; padding: 10px 20px; border-radius: 12px; border: 1px solid {status_color}33;">
-                                <div style="font-size: 0.8rem; color: #cbd5e1;">AI SCORE</div>
-                                <div style="font-size: 2.5rem; font-weight: 800; color: {status_color}; line-height: 1;">
-                                    {total_score}<span style="font-size: 1rem; color: #64748b;">/100</span>
+                            <div style="display: flex; gap: 10px;">
+                                <div style="text-align: right; background: {status_color}10; padding: 10px 15px; border-radius: 12px; border: 1px solid {status_color}33;">
+                                    <div style="font-size: 0.7rem; color: #cbd5e1;">CONFIDENCE</div>
+                                    <div style="font-size: 1.8rem; font-weight: 800; color: #60a5fa; line-height: 1;">
+                                        {report_data.get('confidence_score', 0)}<span style="font-size: 0.8rem; color: #64748b;">%</span>
+                                    </div>
+                                </div>
+                                <div style="text-align: right; background: {status_color}10; padding: 10px 15px; border-radius: 12px; border: 1px solid {status_color}33;">
+                                    <div style="font-size: 0.7rem; color: #cbd5e1;">AI SCORE</div>
+                                    <div style="font-size: 1.8rem; font-weight: 800; color: {status_color}; line-height: 1;">
+                                        {total_score}<span style="font-size: 0.8rem; color: #64748b;">/100</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>

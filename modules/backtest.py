@@ -1,58 +1,79 @@
 import pandas as pd
 import numpy as np
 
-def backtest_strategy(df, strategic_data, days=30):
+def backtest_strategy(df, strategic_data=None, days=30):
     """
     Backtest the AI trading strategy over the last N days.
-    Returns performance metrics and trade history.
+    Eliminates look-ahead bias by calculating levels at each point in time.
     """
     if df is None or len(df) < days:
         return None
     
-    # Get recent data
-    recent_df = df.tail(days).copy()
+    # Get recent data and ensure indicators are present
+    recent_df = df.tail(days + 20).copy() # Buffer for indicators if needed
     
-    # Extract strategy parameters
-    target_price = strategic_data.get('target_price', 0)
-    stop_loss = strategic_data.get('stop_loss', 0)
+    # Simulated settings (can be refined)
+    sl_limit_pct = -5.0 
     
-    # Simulate trades
     trades = []
     in_position = False
     entry_price = 0
     entry_date = None
+    current_target = 0
+    current_stop_loss = 0
     
+    # Iterate through days
     for idx, row in recent_df.iterrows():
+        # Skip if we don't have enough indicators for this row
+        needed = ['SMA5', 'SMA25', 'SMA75', 'BB_Upper', 'BB_Lower', 'ATR', 'RSI']
+        if not all(col in row.index for col in needed) or pd.isna(row['SMA75']):
+            continue
+            
         current_price = row['Close']
         
         if not in_position:
-            # Check for entry signal (simplified: buy when price is near support)
-            # In real scenario, this would be based on actual buy zone
-            support_level = strategic_data.get('stop_loss') or (current_price * 0.95)
+            # --- Entry Logic (Consistent with analysis.py) ---
+            sma5, sma25, sma75 = row['SMA5'], row['SMA25'], row['SMA75']
+            rsi = row['RSI']
+            bb_low = row['BB_Lower']
+            atr = row['ATR']
             
-            # Entry: Price is within 2% of support and RSI < 50
-            if 'RSI' in row and not pd.isna(row['RSI']) and support_level is not None:
-                if current_price <= support_level * 1.02 and row['RSI'] < 50:
-                    in_position = True
-                    entry_price = current_price
-                    entry_date = idx
+            # Trend Check
+            is_uptrend = (sma5 > sma25) or (current_price > sma25)
+            
+            # Entry Signal: Near support (SMA25 or BB_Low) and RSI not overbought
+            support_level = max([sma25, bb_low]) if max([sma25, bb_low]) < current_price else current_price * 0.98
+            
+            if is_uptrend and current_price <= support_level * 1.02 and rsi < 60:
+                in_position = True
+                entry_price = current_price
+                entry_date = idx
+                
+                # Calculate Target/SL at the moment of entry
+                current_target = row['BB_Upper']
+                
+                # ATR-based SL logic
+                atr_sl = entry_price - (2.0 * atr)
+                fixed_sl = entry_price * (1 + (sl_limit_pct / 100))
+                current_stop_loss = max(atr_sl, fixed_sl) # Tighter/Safer one
+                
         else:
-            # Check for exit signal
+            # --- Exit Logic ---
             exit_triggered = False
             exit_reason = ""
             exit_price = current_price
             
             # Take profit
-            if target_price and target_price > 0 and current_price >= target_price:
+            if current_price >= current_target:
                 exit_triggered = True
                 exit_reason = "利確"
-                exit_price = target_price
+                exit_price = current_target
             
             # Stop loss
-            elif stop_loss and stop_loss > 0 and current_price <= stop_loss:
+            elif current_price <= current_stop_loss:
                 exit_triggered = True
                 exit_reason = "損切"
-                exit_price = stop_loss
+                exit_price = current_stop_loss
             
             if exit_triggered:
                 profit = exit_price - entry_price
@@ -73,30 +94,24 @@ def backtest_strategy(df, strategic_data, days=30):
     # Calculate metrics
     if not trades:
         return {
-            'total_trades': 0,
-            'win_rate': 0,
-            'avg_profit': 0,
-            'avg_loss': 0,
-            'total_return': 0,
-            'max_drawdown': 0,
-            'trades': []
+            'total_trades': 0, 'win_rate': 0, 'avg_profit': 0, 'avg_loss': 0,
+            'total_return': 0, 'max_drawdown': 0, 'trades': []
         }
     
     trades_df = pd.DataFrame(trades)
-    
     winning_trades = trades_df[trades_df['profit'] > 0]
     losing_trades = trades_df[trades_df['profit'] <= 0]
     
-    win_rate = (len(winning_trades) / len(trades_df)) * 100 if len(trades_df) > 0 else 0
-    avg_profit = winning_trades['profit_pct'].mean() if len(winning_trades) > 0 else 0
-    avg_loss = losing_trades['profit_pct'].mean() if len(losing_trades) > 0 else 0
+    win_rate = (len(winning_trades) / len(trades_df)) * 100
+    avg_profit = winning_trades['profit_pct'].mean() if not winning_trades.empty else 0
+    avg_loss = losing_trades['profit_pct'].mean() if not losing_trades.empty else 0
     total_return = trades_df['profit_pct'].sum()
     
-    # Calculate max drawdown
-    cumulative_returns = trades_df['profit_pct'].cumsum()
-    running_max = cumulative_returns.expanding().max()
-    drawdown = cumulative_returns - running_max
-    max_drawdown = drawdown.min() if len(drawdown) > 0 else 0
+    # Cumulative returns for drawdown calc
+    trades_df['cum_return'] = (1 + trades_df['profit_pct'] / 100).cumprod()
+    running_max = trades_df['cum_return'].cummax()
+    drawdown = (trades_df['cum_return'] - running_max) / running_max
+    max_drawdown = drawdown.min() * 100 if not drawdown.empty else 0
     
     return {
         'total_trades': len(trades_df),

@@ -22,7 +22,7 @@ def test_data_manager():
         print("[FAIL] No data received.")
         
     print(f"\n2. Testing Technical Indicators Calculation...")
-    techs = dm.get_technical_indicators(df)
+    techs, df = dm.get_technical_indicators(df)
     if techs:
         print(f"[OK] Technicals calculated: {list(techs.keys())[:5]}...")
         print(f"    RSI: {techs.get('rsi')}")

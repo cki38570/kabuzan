@@ -1,0 +1,86 @@
+[
+  {
+    "ticker": "7203",
+    "date": "2026-01-04 14:03:02",
+    "score": 78,
+    "status": "【BUY ENTRY】",
+    "price": 3356.0
+  },
+  {
+    "ticker": "7203",
+    "date": "2026-01-04 14:03:57",
+    "score": 75,
+    "status": "【BUY ENTRY】",
+    "price": 3356.0
+  },
+  {
+    "ticker": "6758",
+    "date": "2026-01-04 14:07:34",
+    "score": 50,
+    "status": "NEUTRAL",
+    "price": 4024.0
+  },
+  {
+    "ticker": "6758",
+    "date": "2026-01-04 14:15:53",
+    "score": 50,
+    "status": "NEUTRAL",
+    "price": 4024.0
+  },
+  {
+    "ticker": "6758",
+    "date": "2026-01-04 14:16:00",
+    "score": 50,
+    "status": "NEUTRAL",
+    "price": 4024.0
+  },
+  {
+    "ticker": "6758",
+    "date": "2026-01-04 14:25:41",
+    "score": 50,
+    "status": "NEUTRAL",
+    "price": 4024.0
+  },
+  {
+    "ticker": "6758",
+    "date": "2026-01-04 14:26:29",
+    "score": 50,
+    "status": "NEUTRAL",
+    "price": 4024.0
+  },
+  {
+    "ticker": "6758",
+    "date": "2026-01-04 14:29:57",
+    "score": 50,
+    "status": "NEUTRAL",
+    "price": 4024.0
+  },
+  {
+    "ticker": "6758",
+    "date": "2026-01-04 14:34:21",
+    "score": 50,
+    "status": "NEUTRAL",
+    "price": 4024.0
+  },
+  {
+    "ticker": "7203",
+    "date": "2026-01-05 03:36:50",
+    "score": 50,
+    "status": "NEUTRAL",
+    "price": 3356.0
+  },
+  {
+    "ticker": "7203",
+    "date": "2026-01-05 03:38:43",
+    "score": 50,
+    "status": "NEUTRAL",
+    "price": 3356.0
+  },
+  {
+    "ticker": "7203",
+    "date": "2026-01-05 03:43:19",
+    "score": 50,
+    "status": "NEUTRAL",
+    "price": 3356.0
+  }
+]
