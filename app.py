@@ -255,6 +255,7 @@ def render_home(params):
             else:
                 # Fetch New Data
                 with st.spinner('AIが市場データを分析中...'):
+                    dm = get_data_manager() # Ensure dm is available here
                     df, info = dm.get_market_data(ticker_input)
                     indicators, df = dm.get_technical_indicators(df, interval="1d")
                     
@@ -375,6 +376,13 @@ def render_home(params):
                         report_data = json.loads(json_match.group(1))
                     else:
                         report_data = json.loads(report_raw)
+                    
+                    # Normalize confidence keys
+                    if 'confidence' in report_data and 'confidence_score' not in report_data:
+                        report_data['confidence_score'] = report_data['confidence']
+                    elif 'confidence_score' in report_data and 'confidence' not in report_data:
+                        report_data['confidence'] = report_data['confidence_score']
+                        
                 except Exception as e:
                     # Fallback on parse error
                     report_data = {
