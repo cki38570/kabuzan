@@ -196,6 +196,7 @@ market_badge_color = "#00ff00" if market_trend == "Bull" else "#ff4b4b" if marke
 
 def render_home(params):
     st.title("🏠 ホーム / AI分析")
+    dm = get_data_manager() # Initialize dm early to avoid scope errors
     
     # 1. Ticker Input
     def update_ticker_from_input():
@@ -242,8 +243,6 @@ def render_home(params):
         ticker_input = str(ticker_input).replace(".0", "")
         
         try:
-            # Fix: Define dm outside the conditional block or ensure it's always accessible
-            dm = get_data_manager()
             if ticker_input in st.session_state.analysis_cache:
                 # Load from Cache
                 cache = st.session_state.analysis_cache[ticker_input]
@@ -256,7 +255,6 @@ def render_home(params):
             else:
                 # Fetch New Data
                 with st.spinner('AIが市場データを分析中...'):
-                    dm = get_data_manager()
                     df, info = dm.get_market_data(ticker_input)
                     indicators, df = dm.get_technical_indicators(df, interval="1d")
                     
@@ -343,7 +341,6 @@ def render_home(params):
                          st.caption(f"📅 次回決算予定: {e_date} (残り{days_left}日)")
 
                 # Technical calculation
-                dm = get_data_manager()
                 df = calculate_indicators(df, params) 
                 
                 financial_data = dm.get_financial_data(ticker_input)
@@ -553,9 +550,9 @@ def render_home(params):
 
                 with tab_data:
                      tcol1, tcol2, tcol3 = st.columns(3)
-                     tcol1.metric("RSI", f"{indicators.get('rsi', 0):.1f}")
-                     tcol2.metric("地合い差分", f"{relative_strength['diff']:+.1f}%")
-                     tcol3.metric("現在値", f"¥{info['current_price']:,.0f}")
+                     tcol1.metric("RSI", f"{indicators.get('rsi', 0) if indicators else 0:.1f}")
+                     tcol2.metric("地合い差分", f"{relative_strength.get('diff', 0):+.1f}%")
+                     tcol3.metric("現在値", f"¥{info.get('current_price', 0):,.0f}")
                      
                      if credit_df is not None and not credit_df.empty:
                         st.markdown("#### 信用残推移")
