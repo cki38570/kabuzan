@@ -116,9 +116,14 @@ with st.sidebar:
         new_ticker = col_mn1.text_input("追加", placeholder="コード (例: 7203)", label_visibility="collapsed")
         if col_mn2.form_submit_button("＋"):
             if new_ticker:
-                exists = any(item['code'] == new_ticker for item in st.session_state.watchlist)
+                # Normalize ticker: add .T if it's 4 digits
+                clean_ticker = str(new_ticker).strip().replace(".0", "")
+                if clean_ticker.isdigit() and len(clean_ticker) == 4:
+                    clean_ticker = f"{clean_ticker}.T"
+                
+                exists = any(item.get('code') == clean_ticker for item in st.session_state.watchlist)
                 if not exists:
-                    st.session_state.watchlist.append({'code': new_ticker, 'name': '読み込み中...'})
+                    st.session_state.watchlist.append({'code': clean_ticker, 'name': '読み込み中...'})
                     save_watchlist(st.session_state.watchlist)
                     st.rerun()
     
@@ -130,8 +135,11 @@ with st.sidebar:
     if 'active_ticker' not in st.session_state:
         st.session_state.active_ticker = ""
 
-    # Sort watchlist
-    st.session_state.watchlist.sort(key=lambda x: x['code'])
+    # Sort watchlist safely
+    try:
+        st.session_state.watchlist.sort(key=lambda x: str(x.get('code', '')))
+    except Exception as e:
+        st.error(f"Watchlist sorting error: {e}")
     
     import yfinance as yf
     
@@ -139,16 +147,23 @@ with st.sidebar:
     @st.cache_data(ttl=300) # Cache for 5 minutes
     def get_cached_card_info(code):
         try:
-             fetch_code = f"{code}.T" if code.isdigit() and len(code) == 4 else code
-             t = yf.Ticker(fetch_code)
+             t = yf.Ticker(code)
              # Use fast_info to avoid heavy network calls if possible
              curr = t.fast_info.last_price
              prev = t.fast_info.previous_close
              
+             # Also try to get name if it's "Loading..."
+             name = None
+             try:
+                 # Attempt to get a readable name
+                 name = t.info.get('longName') or t.info.get('shortName')
+             except:
+                 pass
+
              if curr and prev:
                  chg = curr - prev
                  pct = (chg / prev) * 100
-                 return curr, chg, pct
+                 return curr, chg, pct, name
              else:
                  # Fallback to history if fast_info fails
                  hist = t.history(period="2d")
@@ -157,23 +172,35 @@ with st.sidebar:
                      prev = hist['Close'].iloc[-2]
                      chg = curr - prev
                      pct = (chg / prev) * 100
-                     return curr, chg, pct
+                     return curr, chg, pct, name
         except Exception as e:
              pass
-        return 0, 0, 0
+        return 0, 0, 0, None
     
     # Render Cards
+    updated_wl = False
     for item in st.session_state.watchlist:
-        clean_name = item['name'].replace('Mock: ', '')
-        code = item['code']
+        code = item.get('code', 'Unknown')
+        name = item.get('name', '読み込み中...')
         
         # Use cached fetch for card info
-        curr, chg, pct = get_cached_card_info(code)
+        curr, chg, pct, fetched_name = get_cached_card_info(code)
+        
+        # Sync name if it was missing or loading
+        if fetched_name and (name == '読み込み中...' or name == code):
+            item['name'] = fetched_name
+            updated_wl = True
+            name = fetched_name
+
+        clean_name = name.replace('Mock: ', '')
         
         # Use new Card Component
         if render_stock_card(code, clean_name, curr, chg, pct, key=f"card_{code}"):
             st.session_state.active_ticker = code
             st.rerun()
+            
+    if updated_wl:
+        save_watchlist(st.session_state.watchlist)
 
     if st.button("🗑️ リストをクリア", key="clear_wl"):
         st.session_state.watchlist = []
