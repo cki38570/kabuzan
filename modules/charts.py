@@ -57,18 +57,24 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
 
     # Moving Averages (Synced with Plotly colors)
     if interval == "1wk":
-        ma_list = [('SMA_13', '#2962FF'), ('SMA_26', '#FF6D00'), ('SMA_52', '#00C853')] # Blue, Orange, Green
+        # Weekly: Support both SMA_X and SMA X
+        ma_list = [
+            (['SMA_13', 'SMA13'], '#2962FF'), 
+            (['SMA_26', 'SMA26'], '#FF6D00'), 
+            (['SMA_52', 'SMA52'], '#00C853')
+        ]
     else:
-        ma_list = [('SMA_5', '#FFFF00'), ('SMA_25', '#FF00FF'), ('SMA_75', '#00E676')] # Yellow, Magenta, Green
+        # Daily: Support both SMA_X and SMA X
+        ma_list = [
+            (['SMA_5', 'SMA5'], '#FFFF00'), 
+            (['SMA_25', 'SMA25'], '#FF00FF'), 
+            (['SMA_75', 'SMA75'], '#00E676')
+        ]
 
-    for ma_col, color in ma_list:
-        if ma_col in df.columns:
-            # Pass color directly to create_line
-            # Use 'time' from chart_df (renamed) and value from df (original)
-            # Ensure indices align or use chart_df if ma_col was copied there (it wasn't copied above, so use df)
-            # Safe way: create a mini DF with aligned time and value
+    for cols, color in ma_list:
+        ma_col = next((c for c in cols if c in df.columns), None)
+        if ma_col:
             line_data = pd.DataFrame({'time': chart_df['time'], 'value': df[ma_col]})
-            # Filter out NaNs to prevent errors in lightweight-charts if any
             line_data = line_data.dropna()
             
             if not line_data.empty:
@@ -78,14 +84,16 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
                 except Exception as e:
                     print(f"Error setting line {ma_col}: {e}")
 
-    # Bollinger Bands
-    if 'BBU_20_2.0' in df.columns and 'BBL_20_2.0' in df.columns:
+    # Bollinger Bands (Support multiple naming variants)
+    bb_upper_col = next((c for c in ['BB_Upper', 'BBU_20_2.0', 'BBU_20_2'] if c in df.columns), None)
+    bb_lower_col = next((c for c in ['BB_Lower', 'BBL_20_2.0', 'BBL_20_2'] if c in df.columns), None)
+
+    if bb_upper_col and bb_lower_col:
         try:
-            # Use slightly transparent colors if supported, or just light solid colors
-            upper = chart.create_line(name='BB Upper', color='rgba(0, 212, 255, 0.5)')
-            upper.set(pd.DataFrame({'time': chart_df['time'], 'value': df['BBU_20_2.0']}))
-            lower = chart.create_line(name='BB Lower', color='rgba(0, 212, 255, 0.5)')
-            lower.set(pd.DataFrame({'time': chart_df['time'], 'value': df['BBL_20_2.0']}))
+            upper = chart.create_line(name='BB Upper', color='rgba(0, 212, 255, 0.4)')
+            upper.set(pd.DataFrame({'time': chart_df['time'], 'value': df[bb_upper_col]}))
+            lower = chart.create_line(name='BB Lower', color='rgba(0, 212, 255, 0.4)')
+            lower.set(pd.DataFrame({'time': chart_df['time'], 'value': df[bb_lower_col]}))
         except Exception as e:
             print(f"Error adding BB to chart: {e}")
 
