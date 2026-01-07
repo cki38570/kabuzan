@@ -50,6 +50,7 @@ class DataManager:
     def __init__(self):
         self.defeatbeta = get_defeatbeta_client() 
         self.fmp_key = FMP_API_KEY
+        self._info_cache = {} # Cache for ticker info to avoid repeated heavy calls
 
     def _fetch_from_fmp(self, ticker_code: str, period: str = "1y", interval: str = "1d") -> Tuple[Optional[pd.DataFrame], Optional[Dict[str, Any]]]:
         """Helper to fetch data from Financial Modeling Prep (FMP)."""
@@ -195,11 +196,16 @@ class DataManager:
                 change = 0.0
                 change_percent = 0.0
                 
+            # Store in internal info cache for subsequent financial data calls
+            self._info_cache[ticker_code] = info
+            
             meta = {
                 'current_price': current_price,
                 'change': change,
                 'change_percent': change_percent,
                 'name': name,
+                'sector': info.get('sector', '不明'),
+                'industry': info.get('industry', '不明'),
                 'source': 'yfinance',
                 'status': 'fresh'
             }
@@ -430,26 +436,31 @@ class DataManager:
             
         # Fallback to yfinance (Fill in gaps)
         try:
-            ticker = yf.Ticker(target_ticker)
-            try:
-                 info = ticker.info
-            except Exception:
-                 info = {}
+            # First check our internal cache to avoid another heavy network call
+            info = self._info_cache.get(target_ticker) or self._info_cache.get(ticker_code)
+            
+            if not info:
+                ticker = yf.Ticker(target_ticker)
+                try:
+                     info = ticker.info
+                except Exception:
+                     info = {}
 
             # Update only if values are missing or better in info
             y_data = {
-                'market_cap': info.get('marketCap'),
-                'pe_ratio': info.get('trailingPE'),
-                'pb_ratio': info.get('priceToBook'),
-                'dividend_yield': info.get('dividendYield'),
-                'roe': info.get('returnOnEquity'),
+                'market_cap': info.get('marketCap') or info.get('market_cap'),
+                'pe_ratio': info.get('trailingPE') or info.get('pe_ratio'),
+                'pb_ratio': info.get('priceToBook') or info.get('pb_ratio'),
+                'dividend_yield': info.get('dividendYield') or info.get('dividend_yield'),
+                'roe': info.get('returnOnEquity') or info.get('roe'),
                 'sector': info.get('sector'),
-                'industry': info.get('industry')
+                'industry': info.get('industry'),
+                'name': info.get('longName') or info.get('name')
             }
             
             # Merge: Keep existing values if not None, otherwise take from y_data
             for k, v in y_data.items():
-                if data['details'].get(k) is None:
+                if data['details'].get(k) is None and v is not None:
                     data['details'][k] = v
                     
         except Exception as e:

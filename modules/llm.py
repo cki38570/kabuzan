@@ -106,6 +106,10 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     - 決算説明会 (Transcript): {_format_transcripts_for_prompt(transcript_data)}
     - 過去のバックテスト成績: {_format_backtest_for_prompt(backtest_results)}
 
+    ## 重要事項
+    - 上記のデータに「N/A」や「データ不足」が含まれている場合でも、取得できている他のデータ（チャート、相対比較、市場環境など）から合理的に推論し、分析を中断せずに行ってください。
+    - 特に戦略データが不足している場合は、テクニカル価格（現在値や移動平均）から標準的な支持線・抵抗線をAIが算定してください。
+
     # Output Format (Strict JSON)
     # 重要: 各テキストフィールド（sector_analysis, technical_detail, macro_sentiment_detail, bull_view, bear_view, final_reasoning）は、
     # 決して一言で終わらせず、背景・根拠・展望を含めて200〜300文字程度で非常に詳細に論理を展開してください。

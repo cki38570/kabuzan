@@ -83,15 +83,22 @@ def calculate_trading_strategy(df, settings=None):
     last = df.iloc[-1]
     price = last['Close']
     
-    needed = ['SMA5', 'SMA25', 'SMA75', 'BB_Upper', 'BB_Lower', 'ATR']
-    if not all(col in df.columns for col in needed):
-        if 'SMA13' in df.columns:
-            return {}
-        return {}
-        
-    sma5, sma25, sma75 = last['SMA5'], last['SMA25'], last['SMA75']
-    bb_up, bb_low = last['BB_Upper'], last['BB_Lower']
-    atr = last['ATR']
+    # Support both Underscore and Non-Underscore naming
+    sma5 = last.get('SMA5') or last.get('SMA_5')
+    sma25 = last.get('SMA25') or last.get('SMA_25')
+    sma75 = last.get('SMA75') or last.get('SMA_75')
+    bb_up = last.get('BB_Upper') or last.get('BBU_20_2.0')
+    bb_low = last.get('BB_Lower') or last.get('BBL_20_2.0')
+    atr = last.get('ATR') or last.get('ATRr_14')
+    
+    if any(v is None or pd.isna(v) for v in [sma5, sma25, sma75, bb_up, bb_low, atr]):
+        return {
+            'trend_desc': "データ不足",
+            'strategy_msg': "データ不足により明確な分析不可",
+            'action_msg': "テクニカル指標の計算に必要なデータが不足しています。期間を延ばして再試行してください。",
+            'target_price': 0, 'stop_loss': 0, 'entry_price': 0
+        }
+    
     
     # 1. Trend Analysis
     trend_score = 0
