@@ -492,10 +492,18 @@ def render_home(params):
                         c_entry, c_target, c_stop = st.columns(3)
                         
                         def price_card(label, price, color, subtext=""):
+                            # Handle None case safely
+                            display_price = 0
+                            if price is not None:
+                                try:
+                                    display_price = float(price)
+                                except:
+                                    display_price = 0
+                                    
                             return f"""
                             <div style="background: {color}15; border-left: 5px solid {color}; padding: 12px; border-radius: 8px; border: 1px solid {color}33;">
                                 <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 3px;">{label}</div>
-                                <div style="font-size: 1.4rem; font-weight: 800; color: {color}; line-height: 1;">¥{price:,.0f}</div>
+                                <div style="font-size: 1.4rem; font-weight: 800; color: {color}; line-height: 1;">¥{display_price:,.0f}</div>
                                 <div style="font-size: 0.7rem; color: #64748b; margin-top: 5px;">{subtext}</div>
                             </div>
                             """
