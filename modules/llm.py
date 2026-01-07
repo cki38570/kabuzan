@@ -37,7 +37,7 @@ def get_gemini_client():
         print(f"Failed to initialize Gemini Client: {e}")
         return None
 
-def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strategic_data, enhanced_metrics=None, patterns=None, extra_context=None, weekly_indicators=None, news_data=None, macro_data=None, transcript_data=None, relative_strength=None, backtest_results=None, past_history=None):
+def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strategic_data, enhanced_metrics=None, patterns=None, extra_context=None, weekly_indicators=None, news_data=None, macro_data=None, transcript_data=None, relative_strength=None, backtest_results=None, past_history=None, credit_df=None):
     """
     Generate a professional stock analysis report using a 'Virtual Investment Committee' flow.
     Integrates detailed evidence-based Bull/Bear logic and feedback from past predictions.
@@ -80,7 +80,8 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     - **マクロ環境連携**: ドル円が{macro_data.get('usdjpy', {}).get('price', 'N/A')} ({macro_data.get('usdjpy', {}).get('trend', 'N/A')}) であることが、この銘柄の輸出/輸入採算や株価にどう影響するか言語化せよ。
     
     ## 3. ファンダメンタル・材料担当 (Fundamental/News Analyst)
-    - PBR/PERの見地、直近ニュース、決算発表内容から、中長期的な価値を評価せよ。
+    - PBR/PERの見地、直近ニュース、決算説明会の内容から、中長期的な価値を評価せよ。
+    - 決算説明会の書き起こしデータ（Transcript）がある場合は、経営陣のトーンや具体的な成長戦略に必ず言及すること。
 
     # Stage 2: 深層自己反省 (Bull/Bear Deep Reflection)
     テクニカル・需給・ファンダすべての情報を統合し、以下の2名に**徹底的な論理バトル**を行わせてください。
@@ -89,7 +90,9 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     **条件**: 「期待できる」といった抽象的な表現を禁じ、「SMA25が下向きである」「信用買残が過去平均より30%多い」といった定量的根拠を必ず含めること。
 
     # Stage 3: 最終投資判断 (Final Directive)
-    
+    以下の計算された戦略データを参考にしつつも、AI独自のリスク評価を加えて最終的なアクションプランを決定してください。
+    - 計算された戦略目安: {strategic_data}
+
     # Input Data
     - 銘柄: {ticker}
     - 現在値: ¥{price_info.get('current_price') or 0:,.1f} ({price_info.get('change_percent') or 0:+.2f}%)
@@ -97,8 +100,10 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     - 週足テクニカル: {_format_indicators_for_prompt(weekly_indicators, "週足")}
     - 市場環境: 日経平均 ¥{macro_data.get('n225', {}).get('price', 'N/A')}, ドル円 ¥{macro_data.get('usdjpy', {}).get('price', 'N/A')}
     - 相対比較: {relative_strength.get('status', 'N/A')} ({relative_strength.get('desc', 'N/A')})
-    - 需給: {_format_fundamentals_for_prompt(credit_data)}
+    - ファンダメンタルズ: {_format_fundamentals_for_prompt(credit_data)}
+    - 需給 (信用残): {_format_credit_for_prompt(credit_df)}
     - ニュース: {_format_news_for_prompt(news_data)}
+    - 決算説明会 (Transcript): {_format_transcripts_for_prompt(transcript_data)}
     - 過去のバックテスト成績: {_format_backtest_for_prompt(backtest_results)}
 
     # Output Format (Strict JSON)
@@ -126,7 +131,7 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
             "buy_limit": 数値,
             "sell_limit": 数値,
             "stop_loss": 数値,
-            "rationale": "価格設定の具体的・論理的根拠（支持線・抵抗線の具体的数値を含む）"
+            "rationale": "価格設定の具体的・論理的根拠（支持線・抵抗線の具体的数値や戦略計算値を参照）"
         }}
     }}
     ```
@@ -251,11 +256,36 @@ def _format_fundamentals_for_prompt(credit_data):
         f"- 時価総額: {fmt(details.get('market_cap'))}",
         f"- PER (実績): {fmt(details.get('pe_ratio'), '倍')}",
         f"- PBR: {fmt(details.get('pb_ratio'), '倍')}",
-        f"- 配立つ利回り: {fmt(details.get('dividend_yield'), '%')}",
+        f"- 配当利回り: {fmt(details.get('dividend_yield'), '%')}",
         f"- ROE: {fmt(details.get('roe'))}",
         f"- セクター: {details.get('sector', 'N/A')}"
     ]
     return "\n".join(lines)
+
+def _format_credit_for_prompt(credit_df):
+    """Format credit margin data for the prompt."""
+    if credit_df is None or credit_df.empty:
+        return "- 信用残データ: なし"
+
+    try:
+        latest = credit_df.iloc[0] # assuming sorted latest first in data.py logic
+        
+        # Check if we have multiple points for trend
+        trend = ""
+        if len(credit_df) >= 2:
+            prev = credit_df.iloc[1]
+            if latest['信用倍率'] > prev['信用倍率']:
+                trend = "(悪化傾向)"
+            elif latest['信用倍率'] < prev['信用倍率']:
+                trend = "(改善傾向)"
+        
+        return f"""
+        - 信用倍率: {latest.get('信用倍率', 'N/A')}倍 {trend}
+        - 信用売残: {latest.get('売残', 0):,}
+        - 信用買残: {latest.get('買残', 0):,}
+        """
+    except Exception as e:
+        return f"- 信用残データ: 書式エラー ({e})"
 
 def _format_news_for_prompt(news_data):
     """Format news for inclusion in prompt."""

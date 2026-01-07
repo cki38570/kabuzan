@@ -369,7 +369,8 @@ def render_home(params):
                     news_data=news_data, macro_data=macro_context,
                     transcript_data=transcript_data, relative_strength=relative_strength,
                     backtest_results=backtest_results,
-                    past_history=past_history
+                    past_history=past_history,
+                    credit_df=credit_df
                 )
                 
                 # Parse AI Result
