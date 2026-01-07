@@ -133,11 +133,10 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     """
     
     error_details = []
-    # Stable Model Candidates (2025 Free Tier Optimized)
+    # Stable Model Candidates (Updated to 3.0/2.5 per user request)
     MODEL_CANDIDATES = [
-        'gemini-2.0-flash-exp',
-        'gemini-1.5-flash',
-        'gemini-2.0-flash'
+        'gemini-3-flash',
+        'gemini-2.5-flash'
     ]
 
     # Use V1 SDK if available
@@ -350,9 +349,8 @@ def analyze_news_impact(portfolio_items, news_data_map):
 
     # Consistently use the same stable candidates for news as well
     MODEL_CANDIDATES = [
-        'gemini-2.0-flash-exp',
-        'gemini-1.5-flash',
-        'gemini-2.0-flash'
+        'gemini-3-flash',
+        'gemini-2.5-flash'
     ]
 
     client = get_gemini_client()
