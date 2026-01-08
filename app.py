@@ -116,14 +116,17 @@ with st.sidebar:
         new_ticker = col_mn1.text_input("追加", placeholder="コード (例: 7203)", label_visibility="collapsed")
         if col_mn2.form_submit_button("＋"):
             if new_ticker:
-                # Normalize ticker: add .T if it's 4 digits
-                clean_ticker = str(new_ticker).strip().replace(".0", "")
+                # Normalize ticker
+                clean_ticker = str(new_ticker).strip()
+                if clean_ticker.endswith(".0"):
+                    clean_ticker = clean_ticker[:-2]
+                    
                 if clean_ticker.isdigit() and len(clean_ticker) == 4:
                     clean_ticker = f"{clean_ticker}.T"
                 
-                exists = any(item.get('code') == clean_ticker for item in st.session_state.watchlist)
+                exists = any(item.get('code') == clean_ticker for item in st.session_state.watchlist if isinstance(item, dict))
                 if not exists:
-                    st.session_state.watchlist.append({'code': clean_ticker, 'name': clean_ticker}) # Fallback to code as name immediately
+                    st.session_state.watchlist.append({'code': clean_ticker, 'name': clean_ticker})
                     save_watchlist(st.session_state.watchlist)
                     st.toast(f"✅ {clean_ticker} を追加しました")
                     st.rerun()
@@ -199,7 +202,10 @@ with st.sidebar:
             updated_wl = True
             name = fetched_name
 
-        clean_name = str(name).replace('Mock: ', '')
+        if name and isinstance(name, str) and name.startswith('Mock: '):
+            clean_name = name[6:]
+        else:
+            clean_name = str(name)
         
         # Use new Card Component
         try:
@@ -277,7 +283,9 @@ def render_home(params):
     # 3. Normal Analysis
     if ticker_input:
         # Sanitize input: remove .0 if present
-        ticker_input = str(ticker_input).replace(".0", "")
+        ticker_input = str(ticker_input)
+        if ticker_input.endswith(".0"):
+            ticker_input = ticker_input[:-2]
         
         try:
             if ticker_input in st.session_state.analysis_cache:
