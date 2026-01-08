@@ -152,7 +152,12 @@ with st.sidebar:
     @st.cache_data(ttl=300) # Cache for 5 minutes
     def get_cached_card_info(code):
         try:
-            t = yf.Ticker(str(code))
+            # Normalize code if it's a 4-digit string
+            ticker_code = str(code)
+            if ticker_code.isdigit() and len(ticker_code) == 4:
+                ticker_code = f"{ticker_code}.T"
+                
+            t = yf.Ticker(ticker_code)
             # Use fast_info to avoid heavy network calls if possible
             curr = 0
             prev = 0
