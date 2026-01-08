@@ -190,6 +190,11 @@ with st.sidebar:
         # Render Cards
         updated_wl = False
         for item in st.session_state.watchlist:
+            # Heal if item is a string (legacy/corrupted data)
+            if isinstance(item, str):
+                item = {'code': item, 'name': item}
+                # We could update the list here, but let's just use the healed item for this loop
+            
             if not isinstance(item, dict):
                 continue
                 
