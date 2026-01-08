@@ -165,7 +165,7 @@ class DataManager:
                 return df_fmp, meta_fmp
 
             # 2. Try yfinance (Priority 2)
-            ticker = yf.Ticker(ticker_code)
+            ticker = yf.Ticker(str(ticker_code))
             
             try:
                 df = ticker.history(period=period, interval=interval)
@@ -440,7 +440,7 @@ class DataManager:
             info = self._info_cache.get(target_ticker) or self._info_cache.get(ticker_code)
             
             if not info:
-                ticker = yf.Ticker(target_ticker)
+                ticker = yf.Ticker(str(target_ticker))
                 try:
                      info = ticker.info
                 except Exception:

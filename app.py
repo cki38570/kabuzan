@@ -152,7 +152,7 @@ with st.sidebar:
     @st.cache_data(ttl=300) # Cache for 5 minutes
     def get_cached_card_info(code):
         try:
-             t = yf.Ticker(code)
+             t = yf.Ticker(str(code))
              # Use fast_info to avoid heavy network calls if possible
              curr = t.fast_info.last_price
              prev = t.fast_info.previous_close

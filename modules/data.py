@@ -32,7 +32,7 @@ def get_stock_data(ticker_code, period="1y", interval="1d"):
         max_retries = 3
         for attempt in range(max_retries):
             try:
-                ticker = yf.Ticker(ticker_code)
+                ticker = yf.Ticker(str(ticker_code))
                 # Retry fetching history if it comes back empty unexpectedly
                 df = ticker.history(period=period, interval=interval)
                 
