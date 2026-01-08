@@ -182,14 +182,19 @@ with st.sidebar:
     # Render Cards
     updated_wl = False
     for item in st.session_state.watchlist:
-        code = item.get('code', 'Unknown')
-        name = item.get('name', '読み込み中...')
-        
+        if not isinstance(item, dict):
+            continue
+            
+        code = str(item.get('code', 'Unknown'))
+        name = item.get('name')
+        if name is None or name == '読み込み中...':
+            name = code
+            
         # Use cached fetch for card info
         curr, chg, pct, fetched_name = get_cached_card_info(code)
         
         # Sync name if it was missing or loading
-        if fetched_name and (name == '読み込み中...' or name == code):
+        if fetched_name and (name == code or name == '読み込み中...'):
             item['name'] = fetched_name
             updated_wl = True
             name = fetched_name
@@ -197,9 +202,12 @@ with st.sidebar:
         clean_name = str(name).replace('Mock: ', '')
         
         # Use new Card Component
-        if render_stock_card(code, clean_name, curr, chg, pct, key=f"card_{code}"):
-            st.session_state.active_ticker = code
-            st.rerun()
+        try:
+            if render_stock_card(code, clean_name, curr, chg, pct, key=f"card_{code}"):
+                st.session_state.active_ticker = code
+                st.rerun()
+        except Exception as e:
+            st.error(f"Error rendering card for {code}: {e}")
             
     if updated_wl:
         save_watchlist(st.session_state.watchlist)
