@@ -136,10 +136,11 @@ with st.sidebar:
         st.session_state.active_ticker = ""
 
     # Sort watchlist safely
-    try:
-        st.session_state.watchlist.sort(key=lambda x: str(x.get('code', '')))
-    except Exception as e:
-        st.error(f"Watchlist sorting error: {e}")
+    if 'watchlist' in st.session_state and isinstance(st.session_state.watchlist, list):
+        try:
+            st.session_state.watchlist.sort(key=lambda x: str(x.get('code', '') if isinstance(x, dict) else ''))
+        except Exception as e:
+            st.error(f"Watchlist sorting error: {e}")
     
     import yfinance as yf
     
@@ -204,7 +205,7 @@ with st.sidebar:
 
     if st.button("🗑️ リストをクリア", key="clear_wl"):
         st.session_state.watchlist = []
-        save_watchlist(st.session_state.watchlist)
+        save_watchlist([])
         st.session_state.active_ticker = "" # Clear active ticker too
         st.rerun()
     
