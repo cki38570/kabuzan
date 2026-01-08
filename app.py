@@ -130,109 +130,112 @@ with st.sidebar:
                     save_watchlist(st.session_state.watchlist)
                     st.toast(f"✅ {clean_ticker} を追加しました")
                     st.rerun()
+    
+    # Init Cache
+    if 'analysis_cache' not in st.session_state:
+        st.session_state.analysis_cache = {}
 
-        # Init Cache
-        if 'analysis_cache' not in st.session_state:
-            st.session_state.analysis_cache = {}
+    # Ensure session state for active ticker
+    if 'active_ticker' not in st.session_state:
+        st.session_state.active_ticker = ""
 
-        # Ensure session state for active ticker
-        if 'active_ticker' not in st.session_state:
-            st.session_state.active_ticker = ""
-
-        # Sort watchlist safely
-        if 'watchlist' in st.session_state and isinstance(st.session_state.watchlist, list):
+    # Sort watchlist safely
+    if 'watchlist' in st.session_state and isinstance(st.session_state.watchlist, list):
+        try:
+            st.session_state.watchlist.sort(key=lambda x: str(x.get('code', '') if isinstance(x, dict) else ''))
+        except Exception as e:
+            st.error(f"Watchlist sorting error: {e}")
+    
+    import yfinance as yf
+    
+    # Caching function for watchlist card data to improve performance
+    @st.cache_data(ttl=300) # Cache for 5 minutes
+    def get_cached_card_info(code):
+        try:
+            t = yf.Ticker(str(code))
+            # Use fast_info to avoid heavy network calls if possible
+            curr = 0
+            prev = 0
             try:
-                st.session_state.watchlist.sort(key=lambda x: str(x.get('code', '') if isinstance(x, dict) else ''))
-            except Exception as e:
-                st.error(f"Watchlist sorting error: {e}")
-        
-        import yfinance as yf
-        
-        # Caching function for watchlist card data to improve performance
-        @st.cache_data(ttl=300) # Cache for 5 minutes
-        def get_cached_card_info(code):
+                # Some objects might be missing attributes in some yfinance versions/states
+                if hasattr(t, 'fast_info'):
+                    curr = t.fast_info.last_price or 0
+                    prev = t.fast_info.previous_close or 0
+            except: pass
+            
+            # Also try to get name
+            name = None
             try:
-                t = yf.Ticker(str(code))
-                # Use fast_info to avoid heavy network calls if possible
-                curr = 0
-                prev = 0
-                try:
-                    curr = t.fast_info.last_price
-                    prev = t.fast_info.previous_close
-                except: pass
-                
-                # Also try to get name if it's "Loading..."
-                name = None
-                try:
-                    # Attempt to get a readable name
-                    info = t.info
-                    name = info.get('longName') or info.get('shortName')
-                except:
-                    pass
+                info = t.info
+                name = info.get('longName') or info.get('shortName')
+            except:
+                pass
 
-                if curr and prev:
+            if curr and prev:
+                chg = curr - prev
+                pct = (chg / prev) * 100
+                return curr, chg, pct, name or str(code)
+            else:
+                # Fallback to history if fast_info fails
+                hist = t.history(period="2d")
+                if len(hist) >= 2:
+                    curr = hist['Close'].iloc[-1]
+                    prev = hist['Close'].iloc[-2]
                     chg = curr - prev
                     pct = (chg / prev) * 100
                     return curr, chg, pct, name or str(code)
-                else:
-                    # Fallback to history if fast_info fails
-                    hist = t.history(period="2d")
-                    if len(hist) >= 2:
-                        curr = hist['Close'].iloc[-1]
-                        prev = hist['Close'].iloc[-2]
-                        chg = curr - prev
-                        pct = (chg / prev) * 100
-                        return curr, chg, pct, name or str(code)
-            except Exception as e:
-                pass
-            return 0, 0, 0, str(code) # Fallback: return code as name if info fails
+                elif len(hist) == 1:
+                    curr = hist['Close'].iloc[-1]
+                    return curr, 0, 0, name or str(code)
+        except Exception as e:
+            pass
+        return 0, 0, 0, str(code) # Fallback: return code as name if info fails
+    
+    # Render Cards
+    updated_wl = False
+    for item in st.session_state.watchlist:
+        # Heal if item is a string (legacy/corrupted data)
+        if isinstance(item, str):
+            item = {'code': item, 'name': item}
         
-        # Render Cards
-        updated_wl = False
-        for item in st.session_state.watchlist:
-            # Heal if item is a string (legacy/corrupted data)
-            if isinstance(item, str):
-                item = {'code': item, 'name': item}
-                # We could update the list here, but let's just use the healed item for this loop
+        if not isinstance(item, dict):
+            continue
             
-            if not isinstance(item, dict):
-                continue
-                
-            code = str(item.get('code', 'Unknown'))
-            name = item.get('name')
-            if name is None or name == '読み込み中...':
-                name = code
-                
-            # Use cached fetch for card info
-            curr, chg, pct, fetched_name = get_cached_card_info(code)
+        code = str(item.get('code', 'Unknown'))
+        name = item.get('name')
+        if name is None or name == '読み込み中...':
+            name = code
             
-            # Sync name if it was missing or loading
-            if fetched_name and (name == code or name == '読み込み中...'):
-                item['name'] = fetched_name
-                updated_wl = True
-                name = fetched_name
+        # Use cached fetch for card info
+        curr, chg, pct, fetched_name = get_cached_card_info(code)
+        
+        # Sync name if it was missing or loading
+        if fetched_name and (name == code or name == '読み込み中...'):
+            item['name'] = fetched_name
+            updated_wl = True
+            name = fetched_name
 
-            if name and isinstance(name, str) and name.startswith('Mock: '):
-                clean_name = name[6:]
-            else:
-                clean_name = str(name)
+        if name and isinstance(name, str) and name.startswith('Mock: '):
+            clean_name = name[6:]
+        else:
+            clean_name = str(name)
+        
+        # Use new Card Component
+        try:
+            if render_stock_card(code, clean_name, curr, chg, pct, key=f"card_{code}"):
+                st.session_state.active_ticker = code
+                st.rerun()
+        except Exception as e:
+            st.error(f"Error rendering card for {code}: {e}")
             
-            # Use new Card Component
-            try:
-                if render_stock_card(code, clean_name, curr, chg, pct, key=f"card_{code}"):
-                    st.session_state.active_ticker = code
-                    st.rerun()
-            except Exception as e:
-                st.error(f"Error rendering card for {code}: {e}")
-                
-        if updated_wl:
-            save_watchlist(st.session_state.watchlist)
+    if updated_wl:
+        save_watchlist(st.session_state.watchlist)
 
-        if st.button("🗑️ リストをクリア", key="clear_wl"):
-            st.session_state.watchlist = []
-            save_watchlist([])
-            st.session_state.active_ticker = "" # Clear active ticker too
-            st.rerun()
+    if st.button("🗑️ リストをクリア", key="clear_wl"):
+        st.session_state.watchlist = []
+        save_watchlist([])
+        st.session_state.active_ticker = ""
+        st.rerun()
     
 # --- Global Data ---
 # Load settings for process_morning_notifications inside
