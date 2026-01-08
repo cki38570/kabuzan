@@ -123,8 +123,9 @@ with st.sidebar:
                 
                 exists = any(item.get('code') == clean_ticker for item in st.session_state.watchlist)
                 if not exists:
-                    st.session_state.watchlist.append({'code': clean_ticker, 'name': '読み込み中...'})
+                    st.session_state.watchlist.append({'code': clean_ticker, 'name': clean_ticker}) # Fallback to code as name immediately
                     save_watchlist(st.session_state.watchlist)
+                    st.toast(f"✅ {clean_ticker} を追加しました")
                     st.rerun()
     
     # Init Cache
@@ -176,7 +177,7 @@ with st.sidebar:
                      return curr, chg, pct, name
         except Exception as e:
              pass
-        return 0, 0, 0, None
+        return 0, 0, 0, code # Fallback: return code as name if info fails
     
     # Render Cards
     updated_wl = False
