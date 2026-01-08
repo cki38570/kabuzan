@@ -126,6 +126,9 @@ class StorageManager:
             try:
                 df = self.conn.read(worksheet="watchlist", ttl=0)
                 if df.empty: return []
+                # Force 'code' column to string if it exists
+                if 'code' in df.columns:
+                    df['code'] = df['code'].astype(str)
                 return df.to_dict('records')
             except: return []
         elif self.mode == "headless":
