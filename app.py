@@ -174,7 +174,7 @@ with st.sidebar:
                      prev = hist['Close'].iloc[-2]
                      chg = curr - prev
                      pct = (chg / prev) * 100
-                     return curr, chg, pct, name
+                     return curr, chg, pct, name or code
         except Exception as e:
              pass
         return 0, 0, 0, code # Fallback: return code as name if info fails
@@ -194,7 +194,7 @@ with st.sidebar:
             updated_wl = True
             name = fetched_name
 
-        clean_name = name.replace('Mock: ', '')
+        clean_name = str(name).replace('Mock: ', '')
         
         # Use new Card Component
         if render_stock_card(code, clean_name, curr, chg, pct, key=f"card_{code}"):
