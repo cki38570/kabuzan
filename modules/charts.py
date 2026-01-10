@@ -126,7 +126,7 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
     <!DOCTYPE html>
     <html>
     <head>
-        <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+        <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
         <style>
             body {{ margin: 0; padding: 0; background-color: #0e1117; overflow: hidden; }}
             #chart {{ width: 100%; height: 600px; }}
@@ -139,118 +139,125 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
     </head>
     <body>
         <div class="legend">{ticker_name} ({interval})</div>
-        <div id="chart"></div>
+        <div id="chart-container" style="position: relative; width: 100%; height: 600px;">
+            <div id="chart" style="position: absolute; width: 100%; height: 100%;"></div>
+        </div>
+        <div id="debug" style="color: red; padding: 10px;"></div>
         <script>
-            const chartOptions = {{
-                layout: {{
-                    textColor: '#d1d4dc',
-                    backgroundColor: '#0e1117',
-                }},
-                grid: {{
-                    vertLines: {{ color: '#2B2B43' }},
-                    horzLines: {{ color: '#2B2B43' }},
-                }},
-                crosshair: {{
-                    mode: LightweightCharts.CrosshairMode.Normal,
-                }},
-                rightPriceScale: {{
-                    borderColor: '#2B2B43',
-                }},
-                timeScale: {{
-                    borderColor: '#2B2B43',
-                    timeVisible: true,
-                }},
-            }};
-            
-            const chart = LightweightCharts.createChart(document.getElementById('chart'), chartOptions);
-            
-            // 1. Candlestick Series
-            const candleSeries = chart.addCandlestickSeries({{
-                upColor: '#00ffbd', downColor: '#ff4b4b', borderVisible: false, wickUpColor: '#00ffbd', wickDownColor: '#ff4b4b'
-            }});
-            candleSeries.setData({candle_data_json});
-            
-            // 2. Volume Series
-            const volumeSeries = chart.addHistogramSeries({{
-                color: '#26a69a',
-                priceFormat: {{ type: 'volume' }},
-                priceScaleId: '', // Set as overlay
-                scaleMargins: {{ top: 0.8, bottom: 0 }},
-            }});
-            volumeSeries.setData({volume_data_json});
-
-            // 3. SMA Lines
-            const smaData = {json.dumps(sma_data)};
-            for (const [name, info] of Object.entries(smaData)) {{
-                const line = chart.addLineSeries({{
-                    color: info.color, lineWidth: 2, title: name
+            try {{
+                const chartOptions = {{
+                    layout: {{
+                        textColor: '#d1d4dc',
+                        backgroundColor: '#0e1117',
+                    }},
+                    grid: {{
+                        vertLines: {{ color: '#2B2B43' }},
+                        horzLines: {{ color: '#2B2B43' }},
+                    }},
+                    crosshair: {{
+                        mode: LightweightCharts.CrosshairMode.Normal,
+                    }},
+                    rightPriceScale: {{
+                        borderColor: '#2B2B43',
+                    }},
+                    timeScale: {{
+                        borderColor: '#2B2B43',
+                        timeVisible: true,
+                    }},
+                }};
+                
+                const container = document.getElementById('chart');
+                const chart = LightweightCharts.createChart(container, chartOptions);
+                
+                // 1. Candlestick Series
+                const candleSeries = chart.addCandlestickSeries({{
+                    upColor: '#00ffbd', downColor: '#ff4b4b', borderVisible: false, wickUpColor: '#00ffbd', wickDownColor: '#ff4b4b'
                 }});
-                line.setData(JSON.parse(info.data));
-            }}
-            
-            // 4. Bollinger Bands
-            const bbData = {json.dumps(bb_data)};
-            if (bbData.upper && bbData.lower) {{
-                const upper = chart.addLineSeries({{ color: 'rgba(255, 255, 255, 0.3)', lineWidth: 1, title: 'BB Upper' }});
-                upper.setData(JSON.parse(bbData.upper));
+                const cData = {candle_data_json};
+                if (!cData || cData.length === 0) throw new Error("Candle data empty");
+                candleSeries.setData(cData);
                 
-                const lower = chart.addLineSeries({{ color: 'rgba(255, 255, 255, 0.3)', lineWidth: 1, title: 'BB Lower' }});
-                lower.setData(JSON.parse(bbData.lower));
-            }}
-
-            // 5. Parabolic SAR
-            const psarJson = {json.dumps(psar_data if psar_data else 'null')};
-            if (psarJson) {{
-                // Use LineSeries with Markers invisible line style for PSAR dots? 
-                // Or custom series? Lightweight charts doesn't have native Point series easily.
-                // Best approach: LineSeries with 0 width line + markers? No, markers are separate.
-                // Alternative: Use crosshair markers or standard markers? 
-                // Standard approach for PSAR in LW charts: LineSeries with cross/dot markers on every point and lineVisible: false
-                const psarSeries = chart.addLineSeries({{
-                    color: '#BA68C8', lineWidth: 0, // Invisible line
-                    title: 'PSAR',
-                    crosshairMarkerVisible: false
+                // 2. Volume Series
+                const volumeSeries = chart.addHistogramSeries({{
+                    color: '#26a69a',
+                    priceFormat: {{ type: 'volume' }},
+                    priceScaleId: '', // Set as overlay
+                    scaleMargins: {{ top: 0.8, bottom: 0 }},
                 }});
+                volumeSeries.setData({volume_data_json});
+
+                // 3. SMA Lines
+                const smaData = {json.dumps(sma_data)};
+                for (const [name, info] of Object.entries(smaData)) {{
+                    const line = chart.addLineSeries({{
+                        color: info.color, lineWidth: 2, title: name
+                    }});
+                    line.setData(JSON.parse(info.data));
+                }}
                 
-                const rawData = JSON.parse(psarJson);
-                psarSeries.setData(rawData);
-                
-                // Add markers for each point to simulate dots
-                const markers = rawData.map(d => ({{
-                    time: d.time,
-                    position: d.value > ({candle_data_json}[0].close) ? 'aboveBar' : 'belowBar', // Simple heuristic or just inBar
-                    color: '#BA68C8',
-                    shape: 'circle',
-                    size: 0.5, # Small dots
-                }}));
-                // Note: markers property is on series, but setting thousands of markers might be heavy. 
-                // Better approach for PSAR might be using LineStyle.LargeDashed if supported or just Line with markers? 
-                // Let's try just a line with style 2 (Dashed) or just leave as line for now if dots are hard.
-                // Actually, standard markers API: series.setMarkers(...)
-                // psarSeries.setMarkers(markers); // This might be too heavy for full history.
-                
-                // Simplified: Just draw it as a dotted line
-                psarSeries.applyOptions({{
-                     lineStyle: 1, // Dotted
-                     lineWidth: 2
-                }});
+                // 4. Bollinger Bands
+                const bbData = {json.dumps(bb_data)};
+                if (bbData.upper && bbData.lower) {{
+                    const upper = chart.addLineSeries({{ color: 'rgba(255, 255, 255, 0.3)', lineWidth: 1, title: 'BB Upper' }});
+                    upper.setData(JSON.parse(bbData.upper));
+                    
+                    const lower = chart.addLineSeries({{ color: 'rgba(255, 255, 255, 0.3)', lineWidth: 1, title: 'BB Lower' }});
+                    lower.setData(JSON.parse(bbData.lower));
+                }}
+
+                // 5. Parabolic SAR
+                const psarJson = {json.dumps(psar_data if psar_data else 'null')};
+                if (psarJson) {{
+                    const rawData = JSON.parse(psarJson);
+                     // Create a series for PSAR markers (using transparent line series with markers)
+                    const psarSeries = chart.addLineSeries({{
+                        color: 'rgba(0,0,0,0)', // Invisible line
+                        lineWidth: 1,
+                        title: 'PSAR',
+                        crosshairMarkerVisible: false,
+                        lastValueVisible: false,
+                        priceLineVisible: false
+                    }});
+                    
+                    // We need valid data points for the line series even if invisible
+                    psarSeries.setData(rawData);
+                    
+                    // Create markers
+                    const markers = rawData.map(d => ({{
+                        time: d.time,
+                        position: d.value > (cData.find(c => c.time === d.time)?.close || 0) ? 'aboveBar' : 'belowBar', 
+                        color: '#BA68C8',
+                        shape: 'circle',
+                        size: 0.5,
+                        text: ''
+                    }}));
+                    // Check API limit for markers? (Some versions only allow Series.setMarkers separate from data)
+                    // If creating thousands of markers is slow or fails, try subset or native PointSeries if available in v4.
+                    // For now, let's try injecting markers on the PSAR series.
+                    psarSeries.setMarkers(markers);
+                }}
+
+                // 6. Markers (AI)
+                const aiMarkers = {markers_json};
+                if (aiMarkers.length > 0) {{
+                    // Merge existing markers if any (candleSeries usually doesn't have markers yet)
+                   candleSeries.setMarkers(aiMarkers);
+                }}
+
+                // Fit content
+                chart.timeScale().fitContent();
+
+                // Resize Observer
+                new ResizeObserver(entries => {{
+                    if (entries.length === 0 || entries[0].target !== container) {{ return; }}
+                    const newRect = entries[0].contentRect;
+                    chart.applyOptions({{ height: newRect.height, width: newRect.width }});
+                }}).observe(container);
+
+            }} catch (e) {{
+                document.getElementById('debug').innerHTML = "Chart Error: " + e.message + "<br><pre>" + e.stack + "</pre>";
+                console.error(e);
             }}
-
-            // 6. Markers (AI)
-            const markers = {markers_json};
-            if (markers.length > 0) {{
-                candleSeries.setMarkers(markers);
-            }}
-
-            // Fit content
-            chart.timeScale().fitContent();
-
-            // Resize Observer
-            new ResizeObserver(entries => {{
-                if (entries.length === 0 || entries[0].target !== document.body) {{ return; }}
-                const newRect = entries[0].contentRect;
-                chart.applyOptions({{ height: newRect.height, width: newRect.width }});
-            }}).observe(document.body);
         </script>
     </body>
     </html>
