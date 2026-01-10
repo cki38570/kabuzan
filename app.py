@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import streamlit.components.v1 as components
 from modules.styles import get_custom_css
 from modules.ui import get_card_css, render_stock_card
 from modules.data import get_stock_data, get_credit_data, get_next_earnings_date, get_market_sentiment
@@ -510,13 +511,13 @@ def render_home(params):
                          chart_daily = create_lightweight_chart(df, info['name'], strategic_data, interval="1d")
                          if chart_daily:
                              st.markdown("##### 日足チャート")
-                             chart_daily.load()
+                             components.html(chart_daily, height=620, scrolling=False)
                      else: # Weekly
                          if not df_weekly.empty:
                              chart_weekly = create_lightweight_chart(df_weekly, info['name'], strategic_data, interval="1wk")
                              if chart_weekly:
                                  st.markdown("##### 週足チャート")
-                                 chart_weekly.load()
+                                 components.html(chart_weekly, height=620, scrolling=False)
                          else:
                              st.warning("週足データがありません")
 

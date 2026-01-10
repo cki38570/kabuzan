@@ -15,53 +15,57 @@ def calculate_indicators(df, params=None, interval="1d", **kwargs):
     
     df = df.copy()
     
-    # Simple Moving Averages
+    import pandas_ta as ta
+    
+    # Calculate Indicators using pandas_ta
+    # ensures column names like SMA_5, BBU_20_2.0, PSARl_... are created
+    
+    # SMA
     if interval == "1wk":
-        # Weekly standard: 13, 26, 52 weeks
-        df['SMA13'] = df['Close'].rolling(window=13).mean()
-        df['SMA26'] = df['Close'].rolling(window=26).mean()
-        df['SMA52'] = df['Close'].rolling(window=52).mean()
+        # Weekly: 13, 26, 52
+        df.ta.sma(length=13, append=True)
+        df.ta.sma(length=26, append=True)
+        df.ta.sma(length=52, append=True)
     else:
-        # Daily/Default: Use params or 5, 25, 75
-        df['SMA5'] = df['Close'].rolling(window=params.get('sma_short', 5)).mean()
-        df['SMA25'] = df['Close'].rolling(window=params.get('sma_mid', 25)).mean()
-        df['SMA75'] = df['Close'].rolling(window=params.get('sma_long', 75)).mean()
-    
+        # Daily: Short, Mid, Long from params
+        df.ta.sma(length=params.get('sma_short', 5), append=True)
+        df.ta.sma(length=params.get('sma_mid', 25), append=True)
+        df.ta.sma(length=params.get('sma_long', 75), append=True)
+
     # RSI
-    period = params.get('rsi_period', 14)
-    delta = df['Close'].diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
-    rs = gain / loss
-    df['RSI'] = 100 - (100 / (1 + rs))
-    
+    df.ta.rsi(length=params.get('rsi_period', 14), append=True)
+
     # MACD
-    ema12 = df['Close'].ewm(span=params.get('macd_fast', 12), adjust=False).mean()
-    ema26 = df['Close'].ewm(span=params.get('macd_slow', 26), adjust=False).mean()
-    df['MACD'] = ema12 - ema26
-    df['MACD_Signal'] = df['MACD'].ewm(span=params.get('macd_signal', 9), adjust=False).mean()
-    df['MACD_Hist'] = df['MACD'] - df['MACD_Signal']
-    
+    df.ta.macd(
+        fast=params.get('macd_fast', 12), 
+        slow=params.get('macd_slow', 26), 
+        signal=params.get('macd_signal', 9), 
+        append=True
+    )
+
     # Bollinger Bands
-    bb_window = params.get('bb_window', 20)
-    bb_std_dev = params.get('bb_std', 2)
-    df['BB_Mid'] = df['Close'].rolling(window=bb_window).mean()
-    df['BB_Std'] = df['Close'].rolling(window=bb_window).std()
-    df['BB_Upper'] = df['BB_Mid'] + (bb_std_dev * df['BB_Std'])
-    df['BB_Lower'] = df['BB_Mid'] - (bb_std_dev * df['BB_Std'])
+    df.ta.bbands(
+        length=params.get('bb_window', 20), 
+        std=params.get('bb_std', 2), 
+        append=True
+    )
     
-    # Volume MA
+    # Parabolic SAR (New!)
+    df.ta.psar(append=True)
+
+    # ATR
+    df.ta.atr(length=14, append=True)
+    
+    # Volume SMA (Custom or TA)
     if 'Volume' in df.columns:
-        df['VolSMA5'] = df['Volume'].rolling(window=5).mean()
+        # Check if Volume is not all zero or NaN to avoid errors
+        if df['Volume'].sum() > 0:
+             # pandas_ta doesn't have a simple 'volume sma' named distinctly standardly, 
+             # but we can use sma on volume column.
+             # Naming: SMA_5
+             v_sma = df.ta.sma(close='Volume', length=5, append=False)
+             df['VolSMA5'] = v_sma
         
-    # ATR (14)
-    high_low = df['High'] - df['Low']
-    high_close = np.abs(df['High'] - df['Close'].shift())
-    low_close = np.abs(df['Low'] - df['Close'].shift())
-    ranges = pd.concat([high_low, high_close, low_close], axis=1)
-    true_range = np.max(ranges, axis=1)
-    df['ATR'] = true_range.rolling(window=14).mean()
-    
     return df
 
 from modules.llm import generate_gemini_analysis
