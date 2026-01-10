@@ -29,8 +29,8 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
     Generates an HTML string containing a Lightweight Charts instance with:
     - Candlestick Series
     - Moving Averages (SMA)
-    - Bollinger Bands
-    - Parabolic SAR
+    - Bollinger Bands (3 Lines)
+    - Parabolic SAR (as Dotted Line)
     - Volume
     """
     if df is None or df.empty:
@@ -93,10 +93,13 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
     bb_data = {}
     bb_upper_col = next((c for c in ['BBU_20_2.0', 'BB_Upper', 'BBU_20'] if c in chart_df.columns), None)
     bb_lower_col = next((c for c in ['BBL_20_2.0', 'BB_Lower', 'BBL_20'] if c in chart_df.columns), None)
+    bb_mid_col = next((c for c in ['BBM_20_2.0', 'BB_Mid', 'BBM_20', 'SMA_20'] if c in chart_df.columns), None)
     
     if bb_upper_col and bb_lower_col:
         bb_data['upper'] = clean_data(chart_df[['time', bb_upper_col]].rename(columns={bb_upper_col: 'value'}))
         bb_data['lower'] = clean_data(chart_df[['time', bb_lower_col]].rename(columns={bb_lower_col: 'value'}))
+        if bb_mid_col:
+             bb_data['mid'] = clean_data(chart_df[['time', bb_mid_col]].rename(columns={bb_mid_col: 'value'}))
 
     # Parabolic SAR
     psar_data = None
@@ -122,11 +125,12 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
     markers_json = json.dumps(markers)
 
     # --- 2. HTML/JS Construction ---
+    # Using Lightweight Charts v5.1.0
     html_template = f"""
     <!DOCTYPE html>
     <html>
     <head>
-        <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
+        <script src="https://unpkg.com/lightweight-charts@5.1.0/dist/lightweight-charts.standalone.production.js"></script>
         <style>
             body {{ margin: 0; padding: 0; background-color: #0e1117; overflow: hidden; }}
             #chart {{ width: 100%; height: 600px; }}
@@ -145,6 +149,8 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
         <div id="debug" style="color: red; padding: 10px;"></div>
         <script>
             try {{
+                const {{ createChart, CandlestickSeries, HistogramSeries, LineSeries, LineStyle }} = LightweightCharts;
+                
                 const chartOptions = {{
                     layout: {{
                         textColor: '#d1d4dc',
@@ -167,10 +173,10 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
                 }};
                 
                 const container = document.getElementById('chart');
-                const chart = LightweightCharts.createChart(container, chartOptions);
+                const chart = createChart(container, chartOptions);
                 
                 // 1. Candlestick Series
-                const candleSeries = chart.addCandlestickSeries({{
+                const candleSeries = chart.addSeries(CandlestickSeries, {{
                     upColor: '#00ffbd', downColor: '#ff4b4b', borderVisible: false, wickUpColor: '#00ffbd', wickDownColor: '#ff4b4b'
                 }});
                 const cData = {candle_data_json};
@@ -178,7 +184,7 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
                 candleSeries.setData(cData);
                 
                 // 2. Volume Series
-                const volumeSeries = chart.addHistogramSeries({{
+                const volumeSeries = chart.addSeries(HistogramSeries, {{
                     color: '#26a69a',
                     priceFormat: {{ type: 'volume' }},
                     priceScaleId: '', // Set as overlay
@@ -189,59 +195,57 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
                 // 3. SMA Lines
                 const smaData = {json.dumps(sma_data)};
                 for (const [name, info] of Object.entries(smaData)) {{
-                    const line = chart.addLineSeries({{
+                    const line = chart.addSeries(LineSeries, {{
                         color: info.color, lineWidth: 2, title: name
                     }});
                     line.setData(JSON.parse(info.data));
                 }}
                 
-                // 4. Bollinger Bands
+                // 4. Bollinger Bands (3 Lines)
                 const bbData = {json.dumps(bb_data)};
                 if (bbData.upper && bbData.lower) {{
-                    const upper = chart.addLineSeries({{ color: 'rgba(255, 255, 255, 0.3)', lineWidth: 1, title: 'BB Upper' }});
+                    // Upper
+                    const upper = chart.addSeries(LineSeries, {{ color: 'rgba(255, 255, 255, 0.5)', lineWidth: 1, title: 'BB Upper' }});
                     upper.setData(JSON.parse(bbData.upper));
                     
-                    const lower = chart.addLineSeries({{ color: 'rgba(255, 255, 255, 0.3)', lineWidth: 1, title: 'BB Lower' }});
+                    // Lower
+                    const lower = chart.addSeries(LineSeries, {{ color: 'rgba(255, 255, 255, 0.5)', lineWidth: 1, title: 'BB Lower' }});
                     lower.setData(JSON.parse(bbData.lower));
+                    
+                    // Middle
+                    if (bbData.mid) {{
+                        const mid = chart.addSeries(LineSeries, {{ 
+                            color: 'rgba(255, 165, 0, 0.8)', // Orangeish
+                            lineWidth: 1, 
+                            title: 'BB Mid' 
+                        }});
+                        mid.setData(JSON.parse(bbData.mid));
+                    }}
                 }}
 
-                // 5. Parabolic SAR
+                // 5. Parabolic SAR (Dotted Line)
                 const psarJson = {json.dumps(psar_data if psar_data else 'null')};
                 if (psarJson) {{
                     const rawData = JSON.parse(psarJson);
-                     // Create a series for PSAR markers (using transparent line series with markers)
-                    const psarSeries = chart.addLineSeries({{
-                        color: 'rgba(0,0,0,0)', // Invisible line
-                        lineWidth: 1,
+                    const psarSeries = chart.addSeries(LineSeries, {{
+                        color: '#BA68C8', 
+                        lineWidth: 2,
+                        lineStyle: 1, // Dotted (LineStyle.Dotted is usually 1 or 2)
                         title: 'PSAR',
-                        crosshairMarkerVisible: false,
-                        lastValueVisible: false,
-                        priceLineVisible: false
+                        crosshairMarkerVisible: false
                     }});
-                    
-                    // We need valid data points for the line series even if invisible
                     psarSeries.setData(rawData);
-                    
-                    // Create markers
-                    const markers = rawData.map(d => ({{
-                        time: d.time,
-                        position: d.value > (cData.find(c => c.time === d.time)?.close || 0) ? 'aboveBar' : 'belowBar', 
-                        color: '#BA68C8',
-                        shape: 'circle',
-                        size: 0.5,
-                        text: ''
-                    }}));
-                    // Check API limit for markers? (Some versions only allow Series.setMarkers separate from data)
-                    // If creating thousands of markers is slow or fails, try subset or native PointSeries if available in v4.
-                    // For now, let's try injecting markers on the PSAR series.
-                    psarSeries.setMarkers(markers);
                 }}
 
                 // 6. Markers (AI)
                 const aiMarkers = {markers_json};
                 if (aiMarkers.length > 0) {{
-                    // Merge existing markers if any (candleSeries usually doesn't have markers yet)
-                   candleSeries.setMarkers(aiMarkers);
+                   // Safe check for setMarkers
+                   if (typeof candleSeries.setMarkers === 'function') {{
+                       candleSeries.setMarkers(aiMarkers);
+                   }} else {{
+                       console.warn("setMarkers is not supported on this series type");
+                   }}
                 }}
 
                 // Fit content
@@ -264,4 +268,3 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
     """
     
     return html_template
-
