@@ -434,7 +434,8 @@ def render_home(params):
                 # Load AI Analysis History for feedback loop
                 past_history = storage.load_ai_analysis_history(ticker_input)
 
-                report_raw = generate_gemini_analysis(
+                # Generate AI Analysis
+                report_raw, ai_cost, analysis_error = generate_gemini_analysis(
                     ticker_input, info, indicators, financial_data, strategic_data, 
                     enhanced_metrics=enhanced_metrics, patterns=patterns,
                     extra_context=extra_context, weekly_indicators=weekly_indicators,
@@ -447,6 +448,7 @@ def render_home(params):
                 
                 # Parse AI Result
                 report_data = {}
+                if report_raw:
                 try:
                     import re
                     json_match = re.search(r'```json\s*(.*?)\s*```', report_raw, re.DOTALL)
@@ -464,11 +466,26 @@ def render_home(params):
                 except Exception as e:
                     # Fallback on parse error
                     report_data = {
-                        "status": "NEUTRAL",
-                        "total_score": 50,
-                        "headline": "分析データの解析失敗",
-                        "final_reasoning": f"AIからの応答を正しく読み取れませんでした。システム管理者に連絡してください。\nエラー: {e}"
+                        "status": "ERROR",
+                        "total_score": 0,
+                        "headline": "解析エラー",
+                        "final_reasoning": f"AIデータのパースに失敗しました。詳細: {e}\nRaw: {str(report_raw)[:200]}..."
                     }
+                else:
+                    if analysis_error:
+                         report_data = {
+                            "status": "ERROR",
+                            "total_score": 0,
+                            "headline": "AI分析エラー",
+                            "final_reasoning": f"AI分析実行中にエラーが発生しました: {analysis_error}"
+                        }
+                    elif not report_raw:
+                         report_data = {
+                            "status": "WAITING",
+                            "total_score": 50,
+                            "headline": "準備中",
+                            "final_reasoning": "AI分析を準備しています..."
+                        }
                 
                 # Save AI Analysis Log to storage (Memory)
                 if report_data.get('status'):

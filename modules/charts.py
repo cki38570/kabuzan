@@ -30,22 +30,16 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
     if df is None or df.empty:
         return None
 
-    # Prepare data for lightweight-charts
-    # Columns expected: time, open, high, low, close, volume (lowercase)
+    # Prepare main chart data
     chart_df = df.copy()
     if 'Date' in chart_df.columns:
         chart_df = chart_df.rename(columns={'Date': 'time'})
     elif chart_df.index.name == 'Date' or isinstance(chart_df.index, pd.DatetimeIndex):
         chart_df['time'] = chart_df.index
         
-    # CRITICAL: Ensure 'time' is string YYYY-MM-DD for lightweight-charts stability
+    # lightweight-charts expects 'time' column to be 'YYYY-MM-DD' strings for daily data
     chart_df['time'] = pd.to_datetime(chart_df['time']).dt.strftime('%Y-%m-%d')
     
-    # Also ensure the original df used for technical indicators has string time index for mapping
-    df_str = df.copy()
-    if isinstance(df_str.index, pd.DatetimeIndex):
-        df_str.index = df_str.index.strftime('%Y-%m-%d')
-        
     chart_df = chart_df.rename(columns={
         'Open': 'open', 'High': 'high', 'Low': 'low', 'Close': 'close', 'Volume': 'volume'
     })
@@ -80,38 +74,50 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
         ]
 
     for cols, color in ma_list:
-        ma_col = next((c for c in cols if c in chart_df.columns), None)
+        ma_col = next((c for c in cols if c in df.columns), None)
         if ma_col:
             try:
-                # Align perfectly by extracting from the same dataframe
-                ld = chart_df[['time', ma_col]].rename(columns={ma_col: 'value'}).dropna()
-                
-                if not ld.empty:
+                # IMPORTANT: Use .values to ensure alignment with chart_df['time']
+                # since chart_df and df might have different index types/values now
+                line_data = pd.DataFrame({
+                    'time': chart_df['time'],
+                    'value': df[ma_col].values
+                }).dropna()
+                if not line_data.empty:
                     line = chart.create_line(name=ma_col, color=color)
-                    line.set(ld)
+                    line.set(line_data)
             except Exception as e:
                 print(f"Error setting line {ma_col}: {e}")
 
     # Bollinger Bands (Support multiple naming variants)
     # Priority: pandas-ta naming, then standard naming
-    bb_upper_col = next((c for c in ['BBU_20_2.0', 'BB_Upper', 'BBU_20_2'] if c in chart_df.columns), None)
-    bb_lower_col = next((c for c in ['BBL_20_2.0', 'BB_Lower', 'BBL_20_2'] if c in chart_df.columns), None)
+    bb_upper_col = next((c for c in ['BBU_20_2.0', 'BB_Upper', 'BBU_20'] if c in df.columns), None)
+    bb_lower_col = next((c for c in ['BBL_20_2.0', 'BB_Lower', 'BBL_20'] if c in df.columns), None)
 
     if bb_upper_col and bb_lower_col:
         try:
-            upper_data = chart_df[['time', bb_upper_col]].rename(columns={bb_upper_col: 'value'}).dropna()
-            lower_data = chart_df[['time', bb_lower_col]].rename(columns={bb_lower_col: 'value'}).dropna()
+            # Upper Line
+            upper_data = pd.DataFrame({
+                'time': chart_df['time'],
+                'value': df[bb_upper_col].values
+            }).dropna()
+            if not upper_data.empty:
+                upper_line = chart.create_line(name='BB Upper', color='rgba(255, 255, 255, 0.3)', width=1)
+                upper_line.set(upper_data)
             
-            if not upper_data.empty and not lower_data.empty:
-                upper = chart.create_line(name='BB Upper', color='rgba(0, 212, 255, 0.4)')
-                upper.set(upper_data)
-                lower = chart.create_line(name='BB Lower', color='rgba(0, 212, 255, 0.4)')
-                lower.set(lower_data)
+            # Lower Line
+            lower_data = pd.DataFrame({
+                'time': chart_df['time'],
+                'value': df[bb_lower_col].values
+            }).dropna()
+            if not lower_data.empty:
+                lower_line = chart.create_line(name='BB Lower', color='rgba(255, 255, 255, 0.3)', width=1)
+                lower_line.set(lower_data)
         except Exception as e:
             print(f"Error adding BB to chart: {e}")
 
     # RSI (New Pane)
-    rsi_col = next((c for c in ['RSI_14', 'RSI'] if c in chart_df.columns), None)
+    rsi_col = next((c for c in ['RSI_14', 'RSI'] if c in df.columns), None)
     if rsi_col:
         try:
             rsi_data = chart_df[['time', rsi_col]].rename(columns={rsi_col: 'value'}).dropna()
