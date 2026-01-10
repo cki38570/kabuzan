@@ -141,18 +141,18 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     ```
     """
     
-    error_details = []
-    # Stable Model Candidates (Updated to 3.0/2.5 per user request)
+    # Stable Model Candidates (Updated per user request)
     MODEL_CANDIDATES = [
         'gemini-2.0-flash',
-        'gemini-2.0-pro-exp-02-05'
+        'gemini-2.0-pro-exp-02-05',
+        'gemini-1.5-pro' # Reliable fallback
     ]
 
     # Use V1 SDK if available
     client = get_gemini_client()
     if client:
         for model_name in MODEL_CANDIDATES:
-            max_retries = 3
+            max_retries = 2
             base_delay = 2  # Initial delay in seconds
             for attempt in range(max_retries):
                 try:
@@ -171,13 +171,13 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
                         time.sleep(delay)
                         continue
                     else:
-                        error_details.append(f"Gemini {model_name} Failed: {err_msg}")
+                        error_details.append(f"Gemini {model_name} Failed: {err_msg[:100]}...")
                         break # Try next model if it's not a rate limit error
     else:
         if not GENAI_V1_AVAILABLE:
-            error_details.append("V1 SDK (google-genai) not installed.")
+            error_details.append("google-genai SDK not installed.")
         if not API_KEY:
-            error_details.append("API Key missing.")
+            error_details.append("GEMINI_API_KEY is missing/empty.")
     
     # Fallback to Mock
     debug_info = " | ".join(error_details) if error_details else "Unknown Error"
@@ -384,7 +384,8 @@ def analyze_news_impact(portfolio_items, news_data_map):
     # Consistently use the same stable candidates for news as well
     MODEL_CANDIDATES = [
         'gemini-2.0-flash',
-        'gemini-2.0-pro-exp-02-05'
+        'gemini-2.0-pro-exp-02-05',
+        'gemini-2.0-flash-lite-preview-02-05'
     ]
 
     client = get_gemini_client()

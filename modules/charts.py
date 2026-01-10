@@ -38,6 +38,14 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
     elif chart_df.index.name == 'Date' or isinstance(chart_df.index, pd.DatetimeIndex):
         chart_df['time'] = chart_df.index
         
+    # CRITICAL: Ensure 'time' is string YYYY-MM-DD for lightweight-charts stability
+    chart_df['time'] = pd.to_datetime(chart_df['time']).dt.strftime('%Y-%m-%d')
+    
+    # Also ensure the original df used for technical indicators has string time index for mapping
+    df_str = df.copy()
+    if isinstance(df_str.index, pd.DatetimeIndex):
+        df_str.index = df_str.index.strftime('%Y-%m-%d')
+        
     chart_df = chart_df.rename(columns={
         'Open': 'open', 'High': 'high', 'Low': 'low', 'Close': 'close', 'Volume': 'volume'
     })
@@ -72,9 +80,9 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
         ]
 
     for cols, color in ma_list:
-        ma_col = next((c for c in cols if c in df.columns), None)
+        ma_col = next((c for c in cols if c in df_str.columns), None)
         if ma_col:
-            line_data = pd.DataFrame({'time': chart_df['time'], 'value': df[ma_col]})
+            line_data = pd.DataFrame({'time': chart_df['time'], 'value': df_str[ma_col].values})
             line_data = line_data.dropna()
             
             if not line_data.empty:
@@ -96,6 +104,39 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
             lower.set(pd.DataFrame({'time': chart_df['time'], 'value': df[bb_lower_col]}))
         except Exception as e:
             print(f"Error adding BB to chart: {e}")
+
+    # RSI (New Pane)
+    rsi_col = next((c for c in ['RSI', 'RSI_14'] if c in df.columns), None)
+    if rsi_col:
+        try:
+            rsi_chart = chart.create_line(name='RSI', color='#FFEB3B', price_line=True, price_label=True)
+            rsi_data = pd.DataFrame({'time': chart_df['time'], 'value': df[rsi_col]})
+            rsi_chart.set(rsi_data.dropna())
+            # Add horizons for RSI
+            rsi_chart.horizontal_line(70, color='#ff4b4b', style='dashed')
+            rsi_chart.horizontal_line(30, color='#00ffbd', style='dashed')
+        except Exception as e:
+            print(f"Error adding RSI to chart: {e}")
+
+    # MACD (New Pane)
+    macd_col = next((c for c in ['MACD'] if c in df.columns), None)
+    macd_sig_col = next((c for c in ['MACD_Signal'] if c in df.columns), None)
+    macd_hist_col = next((c for c in ['MACD_Hist'] if c in df.columns), None)
+
+    if macd_col and macd_sig_col:
+        try:
+            # Create MACD and Signal lines
+            m_line = chart.create_line(name='MACD', color='#2196F3')
+            m_line.set(pd.DataFrame({'time': chart_df['time'], 'value': df[macd_col]}).dropna())
+            s_line = chart.create_line(name='Signal', color='#FF9800')
+            s_line.set(pd.DataFrame({'time': chart_df['time'], 'value': df[macd_sig_col]}).dropna())
+            
+            # Histogram
+            if macd_hist_col:
+                hist = chart.create_histogram(name='Histogram', color='rgba(255, 255, 255, 0.3)')
+                hist.set(pd.DataFrame({'time': chart_df['time'], 'value': df[macd_hist_col]}).dropna())
+        except Exception as e:
+            print(f"Error adding MACD to chart: {e}")
 
     # Strategic Lines (AI Target/Stop)
     if strategic_data:

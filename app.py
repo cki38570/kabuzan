@@ -131,6 +131,8 @@ with st.sidebar:
                     st.toast(f"✅ {clean_ticker} を追加しました")
                     st.rerun()
     
+    # --- The FOLLOWING UI elements must be OUTSIDE the st.form to use st.button/st.rerun correctly ---
+
     # Init Cache
     if 'analysis_cache' not in st.session_state:
         st.session_state.analysis_cache = {}
@@ -161,39 +163,46 @@ with st.sidebar:
             # Use fast_info to avoid heavy network calls if possible
             curr = 0
             prev = 0
+            name = None
+
+            try:
+                # Get Name first
+                info = t.info
+                name = info.get('longName') or info.get('shortName')
+            except: pass
+
             try:
                 # Some objects might be missing attributes in some yfinance versions/states
                 if hasattr(t, 'fast_info'):
-                    curr = t.fast_info.last_price or 0
-                    prev = t.fast_info.previous_close or 0
+                    curr = t.fast_info.last_price
+                    prev = t.fast_info.previous_close
             except: pass
             
-            # Also try to get name
-            name = None
-            try:
-                info = t.info
-                name = info.get('longName') or info.get('shortName')
-            except:
-                pass
+            # Use history as fallback if fast_info fails or returns None
+            if curr is None or prev is None or curr == 0:
+                try:
+                    hist = t.history(period="2d")
+                    if len(hist) >= 2:
+                        curr = hist['Close'].iloc[-1]
+                        prev = hist['Close'].iloc[-2]
+                    elif len(hist) == 1:
+                        curr = hist['Close'].iloc[-1]
+                        prev = curr # Change will be 0
+                except: pass
 
-            if curr and prev:
+            # Ensure they are floats and not None
+            curr = float(curr) if curr is not None else 0.0
+            prev = float(prev) if prev is not None else 0.0
+
+            if curr != 0 and prev != 0:
                 chg = curr - prev
                 pct = (chg / prev) * 100
                 return curr, chg, pct, name or str(code)
-            else:
-                # Fallback to history if fast_info fails
-                hist = t.history(period="2d")
-                if len(hist) >= 2:
-                    curr = hist['Close'].iloc[-1]
-                    prev = hist['Close'].iloc[-2]
-                    chg = curr - prev
-                    pct = (chg / prev) * 100
-                    return curr, chg, pct, name or str(code)
-                elif len(hist) == 1:
-                    curr = hist['Close'].iloc[-1]
-                    return curr, 0, 0, name or str(code)
+            elif curr != 0:
+                return curr, 0.0, 0.0, name or str(code)
         except Exception as e:
-            pass
+             # st.error/warning inside cached function is generally not recommended, but helps during debug
+             pass
         return 0, 0, 0, str(code) # Fallback: return code as name if info fails
     
     # Render Cards
