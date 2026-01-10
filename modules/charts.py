@@ -103,9 +103,14 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
 
     # Parabolic SAR
     psar_data = None
-    psar_col = next((c for c in chart_df.columns if c.startswith('PSAR') or c == 'SAR'), None)
-    if psar_col:
-        psar_data = clean_data(chart_df[['time', psar_col]].rename(columns={psar_col: 'value'}))
+    # Prefer the combined 'PSAR' column we just made in analysis.py
+    if 'PSAR' in chart_df.columns:
+         psar_data = clean_data(chart_df[['time', 'PSAR']].rename(columns={'PSAR': 'value'}))
+    else:
+         # Fallback search
+         psar_col = next((c for c in chart_df.columns if c.startswith('PSAR') or c == 'SAR'), None)
+         if psar_col:
+             psar_data = clean_data(chart_df[['time', psar_col]].rename(columns={psar_col: 'value'}))
 
     # Markers (AI Targets)
     markers = []
@@ -113,13 +118,22 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
         # Last Date
         last_time = chart_df['time'].iloc[-1]
         
-        if 'entry_price' in strategic_data:
+        # Entry
+        if 'entry_price' in strategic_data and strategic_data['entry_price']:
             markers.append({
-                'time': last_time, 'position': 'inBar', 'color': '#00BFFF', 'shape': 'arrowUp', 'text': 'Entry'
+                'time': last_time, 'position': 'inBar', 'color': '#00ffbd', 'shape': 'arrowUp', 'text': 'ENTRY'
             })
-        if 'stop_loss' in strategic_data:
+        
+        # Profit Take (Target)
+        if 'sell_limit' in strategic_data and strategic_data['sell_limit']:
+            markers.append({
+                'time': last_time, 'position': 'aboveBar', 'color': '#FFD700', 'shape': 'arrowDown', 'text': 'TP'
+            })
+
+        # Stop Loss
+        if 'stop_loss' in strategic_data and strategic_data['stop_loss']:
              markers.append({
-                'time': last_time, 'position': 'belowBar', 'color': '#FF0000', 'shape': 'circle', 'text': 'SL'
+                'time': last_time, 'position': 'belowBar', 'color': '#ff4b4b', 'shape': 'arrowUp', 'text': 'SL'
             })
             
     markers_json = json.dumps(markers)
@@ -180,8 +194,11 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
                     upColor: '#00ffbd', downColor: '#ff4b4b', borderVisible: false, wickUpColor: '#00ffbd', wickDownColor: '#ff4b4b'
                 }});
                 const cData = {candle_data_json};
-                if (!cData || cData.length === 0) throw new Error("Candle data empty");
-                candleSeries.setData(cData);
+                if (!cData || cData.length === 0) {{
+                    console.warn("Candle data empty"); 
+                }} else {{
+                    candleSeries.setData(cData);
+                }}
                 
                 // 2. Volume Series
                 const volumeSeries = chart.addSeries(HistogramSeries, {{
@@ -225,16 +242,19 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
 
                 // 5. Parabolic SAR (Dotted Line)
                 const psarJson = {json.dumps(psar_data if psar_data else 'null')};
-                if (psarJson) {{
-                    const rawData = JSON.parse(psarJson);
-                    const psarSeries = chart.addSeries(LineSeries, {{
-                        color: '#BA68C8', 
-                        lineWidth: 2,
-                        lineStyle: 1, // Dotted (LineStyle.Dotted is usually 1 or 2)
-                        title: 'PSAR',
-                        crosshairMarkerVisible: false
-                    }});
-                    psarSeries.setData(rawData);
+                
+                if (psarJson && psarJson !== 'null' && psarJson !== null) {{
+                    const rawData = typeof psarJson === 'string' ? JSON.parse(psarJson) : psarJson;
+                    if (rawData && rawData.length > 0) {{
+                        const psarSeries = chart.addSeries(LineSeries, {{
+                            color: '#BA68C8', 
+                            lineWidth: 2,
+                            lineStyle: 1, // Dotted
+                            title: 'PSAR',
+                            crosshairMarkerVisible: false
+                        }});
+                        psarSeries.setData(rawData);
+                    }}
                 }}
 
                 // 6. Markers (AI)

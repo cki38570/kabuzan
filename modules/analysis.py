@@ -51,7 +51,22 @@ def calculate_indicators(df, params=None, interval="1d", **kwargs):
     )
     
     # Parabolic SAR (New!)
-    df.ta.psar(append=True)
+    # pandas_ta generates PSARl_... and PSARs_... columns. We need to combine them.
+    psar_df = df.ta.psar(append=False)
+    if psar_df is not None and not psar_df.empty:
+        # Find the combined PSAR column or Combine them manually if TA returns split cols
+        # Typically pandas_ta returns 'PSARl_0.02_0.2' and 'PSARs_0.02_0.2'
+        chk_cols = [c for c in psar_df.columns if c.startswith('PSAR')]
+        if chk_cols:
+             # Combine logic: default to the first found, then fillna with the others
+             df['PSAR'] = psar_df[chk_cols[0]]
+             for c in chk_cols[1:]:
+                 df['PSAR'] = df['PSAR'].fillna(psar_df[c])
+             
+             # Clean up: Ensure we don't return the raw split columns if not needed, 
+             # but keeping them doesn't hurt as long as we have 'PSAR'
+    else:
+        df['PSAR'] = np.nan
 
     # ATR
     df.ta.atr(length=14, append=True)

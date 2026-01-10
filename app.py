@@ -78,29 +78,8 @@ with st.sidebar:
     
     st.divider()
 
-    # 1. Analysis Settings (Available on all pages for now, or only Home)
-    if page == "🏠 ホーム":
-        with st.expander("🛠️ 分析・表示設定", expanded=False):
-            st.caption("テクニカル指標のパラメータ")
-            params = {}
-            params['sma_short'] = st.number_input("短期移動平均 (日)", 3, 20, 5)
-            params['sma_mid'] = st.number_input("中期移動平均 (日)", 10, 50, 25)
-            params['sma_long'] = st.number_input("長期移動平均 (日)", 50, 200, 75)
-            params['rsi_period'] = st.number_input("RSI期間", 5, 30, 14)
-            params['bb_window'] = st.number_input("ボリンジャー期間", 10, 50, 20)
-            
-            st.divider()
-            if 'comparison_mode' not in st.session_state:
-                st.session_state.comparison_mode = False
-            
-            # Comparison Mode Toggle
-            comparison_mode = st.checkbox("📊 銘柄比較モード", value=st.session_state.comparison_mode)
-            if comparison_mode != st.session_state.comparison_mode:
-                st.session_state.comparison_mode = comparison_mode
-                st.rerun()
-    else:
-        # Default params if not on home
-        params = {'sma_short': 5, 'sma_mid': 25, 'sma_long': 75, 'rsi_period': 14, 'bb_window': 20}
+    # Analysis settings moved to code constants/defaults
+    params = {'sma_short': 5, 'sma_mid': 25, 'sma_long': 75, 'rsi_period': 14, 'bb_window': 20}
 
     # 2. Watchlist (Mobile Cards) - Always Visible
     if 'watchlist' not in st.session_state:
@@ -285,28 +264,9 @@ def render_home(params):
     if ticker_input != st.session_state.active_ticker:
         st.session_state.active_ticker = ticker_input
 
-    # 2. Comparison Mode
-    if st.session_state.comparison_mode:
-        st.info("📊 比較モード: 複数の銘柄を同時に表示します")
-        compare_input = st.text_input("比較する銘柄コード (カンマ区切り)", placeholder="例: 7203,9984,6758")
-        if compare_input:
-            tickers = [t.strip() for t in compare_input.split(',')]
-            comparison_data = []
-            for ticker in tickers:
-                df, info = get_stock_data(ticker)
-                if df is not None and info is not None:
-                    df = calculate_indicators(df, params)
-                    last = df.iloc[-1]
-                    comparison_data.append({
-                        '銘柄名': info['name'],
-                        'コード': ticker,
-                        '現在値': f"¥{info['current_price']:,.1f}",
-                        '前日比': f"{info['change_percent']:.2f}%",
-                        'RSI': f"{last['RSI']:.1f}",
-                    })
-            if comparison_data:
-                st.dataframe(pd.DataFrame(comparison_data), width='stretch')
-        return
+    # 2. Comparison Mode (Removed from sidebar, but session state might persist. Assuming false default)
+    if st.session_state.get('comparison_mode'):
+         st.session_state.comparison_mode = False
 
     # 3. Normal Analysis
     if ticker_input:
@@ -504,22 +464,34 @@ def render_home(params):
                 with tab_chart:
                      st.markdown(f"**{info['name']} ({ticker_input})** | {info.get('sector', '')}")
                      
-                     # Chart Mode Toggle
-                     chart_range = st.radio("期間", ["日足", "週足"], horizontal=True, label_visibility="collapsed")
+                     # Timeframe Selector (1H, 1D, 1wk)
+                     tf_map = {"1時間足": "1h", "日足": "1d", "週足": "1wk"}
+                     timeframe_label = st.radio("期間", ["1時間足", "日足", "週足"], horizontal=True, label_visibility="collapsed", index=1)
+                     interval = tf_map[timeframe_label]
                      
-                     if chart_range == "日足":
-                         chart_daily = create_lightweight_chart(df, info['name'], strategic_data, interval="1d")
-                         if chart_daily:
-                             st.markdown("##### 日足チャート")
-                             components.html(chart_daily, height=620, scrolling=False)
-                     else: # Weekly
-                         if not df_weekly.empty:
-                             chart_weekly = create_lightweight_chart(df_weekly, info['name'], strategic_data, interval="1wk")
-                             if chart_weekly:
-                                 st.markdown("##### 週足チャート")
-                                 components.html(chart_weekly, height=620, scrolling=False)
-                         else:
-                             st.warning("週足データがありません")
+                     # Fetch data for selected interval
+                     chart_df = df # Default to daily
+                     if interval == "1wk":
+                         chart_df = df_weekly
+                     elif interval == "1h":
+                         with st.spinner("1時間足データを取得中..."):
+                             # Fetch 1H data (1 month history max for hourly usually)
+                             df_1h, _ = dm.get_market_data(ticker_input, period="1mo", interval="1h")
+                             if not df_1h.empty:
+                                 # Calculate indicators for 1h
+                                  _, chart_df = dm.get_technical_indicators(df_1h, interval="1h")
+                             else:
+                                 chart_df = pd.DataFrame()
+                     
+                     if not chart_df.empty:
+                         # Render Chart
+                         chart_title = f"{info['name']} ({timeframe_label})"
+                         # Pass interval and strategic data to chart
+                         chart_html = create_lightweight_chart(chart_df, chart_title, strategic_data, interval=interval)
+                         if chart_html:
+                             components.html(chart_html, height=620, scrolling=False)
+                     else:
+                         st.warning(f"⚠️ {timeframe_label}データが取得できませんでした")
 
                 with tab_ai:
                      # 1. Summary Dashboard
