@@ -3,6 +3,11 @@ import os
 import pandas as pd
 from datetime import datetime
 from modules.storage import storage
+try:
+    from modules.data import get_stock_data
+except ImportError:
+    # Handle circular or missing import gracefully if needed
+    def get_stock_data(code): return None, None
 
 def load_portfolio():
     """Load portfolio using StorageManager."""
@@ -48,10 +53,10 @@ def remove_from_portfolio(code):
     portfolio = [p for p in portfolio if str(p['code']) != str(code)]
     save_portfolio(portfolio)
 
-def get_portfolio_df(current_prices):
+def get_portfolio_df(current_prices=None):
     """
     Calculate portfolio performance.
-    current_prices: dict {code: price}
+    current_prices: dict {code: price} (Optional)
     """
     portfolio = load_portfolio()
     if not portfolio:
@@ -65,7 +70,15 @@ def get_portfolio_df(current_prices):
         code = str(item['code'])
         qty = item['quantity']
         avg = item['avg_price']
-        current = current_prices.get(code, avg) # Fallback to avg if price not found
+        if current_prices:
+            current = current_prices.get(code, avg) # Fallback to avg if price not found
+        else:
+             # Fetch if current_prices is None
+             try:
+                 _, info = get_stock_data(code)
+                 current = info['current_price'] if info else avg
+             except:
+                 current = avg
         
         invested = qty * avg
         value = qty * current
