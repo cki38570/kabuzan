@@ -145,7 +145,6 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     # STRICT RULE: NO Gemini 1.5 models allowed.
     MODEL_CANDIDATES = [
         'gemini-2.0-flash',
-        'gemini-2.0-pro-exp-02-05',
         'gemini-2.0-flash-lite-preview-02-05'
     ]
 
