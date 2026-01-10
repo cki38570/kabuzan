@@ -149,6 +149,8 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
         'gemini-2.0-flash-lite-preview-02-05'
     ]
 
+    error_details = []
+
     # Use V1 SDK if available
     client = get_gemini_client()
     if client:
@@ -163,7 +165,8 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
                     )
                     if response and response.text:
                         print(f"Success with Gemini API: {model_name} (Attempt {attempt+1})")
-                        return response.text
+                        # Return tuple: (report_text, cost, error)
+                        return response.text, 0.0, None
                 except Exception as e:
                     err_msg = str(e)
                     if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg:
@@ -173,7 +176,8 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
                         continue
                     else:
                         error_details.append(f"Gemini {model_name} Failed: {err_msg[:100]}...")
-                        break # Try next model if it's not a rate limit error
+                        # If 404 or other non-retriable error, try next model immediately
+                        break 
     else:
         if not GENAI_V1_AVAILABLE:
             error_details.append("google-genai SDK not installed.")
@@ -182,7 +186,8 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     
     # Fallback to Mock
     debug_info = " | ".join(error_details) if error_details else "Unknown Error"
-    return _create_mock_report(strategic_data, enhanced_metrics, indicators, credit_data, error_info=debug_info)
+    mock_report = _create_mock_report(strategic_data, enhanced_metrics, indicators, credit_data, error_info=debug_info)
+    return mock_report, 0.0, debug_info
 
 def _create_mock_report(strategic_data, enhanced_metrics, indicators, credit_data, error_info=None):
     """Helper to create strict format mock report in JSON."""
