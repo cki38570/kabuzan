@@ -449,28 +449,28 @@ def render_home(params):
                 # Parse AI Result
                 report_data = {}
                 if report_raw:
-                try:
-                    import re
-                    json_match = re.search(r'```json\s*(.*?)\s*```', report_raw, re.DOTALL)
-                    if json_match:
-                        report_data = json.loads(json_match.group(1))
-                    else:
-                        report_data = json.loads(report_raw)
-                    
-                    # Normalize confidence keys
-                    if 'confidence' in report_data and 'confidence_score' not in report_data:
-                        report_data['confidence_score'] = report_data['confidence']
-                    elif 'confidence_score' in report_data and 'confidence' not in report_data:
-                        report_data['confidence'] = report_data['confidence_score']
+                    try:
+                        import re
+                        json_match = re.search(r'```json\s*(.*?)\s*```', report_raw, re.DOTALL)
+                        if json_match:
+                            report_data = json.loads(json_match.group(1))
+                        else:
+                            report_data = json.loads(report_raw)
                         
-                except Exception as e:
-                    # Fallback on parse error
-                    report_data = {
-                        "status": "ERROR",
-                        "total_score": 0,
-                        "headline": "解析エラー",
-                        "final_reasoning": f"AIデータのパースに失敗しました。詳細: {e}\nRaw: {str(report_raw)[:200]}..."
-                    }
+                        # Normalize confidence keys
+                        if 'confidence' in report_data and 'confidence_score' not in report_data:
+                            report_data['confidence_score'] = report_data['confidence']
+                        elif 'confidence_score' in report_data and 'confidence' not in report_data:
+                            report_data['confidence'] = report_data['confidence_score']
+                            
+                    except Exception as e:
+                        # Fallback on parse error
+                        report_data = {
+                            "status": "ERROR",
+                            "total_score": 0,
+                            "headline": "解析エラー",
+                            "final_reasoning": f"AIデータのパースに失敗しました。詳細: {e}\nRaw: {str(report_raw)[:200]}..."
+                        }
                 else:
                     if analysis_error:
                          report_data = {
@@ -479,7 +479,7 @@ def render_home(params):
                             "headline": "AI分析エラー",
                             "final_reasoning": f"AI分析実行中にエラーが発生しました: {analysis_error}"
                         }
-                    elif not report_raw:
+                    else:
                          report_data = {
                             "status": "WAITING",
                             "total_score": 50,
