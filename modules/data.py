@@ -40,6 +40,14 @@ def get_stock_data(ticker_code, period="1y", interval="1d"):
                     time.sleep(1)
                     continue
                 
+                # Flatten MultiIndex if present (yfinance update)
+                if isinstance(df.columns, pd.MultiIndex):
+                    try:
+                        # Drop the Ticker level if it exists
+                        df.columns = df.columns.get_level_values(0)
+                    except:
+                        pass
+                
                 if not df.empty:
                     # Get current price and change
                     info = ticker.info
