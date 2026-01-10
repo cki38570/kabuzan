@@ -490,6 +490,19 @@ def render_home(params):
                          chart_html = create_lightweight_chart(chart_df, chart_title, strategic_data, interval=interval)
                          if chart_html:
                              components.html(chart_html, height=620, scrolling=False)
+                             
+                             # Chart Legend / Explanation
+                             st.markdown("""
+                             <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 5px; padding: 10px; background: #1e293b; border-radius: 5px;">
+                                 <strong>📊 チャート表示要素の解説</strong>
+                                 <ul style="margin-top: 5px; padding-left: 20px;">
+                                     <li><span style="color: #FFFF00;">■</span> <strong>SMA短期 (5日)</strong> / <span style="color: #FF00FF;">■</span> <strong>SMA中期 (25日)</strong> / <span style="color: #00E676;">■</span> <strong>SMA長期 (75日)</strong></li>
+                                     <li><span style="color: rgba(255, 165, 0, 0.8);">■</span> <strong>ボリンジャーバンド (±2σ)</strong>: 統計的な価格変動範囲。</li>
+                                     <li><span style="color: #BA68C8;">●</span> <strong>パラボリックSAR</strong>: トレンド転換点を示唆するドット。</li>
+                                     <li><span style="color: #00ffbd;">▲</span> <strong>ENTRY / TP / SL</strong>: AIが算出・推奨する戦略的価格レベル。</li>
+                                 </ul>
+                             </div>
+                             """, unsafe_allow_html=True)
                      else:
                          st.warning(f"⚠️ {timeframe_label}データが取得できませんでした")
 

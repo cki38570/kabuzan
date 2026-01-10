@@ -1,4 +1,4 @@
-import streamlit as st
+チャート実験import streamlit as st
 import yfinance as yf
 import pandas as pd
 import pandas_ta as ta
@@ -146,8 +146,8 @@ if data is not None and not data.empty:
                 width: width,
                 height: 500,
                 layout: {{
-                    background: {{ type: 'solid', color: 'white' }},
-                    textColor: 'black',
+                    background: {{ type: 'solid', color: '#0e1117' }},
+                    textColor: '#d1d4dc',
                 }},
                 grid: {{
                     vertLines: {{ color: 'rgba(197, 203, 206, 0.5)' }},

@@ -136,7 +136,35 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
                 'time': last_time, 'position': 'belowBar', 'color': '#ff4b4b', 'shape': 'arrowUp', 'text': 'SL'
             })
             
+            
     markers_json = json.dumps(markers)
+    
+    # Price Lines Data
+    price_lines = []
+    if strategic_data:
+        if 'stop_loss' in strategic_data and strategic_data['stop_loss']:
+            price_lines.append({
+                'price': float(strategic_data['stop_loss']), 
+                'color': '#ff4b4b', 
+                'title': 'STOP LOSS',
+                'lineStyle': 2 # Dashed
+            })
+        if 'sell_limit' in strategic_data and strategic_data['sell_limit']:
+             price_lines.append({
+                'price': float(strategic_data['sell_limit']), 
+                'color': '#FFD700', 
+                'title': 'TARGET',
+                'lineStyle': 2 # Dashed
+            })
+        if 'entry_price' in strategic_data and strategic_data['entry_price']:
+             price_lines.append({
+                'price': float(strategic_data['entry_price']), 
+                'color': '#00ffbd', 
+                'title': 'ENTRY',
+                'lineStyle': 2 # Dashed
+            })
+    
+    price_lines_json = json.dumps(price_lines)
 
     # --- 2. HTML/JS Construction ---
     # Using Lightweight Charts v5.1.0
@@ -260,12 +288,24 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
                 // 6. Markers (AI)
                 const aiMarkers = {markers_json};
                 if (aiMarkers.length > 0) {{
-                   // Safe check for setMarkers
                    if (typeof candleSeries.setMarkers === 'function') {{
                        candleSeries.setMarkers(aiMarkers);
-                   }} else {{
-                       console.warn("setMarkers is not supported on this series type");
                    }}
+                }}
+                
+                // 7. Price Lines (Horizontal Lines for SL/TP)
+                const priceLines = {price_lines_json};
+                if (priceLines && priceLines.length > 0) {{
+                    priceLines.forEach(pl => {{
+                        candleSeries.createPriceLine({{
+                            price: pl.price,
+                            color: pl.color,
+                            lineWidth: 1,
+                            lineStyle: pl.lineStyle || LineStyle.Dashed,
+                            axisLabelVisible: true,
+                            title: pl.title,
+                        }});
+                    }});
                 }}
 
                 // Fit content
