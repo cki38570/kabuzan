@@ -112,6 +112,12 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
          if psar_col:
              psar_data = clean_data(chart_df[['time', psar_col]].rename(columns={psar_col: 'value'}))
 
+    # RSI Data
+    rsi_data = None
+    rsi_col = next((c for c in chart_df.columns if c.startswith('RSI')), 'RSI')
+    if rsi_col in chart_df.columns:
+         rsi_data = clean_data(chart_df[['time', rsi_col]].rename(columns={rsi_col: 'value'}))
+
     # Markers (AI Targets)
     markers = []
     if strategic_data:
@@ -139,28 +145,28 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
             
     markers_json = json.dumps(markers)
     
-    # Price Lines Data
+    # Price Lines Data (Japanese Labels)
     price_lines = []
     if strategic_data:
         if 'stop_loss' in strategic_data and strategic_data['stop_loss']:
             price_lines.append({
                 'price': float(strategic_data['stop_loss']), 
                 'color': '#ff4b4b', 
-                'title': 'STOP LOSS',
+                'title': '損切', # Japanese
                 'lineStyle': 2 # Dashed
             })
         if 'sell_limit' in strategic_data and strategic_data['sell_limit']:
              price_lines.append({
                 'price': float(strategic_data['sell_limit']), 
                 'color': '#FFD700', 
-                'title': 'TARGET',
+                'title': '利確', # Japanese
                 'lineStyle': 2 # Dashed
             })
         if 'entry_price' in strategic_data and strategic_data['entry_price']:
              price_lines.append({
                 'price': float(strategic_data['entry_price']), 
                 'color': '#00ffbd', 
-                'title': 'ENTRY',
+                'title': 'エントリー', # Japanese
                 'lineStyle': 2 # Dashed
             })
     
@@ -217,7 +223,7 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
                 const container = document.getElementById('chart');
                 const chart = createChart(container, chartOptions);
                 
-                // 1. Candlestick Series
+                // 1. Candlestick Series (Pane 0 - Default)
                 const candleSeries = chart.addSeries(CandlestickSeries, {{
                     upColor: '#00ffbd', downColor: '#ff4b4b', borderVisible: false, wickUpColor: '#00ffbd', wickDownColor: '#ff4b4b'
                 }});
@@ -228,7 +234,7 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
                     candleSeries.setData(cData);
                 }}
                 
-                // 2. Volume Series
+                // 2. Volume Series (Pane 0 - Overlay)
                 const volumeSeries = chart.addSeries(HistogramSeries, {{
                     color: '#26a69a',
                     priceFormat: {{ type: 'volume' }},
@@ -237,7 +243,7 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
                 }});
                 volumeSeries.setData({volume_data_json});
 
-                // 3. SMA Lines
+                // 3. SMA Lines (Pane 0)
                 const smaData = {json.dumps(sma_data)};
                 for (const [name, info] of Object.entries(smaData)) {{
                     const line = chart.addSeries(LineSeries, {{
@@ -246,7 +252,7 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
                     line.setData(JSON.parse(info.data));
                 }}
                 
-                // 4. Bollinger Bands (3 Lines)
+                // 4. Bollinger Bands (Pane 0)
                 const bbData = {json.dumps(bb_data)};
                 if (bbData.upper && bbData.lower) {{
                     // Upper
@@ -268,7 +274,7 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
                     }}
                 }}
 
-                // 5. Parabolic SAR (Dotted Line)
+                // 5. Parabolic SAR (Pane 0)
                 const psarJson = {json.dumps(psar_data if psar_data else 'null')};
                 
                 if (psarJson && psarJson !== 'null' && psarJson !== null) {{
@@ -306,6 +312,41 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
                             title: pl.title,
                         }});
                     }});
+                }}
+
+                // 8. RSI Pane (Pane 1 - New!)
+                const rsiJson = {json.dumps(rsi_data if rsi_data else 'null')};
+                if (rsiJson && rsiJson !== 'null') {{
+                    const rsiData = typeof rsiJson === 'string' ? JSON.parse(rsiJson) : rsiJson;
+                    
+                    if (rsiData && rsiData.length > 0) {{
+                        // Separate Pane for RSI
+                        const rsiSeries = chart.addSeries(LineSeries, {{
+                            color: '#e91e63',
+                            lineWidth: 2,
+                            title: 'RSI',
+                            pane: 1, // New Pane
+                        }});
+                        rsiSeries.setData(rsiData);
+                        
+                        // RSI PriceLines (70/30)
+                        rsiSeries.createPriceLine({{
+                            price: 70,
+                            color: '#ef5350',
+                            lineWidth: 1,
+                            lineStyle: LineStyle.Dotted,
+                            axisLabelVisible: false,
+                            title: '',
+                        }});
+                        rsiSeries.createPriceLine({{
+                            price: 30,
+                            color: '#26a69a',
+                            lineWidth: 1,
+                            lineStyle: LineStyle.Dotted,
+                            axisLabelVisible: false,
+                            title: '',
+                        }});
+                    }}
                 }}
 
                 // Fit content

@@ -466,7 +466,7 @@ def render_home(params):
                      
                      # Timeframe Selector (1H, 1D, 1wk)
                      tf_map = {"1時間足": "1h", "日足": "1d", "週足": "1wk"}
-                     timeframe_label = st.radio("期間", ["1時間足", "日足", "週足"], horizontal=True, label_visibility="collapsed", index=1)
+                     timeframe_label = st.radio("期間", ["1時間足", "日足", "週足"], horizontal=True, label_visibility="collapsed", index=0)
                      interval = tf_map[timeframe_label]
                      
                      # Fetch data for selected interval
