@@ -41,7 +41,7 @@ def save_watchlist(watchlist):
 st.set_page_config(
     page_title="株価AI分析",
     layout="wide", 
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="auto"
 )
 
 # PWA Meta Tags
