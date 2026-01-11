@@ -141,11 +141,13 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
     if strategic_data:
         # Last Date
         last_time_val = chart_df['time'].iloc[-1]
-        # Cast to native python type if it's numpy
-        if isinstance(last_time_val, (np.integer, int)):
+        
+        if is_intraday:
+             # Intraday uses unix timestamp (int)
              last_time = int(last_time_val)
         else:
-             last_time = last_time_val
+             # Daily/Weekly uses YYYY-MM-DD string
+             last_time = str(last_time_val)
         
         # Entry
         if 'entry_price' in strategic_data and strategic_data['entry_price']:
