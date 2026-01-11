@@ -1,0 +1,24 @@
+# タスクリスト
+
+- [x] 既存コードの分析 (`modules/charts.py`, `modules/analysis.py`, `app.py`) <!-- id: 0 -->
+- [x] チャート実装の修正 (`modules/charts.py`) <!-- id: 1 -->
+    - [x] 背景色をダークネイビーに変更
+    - [x] コンテナの高さを固定
+    - [x] ボリンジャーバンドの描画実装
+    - [x] RSIペイン（分割表示）の実装
+- [x] データ計算の検証と修正 (`modules/analysis.py`) <!-- id: 2 -->
+    - [x] ボリンジャーバンド計算の確認
+    - [x] RSI計算の確認
+- [x] `app.py` 統合の確認 <!-- id: 3 -->
+- [x] チャートAPIエラーの修正 (`addCandlestickSeries` -> `addSeries`) <!-- id: 5 -->
+- [x] チャート日付フォーマット問題の修正 <!-- id: 6 -->
+    - [x] イントラデイ（1h）はUNIXタイムスタンプを使用
+    - [x] 日足・週足はYYYY-MM-DDを使用
+- [x] Gemini改善案の実装 <!-- id: 7 -->
+    - [x] `modules/analysis.py`: カラム名の統一とインポート移動
+    - [x] `modules/analysis.py`: データ不足時の戦略判定ロジック緩和
+    - [x] `modules/data.py`: ウォッチリスト情報の高速化 (`fast_info`利用)
+    - [x] `app.py`: AI分析結果のキャッシュ処理 (`st.cache_data`利用)
+    - [x] `app.py`: タブへのアイコン追加
+    - [x] `app.py`: インデントエラーとシリアライズエラーの修正
+- [ ] 修正内容の確認 (Walkthrough作成) <!-- id: 4 -->
