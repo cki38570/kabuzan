@@ -46,10 +46,21 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
     elif chart_df.index.name == 'Date' or isinstance(chart_df.index, pd.DatetimeIndex):
         chart_df['time'] = chart_df.index
     
-    # Ensure time is string YYYY-MM-DD for daily
-    chart_df['time'] = pd.to_datetime(chart_df['time']).dt.strftime('%Y-%m-%d')
+    # Ensure 'time' is a DatetimeIndex or datetime column for processing
+    chart_df['time'] = pd.to_datetime(chart_df['time'])
+
+    # Determine Format based on Interval
+    is_intraday = interval not in ['1d', '1wk', '1mo']
     
-    # Standardize OHLCV columns
+    if is_intraday:
+        # For Intraday (1h, 5m, etc.), use UNIX Timestamp (seconds)
+        # Lightweight Charts expects seconds, not milliseconds, for 'time'
+        chart_df['time'] = chart_df['time'].astype('int64') // 10**9
+    else:
+        # For Daily/Weekly, use 'YYYY-MM-DD' string
+        chart_df['time'] = chart_df['time'].dt.strftime('%Y-%m-%d')
+    
+    # Standardize OHLCV columns (ensure lowercase)
     chart_df = chart_df.rename(columns={
         'Open': 'open', 'High': 'high', 'Low': 'low', 'Close': 'close', 'Volume': 'volume'
     })
