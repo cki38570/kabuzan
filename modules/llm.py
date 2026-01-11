@@ -184,6 +184,7 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     
     # Fallback to Mock
     debug_info = " | ".join(error_details) if error_details else "Unknown Error"
+    print(f"DEBUG: Generating mock report due to: {debug_info}")
     mock_report = _create_mock_report(strategic_data, enhanced_metrics, indicators, credit_data, error_info=debug_info)
     return mock_report, 0.0, debug_info
 
@@ -215,7 +216,7 @@ def _create_mock_report(strategic_data, enhanced_metrics, indicators, credit_dat
             "buy_limit": strategic_data.get('entry_price', 0),
             "sell_limit": strategic_data.get('target_price', 0),
             "stop_loss": strategic_data.get('stop_loss', 0),
-            "rationale": "AI分析不能のため、テクニカル計算値を指値目安としています。"
+            "rationale": f"AI分析エラー: {error_info}"
         }
     }
 
@@ -386,10 +387,10 @@ def analyze_news_impact(portfolio_items, news_data_map):
     """
 
     # Consistently use the same stable candidates for news as well
+    # Consistently use the same stable candidates for news as well
+    # STRICT RULE: NO Gemini 1.5 models allowed.
     MODEL_CANDIDATES = [
-        'gemini-2.0-flash',
-        'gemini-2.0-pro-exp-02-05',
-        'gemini-2.0-flash-lite-preview-02-05'
+        'gemini-3-flash-preview'
     ]
 
     client = get_gemini_client()
