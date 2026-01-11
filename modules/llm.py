@@ -27,15 +27,17 @@ if not API_KEY:
     print("Warning: GEMINI_API_KEY not found in secrets.toml or environment variables.")
 
 def get_gemini_client():
-    """Returns a V1 Client if available."""
-    if not GENAI_V1_AVAILABLE or not API_KEY:
-        return None
+    """Returns (client, error_msg)."""
+    if not GENAI_V1_AVAILABLE:
+        return None, "google-genai SDK missing"
+    if not API_KEY:
+        return None, "API Key missing"
     try:
         client = genai.Client(api_key=API_KEY)
-        return client
+        return client, None
     except Exception as e:
         print(f"Failed to initialize Gemini Client: {e}")
-        return None
+        return None, str(e)
 
 def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strategic_data, enhanced_metrics=None, patterns=None, extra_context=None, weekly_indicators=None, news_data=None, macro_data=None, transcript_data=None, relative_strength=None, backtest_results=None, past_history=None, credit_df=None):
     """
@@ -150,7 +152,7 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     error_details = []
 
     # Use V1 SDK if available
-    client = get_gemini_client()
+    client, init_error = get_gemini_client()
     if client:
         for model_name in MODEL_CANDIDATES:
             max_retries = 2
@@ -177,10 +179,7 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
                         # If 404 or other non-retriable error, try next model immediately
                         break 
     else:
-        if not GENAI_V1_AVAILABLE:
-            error_details.append("google-genai SDK not installed.")
-        if not API_KEY:
-            error_details.append("GEMINI_API_KEY is missing/empty.")
+        error_details.append(f"Client Init Failed: {init_error}")
     
     # Fallback to Mock
     debug_info = " | ".join(error_details) if error_details else "Unknown Error"
@@ -393,7 +392,7 @@ def analyze_news_impact(portfolio_items, news_data_map):
         'gemini-3-flash-preview'
     ]
 
-    client = get_gemini_client()
+    client, _ = get_gemini_client()
     if client:
         for model_name in MODEL_CANDIDATES:
             max_retries = 3
