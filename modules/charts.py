@@ -176,7 +176,7 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
 
     # --- 2. HTML/JS Construction ---
     # Using Lightweight Charts v4.1+ (API compliant)
-    html_template = f"""
+    html_template = f\"\"\"
     <!DOCTYPE html>
     <html>
     <head>
@@ -201,8 +201,16 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
             try {{
                 const container = document.getElementById('chart');
                 
+                // Ensure Library is loaded
+                if (typeof LightweightCharts === 'undefined') {{
+                   throw new Error("Lightweight Charts library not loaded.");
+                }}
+
+                // Destructure needed components
+                const {{ createChart, CandlestickSeries, HistogramSeries, LineSeries, LineStyle }} = LightweightCharts;
+
                 // Initialize Chart
-                const chart = LightweightCharts.createChart(container, {{
+                const chart = createChart(container, {{
                     width: container.clientWidth,
                     height: 600,
                     layout: {{
@@ -233,7 +241,7 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
                 // --- 1. Main Series (Candle & Overlay) ---
                 
                 // Candlestick Series
-                const candlestickSeries = chart.addCandlestickSeries({{
+                const candlestickSeries = chart.addSeries(CandlestickSeries, {{
                     upColor: '#ef4444', downColor: '#22c55e', 
                     borderUpColor: '#ef4444', borderDownColor: '#22c55e',
                     wickUpColor: '#ef4444', wickDownColor: '#22c55e',
@@ -241,7 +249,7 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
                 candlestickSeries.setData({candle_data_json});
 
                 // Volume (Overlay at bottom of main pane)
-                const volumeSeries = chart.addHistogramSeries({{
+                const volumeSeries = chart.addSeries(HistogramSeries, {{
                     color: '#26a69a',
                     priceFormat: {{ type: 'volume' }},
                     priceScaleId: '', // Same ID (right) means overlay on main scale
@@ -252,7 +260,7 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
                 // SMA Lines
                 const smaData = {json.dumps(sma_data)};
                 for (const [name, info] of Object.entries(smaData)) {{
-                    const line = chart.addLineSeries({{
+                    const line = chart.addSeries(LineSeries, {{
                         color: info.color, lineWidth: 2, title: name
                     }});
                     line.setData(JSON.parse(info.data));
@@ -262,16 +270,16 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
                 const bbData = {json.dumps(bb_data)};
                 if (bbData.upper && bbData.lower) {{
                     // Upper
-                    const upper = chart.addLineSeries({{ color: 'rgba(255, 165, 0, 0.5)', lineWidth: 1, title: 'BB Upper' }});
+                    const upper = chart.addSeries(LineSeries, {{ color: 'rgba(255, 165, 0, 0.5)', lineWidth: 1, title: 'BB Upper' }});
                     upper.setData(JSON.parse(bbData.upper));
                     
                     // Lower
-                    const lower = chart.addLineSeries({{ color: 'rgba(255, 165, 0, 0.5)', lineWidth: 1, title: 'BB Lower' }});
+                    const lower = chart.addSeries(LineSeries, {{ color: 'rgba(255, 165, 0, 0.5)', lineWidth: 1, title: 'BB Lower' }});
                     lower.setData(JSON.parse(bbData.lower));
                     
                     // Middle
                     if (bbData.mid) {{
-                        const mid = chart.addLineSeries({{ 
+                        const mid = chart.addSeries(LineSeries, {{ 
                             color: 'rgba(255, 165, 0, 0.8)', // Orangeish
                             lineWidth: 1, 
                             title: 'BB Mid' 
@@ -279,13 +287,13 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
                         mid.setData(JSON.parse(bbData.mid));
                     }}
                 }}
-                
+
                 // Parabolic SAR
                 const psarJson = {json.dumps(psar_data if psar_data else 'null')};
                 if (psarJson && psarJson !== 'null') {{
                     const rawData = typeof psarJson === 'string' ? JSON.parse(psarJson) : psarJson;
                     if (rawData && rawData.length > 0) {{
-                        const psarSeries = chart.addLineSeries({{
+                        const psarSeries = chart.addSeries(LineSeries, {{
                             color: '#BA68C8', 
                             lineWidth: 2,
                             lineStyle: 1, // Dotted
@@ -295,7 +303,7 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
                         psarSeries.setData(rawData);
                     }}
                 }}
-                
+
                 // Markers
                 const aiMarkers = {markers_json};
                 if (aiMarkers.length > 0) {{
@@ -323,7 +331,7 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
                     const rsiData = typeof rsiJson === 'string' ? JSON.parse(rsiJson) : rsiJson;
                     if (rsiData && rsiData.length > 0) {{
                         // Separate Pane for RSI - Using a new PriceScaleId
-                        const rsiSeries = chart.addLineSeries({{
+                        const rsiSeries = chart.addSeries(LineSeries, {{
                             color: '#fbbf24',
                             lineWidth: 2,
                             priceScaleId: 'rsi', // Separate Scale ID
@@ -366,6 +374,6 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
         </script>
     </body>
     </html>
-    """
+    \"\"\"
     
     return html_template
