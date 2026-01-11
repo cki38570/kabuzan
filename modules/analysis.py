@@ -1,9 +1,14 @@
 import pandas as pd
 import numpy as np
+import pandas_ta as ta
+from modules.llm import generate_gemini_analysis
+from modules.enhanced_metrics import calculate_advanced_metrics
+from modules.patterns import enhance_ai_analysis_with_patterns
 
 def calculate_indicators(df, params=None, interval="1d", **kwargs):
     """
     Add technical indicators to the DataFrame.
+    Standardizes column names to be friendly for downstream usage (SMA5, SMA25, etc.)
     """
     if params is None:
         params = {
@@ -15,83 +20,102 @@ def calculate_indicators(df, params=None, interval="1d", **kwargs):
     
     df = df.copy()
     
-    import pandas_ta as ta
-    
-    # Calculate Indicators using pandas_ta
-    # ensures column names like SMA_5, BBU_20_2.0, PSARl_... are created
-    
-    # SMA
+    # --- SMA ---
     if interval == "1wk":
         # Weekly: 13, 26, 52
-        df.ta.sma(length=13, append=True)
-        df.ta.sma(length=26, append=True)
-        df.ta.sma(length=52, append=True)
+        df['SMA13'] = df.ta.sma(length=13)
+        df['SMA26'] = df.ta.sma(length=26)
+        df['SMA52'] = df.ta.sma(length=52)
+        # Aliases for chart compatibility if needed
+        df['SMA_13'] = df['SMA13']
+        df['SMA_26'] = df['SMA26']
+        df['SMA_52'] = df['SMA52']
     else:
         # Daily: Short, Mid, Long from params
-        df.ta.sma(length=params.get('sma_short', 5), append=True)
-        df.ta.sma(length=params.get('sma_mid', 25), append=True)
-        df.ta.sma(length=params.get('sma_long', 75), append=True)
+        s_short = params.get('sma_short', 5)
+        s_mid = params.get('sma_mid', 25)
+        s_long = params.get('sma_long', 75)
+        
+        df[f'SMA{s_short}'] = df.ta.sma(length=s_short)
+        df[f'SMA{s_mid}'] = df.ta.sma(length=s_mid)
+        df[f'SMA{s_long}'] = df.ta.sma(length=s_long)
+        
+        # Ensure standard names exist regardless of params
+        if f'SMA{s_short}' not in df.columns: df[f'SMA{s_short}'] = np.nan
+        if f'SMA{s_mid}' not in df.columns: df[f'SMA{s_mid}'] = np.nan
+        if f'SMA{s_long}' not in df.columns: df[f'SMA{s_long}'] = np.nan
 
-    # RSI
-    df.ta.rsi(length=params.get('rsi_period', 14), append=True)
+        # Aliases
+        df['SMA_5'] = df.get(f'SMA{s_short}')
+        df['SMA_25'] = df.get(f'SMA{s_mid}')
+        df['SMA_75'] = df.get(f'SMA{s_long}')
 
-    # MACD
-    df.ta.macd(
+    # --- RSI ---
+    rsi_len = params.get('rsi_period', 14)
+    df['RSI'] = df.ta.rsi(length=rsi_len)
+    
+    # --- MACD ---
+    macd = df.ta.macd(
         fast=params.get('macd_fast', 12), 
         slow=params.get('macd_slow', 26), 
-        signal=params.get('macd_signal', 9), 
-        append=True
+        signal=params.get('macd_signal', 9)
     )
+    # MACD returns multiple columns, e.g. MACD_12_26_9, MACDh_..., MACDs_...
+    if macd is not None and not macd.empty:
+        # Identify columns
+        macd_col = next((c for c in macd.columns if c.startswith('MACD_')), None)
+        hist_col = next((c for c in macd.columns if c.startswith('MACDh_')), None)
+        sig_col = next((c for c in macd.columns if c.startswith('MACDs_')), None)
+        
+        if macd_col: df['MACD'] = macd[macd_col]
+        if hist_col: df['MACD_Hist'] = macd[hist_col]
+        if sig_col: df['MACD_Signal'] = macd[sig_col]
 
-    # Bollinger Bands
-    df.ta.bbands(
-        length=params.get('bb_window', 20), 
-        std=params.get('bb_std', 2), 
-        append=True
-    )
+    # --- Bollinger Bands ---
+    bb_len = params.get('bb_window', 20)
+    bb_std = params.get('bb_std', 2)
+    bbands = df.ta.bbands(length=bb_len, std=bb_std)
     
-    # Parabolic SAR (New!)
-    # pandas_ta generates PSARl_... and PSARs_... columns. We need to combine them.
+    if bbands is not None and not bbands.empty:
+        # BBL_20_2.0, BBM_20_2.0, BBU_20_2.0
+        lower = next((c for c in bbands.columns if c.startswith('BBL')), None)
+        mid = next((c for c in bbands.columns if c.startswith('BBM')), None)
+        upper = next((c for c in bbands.columns if c.startswith('BBU')), None)
+        
+        if lower: df['BB_Lower'] = bbands[lower]
+        if mid: df['BB_Mid'] = bbands[mid]
+        if upper: df['BB_Upper'] = bbands[upper]
+        
+        # Keep original names for charts.py compatibility if it relies on BBU_... pattern
+        # checking charts.py, it looks for BBU_ or BB_Upper, so we are good.
+        for c in bbands.columns:
+            df[c] = bbands[c]
+
+    # --- Parabolic SAR ---
     psar_df = df.ta.psar(append=False)
     if psar_df is not None and not psar_df.empty:
-        # Find the combined PSAR column or Combine them manually if TA returns split cols
-        # Typically pandas_ta returns 'PSARl_0.02_0.2' and 'PSARs_0.02_0.2'
-        chk_cols = [c for c in psar_df.columns if c.startswith('PSAR')]
-        if chk_cols:
-             # Combine logic: default to the first found, then fillna with the others
-             df['PSAR'] = psar_df[chk_cols[0]]
-             for c in chk_cols[1:]:
-                 df['PSAR'] = df['PSAR'].fillna(psar_df[c])
-             
-             # Clean up: Ensure we don't return the raw split columns if not needed, 
-             # but keeping them doesn't hurt as long as we have 'PSAR'
+        # Combine PSARl and PSARs
+        combined_psar = pd.Series(np.nan, index=df.index)
+        for c in psar_df.columns:
+            combined_psar = combined_psar.combine_first(psar_df[c])
+        df['PSAR'] = combined_psar
     else:
         df['PSAR'] = np.nan
 
-    # ATR
-    df.ta.atr(length=14, append=True)
+    # --- ATR ---
+    df['ATR'] = df.ta.atr(length=14)
     
-    # Volume SMA (Custom or TA)
-    if 'Volume' in df.columns:
-        # Check if Volume is not all zero or NaN to avoid errors
-        if df['Volume'].sum() > 0:
-             # pandas_ta doesn't have a simple 'volume sma' named distinctly standardly, 
-             # but we can use sma on volume column.
-             # Naming: SMA_5
-             v_sma = df.ta.sma(close='Volume', length=5, append=False)
-             df['VolSMA5'] = v_sma
+    # --- Volume SMA ---
+    if 'Volume' in df.columns and df['Volume'].sum() > 0:
+         df['VolSMA5'] = df.ta.sma(close='Volume', length=5)
         
     return df
 
-from modules.llm import generate_gemini_analysis
-from modules.enhanced_metrics import calculate_advanced_metrics
-from modules.patterns import enhance_ai_analysis_with_patterns
 
 def calculate_trading_strategy(df, settings=None):
     """
     Calculate trading strategy levels (Entry, TP, SL) and trend status.
-    Now supports dynamic ATR-based Stop Loss with a safety guardrail from settings.
-    Returns strategic_data dict.
+    Uses robust data checking to proceed even if some indicators (like long-term SMA) are missing.
     """
     if df is None or df.empty:
         return {}
@@ -102,31 +126,42 @@ def calculate_trading_strategy(df, settings=None):
     last = df.iloc[-1]
     price = last['Close']
     
-    # Support both Underscore and Non-Underscore naming
-    sma5 = last.get('SMA5') or last.get('SMA_5')
-    sma25 = last.get('SMA25') or last.get('SMA_25')
-    sma75 = last.get('SMA75') or last.get('SMA_75')
-    bb_up = last.get('BB_Upper') or last.get('BBU_20_2.0')
-    bb_low = last.get('BB_Lower') or last.get('BBL_20_2.0')
-    atr = last.get('ATR') or last.get('ATRr_14')
+    # Get indicators with defaults if missing
+    def get_val(key, alt_key=None):
+        val = last.get(key)
+        if val is None or pd.isna(val):
+            val = last.get(alt_key)
+        return val
+
+    sma5 = get_val('SMA5', 'SMA_5')
+    sma25 = get_val('SMA25', 'SMA_25')
+    sma75 = get_val('SMA75', 'SMA_75')
+    bb_up = get_val('BB_Upper', 'BBU_20_2.0')
+    bb_low = get_val('BB_Lower', 'BBL_20_2.0')
+    atr = get_val('ATR', 'ATRr_14')
     
-    if any(v is None or pd.isna(v) for v in [sma5, sma25, sma75, bb_up, bb_low, atr]):
+    # Data Check: We need at least Price and SMA25 for basic trend analysis
+    if pd.isna(sma25):
+        # Fallback if almost no technicals are available
         return {
             'trend_desc': "データ不足",
-            'strategy_msg': "データ不足により明確な分析不可",
-            'action_msg': "テクニカル指標の計算に必要なデータが不足しています。期間を延ばして再試行してください。",
+            'strategy_msg': "十分な価格データがありません",
+            'action_msg': "分析に必要なデータ期間が不足しています（上場直後など）。",
             'target_price': 0, 'stop_loss': 0, 'entry_price': 0
         }
     
-    
-    # 1. Trend Analysis
+    # --- 1. Trend Analysis ---
     trend_score = 0
     trend_desc = ""
     
-    if sma5 > sma25 > sma75:
+    # Robust comparison logic (treating None as non-match)
+    is_perfect_up = (sma5 is not None and sma75 is not None) and (sma5 > sma25 > sma75)
+    is_perfect_down = (sma5 is not None and sma75 is not None) and (sma5 < sma25 < sma75)
+    
+    if is_perfect_up:
         trend_desc = "🟢 パーフェクトオーダー（上昇）"
         trend_score += 2
-    elif sma5 < sma25 < sma75:
+    elif is_perfect_down:
         trend_desc = "🔴 パーフェクトオーダー（下落）"
         trend_score -= 2
     else:
@@ -137,35 +172,41 @@ def calculate_trading_strategy(df, settings=None):
             trend_desc = "📉 下落基調"
             trend_score -= 1
             
-    # 2. Strategy Levels
-    support_candidates = [l for l in [sma25, sma75, bb_low] if l < price]
-    support_level = max(support_candidates) if support_candidates else price * 0.95
-    resistance_level = bb_up
+    # --- 2. Strategy Levels ---
+    # Find support
+    support_candidates = []
+    if sma25 and sma25 < price: support_candidates.append(sma25)
+    if sma75 and sma75 < price: support_candidates.append(sma75)
+    if bb_low and bb_low < price: support_candidates.append(bb_low)
     
-    # --- Dynamic Stop Loss Logic ---
+    support_level = max(support_candidates) if support_candidates else price * 0.95
+    
+    # Resistance
+    resistance_level = bb_up if (bb_up and not pd.isna(bb_up)) else price * 1.05
+    
+    # --- Dynamic Stop Loss ---
     buy_zone_min = support_level
     buy_zone_max = support_level * 1.015
     entry_price = int((buy_zone_min + buy_zone_max) / 2)
     
-    # ATR-based SL (Standard: 1.5x - 2.0x ATR)
+    # ATR Stop Loss
     multiplier = 2.0
-    atr_stop_loss = entry_price - (multiplier * atr)
+    val_atr = atr if (atr and not pd.isna(atr)) else price * 0.02 # fallback ATR of 2%
+    atr_stop_loss = entry_price - (multiplier * val_atr)
     
-    # Guardrail from Settings (Default -5% if not set)
+    # Guardrail
     sl_limit_pct = float(settings.get('stop_loss_limit', -5.0))
     limit_stop_loss = entry_price * (1 + (sl_limit_pct / 100))
     
-    # Choose the safer (tighter) stop loss if ATR SL is too deep
-    # but also respect the volatility if it's within limits
+    # Selection
     stop_loss = atr_stop_loss
     sl_source = "ATR"
     is_high_risk = False
     
     if atr_stop_loss < limit_stop_loss:
-        # ATR suggests a deeper cut than our fixed limit
         stop_loss = limit_stop_loss
         sl_source = "Fixed Limit (-5%)"
-        is_high_risk = True # Signal that volatility exceeds safety limit
+        is_high_risk = True
     
     target_price = resistance_level
     
@@ -188,7 +229,7 @@ def calculate_trading_strategy(df, settings=None):
     if is_high_risk:
         action_msg += f"\n\n⚠️ **リスク警告**: ボラティリティが非常に高いため、通常の損切り設定({sl_limit_pct}%)を優先しました。リスク許容度に注意してください。"
 
-    # --- Volume Spike Detection ---
+    # --- Volume Spike ---
     volume_spike_data = detect_volume_spike(df)
 
     return {
@@ -202,7 +243,7 @@ def calculate_trading_strategy(df, settings=None):
         'risk_reward': rr_ratio,
         'sl_source': sl_source,
         'is_high_risk': is_high_risk,
-        'atr_value': atr,
+        'atr_value': val_atr,
         'volume_spike': volume_spike_data['is_spike'],
         'volume_ratio': volume_spike_data['ratio']
     }
@@ -284,40 +325,32 @@ def generate_ai_report(df, credit_data, ticker_name, price_info=None, extra_cont
     
     # Latest Data Points
     last = df.iloc[-1]
-    prev = df.iloc[-2]
+    prev = df.iloc[-2] if len(df) > 1 else last
     
     price = last['Close']
-    # Safe access to columns that might depend on interval
+    
+    # Safe access
     sma5 = last.get('SMA5', 0)
-    sma25 = last.get('SMA25', 0)
-    sma75 = last.get('SMA75', 0)
-    rsi = last.get('RSI', 50)
+    # Strategy Calculation
+    strategic_data = calculate_trading_strategy(df)
+
+    # ... Indicators status ...
     macd = last.get('MACD', 0)
     macd_sig = last.get('MACD_Signal', 0)
     bb_up = last.get('BB_Upper', price * 1.05)
     bb_low = last.get('BB_Lower', price * 0.95)
     bb_mid = last.get('BB_Mid', price)
     atr = last.get('ATR', price * 0.02)
+    rsi = last.get('RSI', 50)
     
-    # Calculate Enhanced Metrics
-    enhanced_metrics = calculate_advanced_metrics(df, price)
-    
-    # Detect Patterns
-    patterns = enhance_ai_analysis_with_patterns(df)
-    
-    # Strategy Calculation (if not provided/re-calc)
-    strategic_data = calculate_trading_strategy(df)
-    trend_desc = strategic_data.get('trend_desc', '')
-
     # --- Momentum & Volatility (MACD & BB) ---
-    signals = []
     macd_status = "中立"
+    prev_macd = prev.get('MACD', 0)
+    prev_sig = prev.get('MACD_Signal', 0)
     
-    if macd > macd_sig and prev.get('MACD', 0) <= prev.get('MACD_Signal', 0):
-        signals.append("🚀 ゴールデンクロス (MACD)")
+    if macd > macd_sig and prev_macd <= prev_sig:
         macd_status = "ゴールデンクロス発生"
-    elif macd < macd_sig and prev.get('MACD', 0) >= prev.get('MACD_Signal', 0):
-        signals.append("⚠️ デッドクロス (MACD)")
+    elif macd < macd_sig and prev_macd >= prev_sig:
         macd_status = "デッドクロス発生"
     elif macd > macd_sig:
         macd_status = "買いシグナル継続"
@@ -325,30 +358,21 @@ def generate_ai_report(df, credit_data, ticker_name, price_info=None, extra_cont
         macd_status = "売りシグナル継続"
     
     bb_width = (bb_up - bb_low) / bb_mid if bb_mid > 0 else 0
-    volatility_msg = ""
     bb_status = "通常"
     if bb_width < 0.10: 
-        volatility_msg = "⚡ スクイーズ（収束）"
         bb_status = "スクイーズ（爆発前夜）"
     
     if price >= bb_up:
-        signals.append("🔥 バンドウォーク警戒")
         bb_status = "バンドウォーク（過熱）"
     elif price <= bb_low:
-        signals.append("💧 売られすぎ")
         bb_status = "売られすぎ（反発期待）"
 
-    rsi_msg = ""
     rsi_status = "中立"
     if rsi > 70:
-        rsi_msg = f"🔴 RSI {rsi:.1f} (過熱)"
         rsi_status = "買われすぎ"
     elif rsi < 30:
-        rsi_msg = f"🟢 RSI {rsi:.1f} (底値圏)"
         rsi_status = "売られすぎ"
-    else:
-        rsi_msg = f"⚪ RSI {rsi:.1f} (中立)"
-
+    
     # --- Supply/Demand (Credit) ---
     credit_msg = "データなし"
     if credit_data is not None and not credit_data.empty:
@@ -378,6 +402,10 @@ def generate_ai_report(df, credit_data, ticker_name, price_info=None, extra_cont
     if price_info is None:
         price_info = {'current_price': price, 'change_percent': 0.0}
 
+    # Calculate Enhanced Metrics & Patterns
+    enhanced_metrics = calculate_advanced_metrics(df, price)
+    patterns = enhance_ai_analysis_with_patterns(df)
+
     # Call LLM with Enhanced Metrics, Patterns, and Extra Context
     llm_report = generate_gemini_analysis(
         ticker_name, 
@@ -387,9 +415,7 @@ def generate_ai_report(df, credit_data, ticker_name, price_info=None, extra_cont
         strategic_data,
         enhanced_metrics=enhanced_metrics,
         patterns=patterns,
-        extra_context=extra_context,
-        weekly_indicators=kwargs.get('weekly_indicators'),
-        relative_strength=kwargs.get('relative_strength')
+        extra_context=extra_context
     )
     
     if llm_report:
