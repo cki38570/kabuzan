@@ -167,6 +167,8 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
                         print(f"Success with Gemini API: {model_name} (Attempt {attempt+1})")
                         # Return tuple: (report_text, cost, error)
                         return response.text, 0.0, None
+                    else:
+                        raise ValueError("Response was empty or blocked by safety filters.")
                 except Exception as e:
                     err_msg = str(e)
                     is_last_attempt = (attempt == max_retries - 1)
