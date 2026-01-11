@@ -32,6 +32,7 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
     - Bollinger Bands (3 Lines)
     - Parabolic SAR (as Dotted Line)
     - Volume
+    - RSI (Separate Pane via scaleMargins)
     """
     if df is None or df.empty:
         return None
@@ -91,9 +92,10 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
 
     # Bollinger Bands
     bb_data = {}
-    bb_upper_col = next((c for c in ['BBU_20_2.0', 'BB_Upper', 'BBU_20'] if c in chart_df.columns), None)
-    bb_lower_col = next((c for c in ['BBL_20_2.0', 'BB_Lower', 'BBL_20'] if c in chart_df.columns), None)
-    bb_mid_col = next((c for c in ['BBM_20_2.0', 'BB_Mid', 'BBM_20', 'SMA_20'] if c in chart_df.columns), None)
+    # Search for pandas_ta generated columns (e.g. BBU_20_2.0) or custom names
+    bb_upper_col = next((c for c in chart_df.columns if c.startswith('BBU_') or c == 'BB_Upper'), None)
+    bb_lower_col = next((c for c in chart_df.columns if c.startswith('BBL_') or c == 'BB_Lower'), None)
+    bb_mid_col = next((c for c in chart_df.columns if c.startswith('BBM_') or c == 'BB_Mid' or c == 'SMA_20'), None)
     
     if bb_upper_col and bb_lower_col:
         bb_data['upper'] = clean_data(chart_df[['time', bb_upper_col]].rename(columns={bb_upper_col: 'value'}))
@@ -173,14 +175,14 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
     price_lines_json = json.dumps(price_lines)
 
     # --- 2. HTML/JS Construction ---
-    # Using Lightweight Charts v5.1.0
+    # Using Lightweight Charts v4.1+ (API compliant)
     html_template = f"""
     <!DOCTYPE html>
     <html>
     <head>
-        <script src="https://unpkg.com/lightweight-charts@5.1.0/dist/lightweight-charts.standalone.production.js"></script>
+        <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
         <style>
-            body {{ margin: 0; padding: 0; background-color: #0e1117; overflow: hidden; }}
+            body {{ margin: 0; padding: 0; background-color: #0a192f; overflow: hidden; }}
             #chart {{ width: 100%; height: 600px; }}
             .legend {{
                 position: absolute; left: 12px; top: 12px; z-index: 10;
@@ -197,75 +199,79 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
         <div id="debug" style="color: red; padding: 10px;"></div>
         <script>
             try {{
-                const {{ createChart, CandlestickSeries, HistogramSeries, LineSeries, LineStyle }} = LightweightCharts;
+                const container = document.getElementById('chart');
                 
-                const chartOptions = {{
+                // Initialize Chart
+                const chart = LightweightCharts.createChart(container, {{
+                    width: container.clientWidth,
+                    height: 600,
                     layout: {{
-                        textColor: '#d1d4dc',
-                        backgroundColor: '#0e1117',
+                        background: {{ type: 'solid', color: '#0a192f' }}, // Dark Navy Background (v4 syntax)
+                        textColor: '#d1d5db',
                     }},
                     grid: {{
-                        vertLines: {{ color: '#2B2B43' }},
-                        horzLines: {{ color: '#2B2B43' }},
+                        vertLines: {{ color: '#1e293b' }},
+                        horzLines: {{ color: '#1e293b' }},
                     }},
                     crosshair: {{
                         mode: LightweightCharts.CrosshairMode.Normal,
                     }},
                     rightPriceScale: {{
                         borderColor: '#2B2B43',
+                        visible: true,
+                        scaleMargins: {{
+                            top: 0.1,    // Leave space at top
+                            bottom: 0.25, // Leave space at bottom for RSI (Main Series Area)
+                        }},
                     }},
                     timeScale: {{
                         borderColor: '#2B2B43',
                         timeVisible: true,
                     }},
-                }};
-                
-                const container = document.getElementById('chart');
-                const chart = createChart(container, chartOptions);
-                
-                // 1. Candlestick Series (Pane 0 - Default)
-                const candleSeries = chart.addSeries(CandlestickSeries, {{
-                    upColor: '#00ffbd', downColor: '#ff4b4b', borderVisible: false, wickUpColor: '#00ffbd', wickDownColor: '#ff4b4b'
                 }});
-                const cData = {candle_data_json};
-                if (!cData || cData.length === 0) {{
-                    console.warn("Candle data empty"); 
-                }} else {{
-                    candleSeries.setData(cData);
-                }}
+
+                // --- 1. Main Series (Candle & Overlay) ---
                 
-                // 2. Volume Series (Pane 0 - Overlay)
-                const volumeSeries = chart.addSeries(HistogramSeries, {{
+                // Candlestick Series
+                const candlestickSeries = chart.addCandlestickSeries({{
+                    upColor: '#ef4444', downColor: '#22c55e', 
+                    borderUpColor: '#ef4444', borderDownColor: '#22c55e',
+                    wickUpColor: '#ef4444', wickDownColor: '#22c55e',
+                }});
+                candlestickSeries.setData({candle_data_json});
+
+                // Volume (Overlay at bottom of main pane)
+                const volumeSeries = chart.addHistogramSeries({{
                     color: '#26a69a',
                     priceFormat: {{ type: 'volume' }},
-                    priceScaleId: '', // Set as overlay
-                    scaleMargins: {{ top: 0.8, bottom: 0 }},
+                    priceScaleId: '', // Same ID (right) means overlay on main scale
+                    scaleMargins: {{ top: 0.8, bottom: 0.25 }}, // Stick to bottom of main area
                 }});
                 volumeSeries.setData({volume_data_json});
 
-                // 3. SMA Lines (Pane 0)
+                // SMA Lines
                 const smaData = {json.dumps(sma_data)};
                 for (const [name, info] of Object.entries(smaData)) {{
-                    const line = chart.addSeries(LineSeries, {{
+                    const line = chart.addLineSeries({{
                         color: info.color, lineWidth: 2, title: name
                     }});
                     line.setData(JSON.parse(info.data));
                 }}
                 
-                // 4. Bollinger Bands (Pane 0)
+                // Bollinger Bands
                 const bbData = {json.dumps(bb_data)};
                 if (bbData.upper && bbData.lower) {{
                     // Upper
-                    const upper = chart.addSeries(LineSeries, {{ color: 'rgba(255, 255, 255, 0.5)', lineWidth: 1, title: 'BB Upper' }});
+                    const upper = chart.addLineSeries({{ color: 'rgba(255, 165, 0, 0.5)', lineWidth: 1, title: 'BB Upper' }});
                     upper.setData(JSON.parse(bbData.upper));
                     
                     // Lower
-                    const lower = chart.addSeries(LineSeries, {{ color: 'rgba(255, 255, 255, 0.5)', lineWidth: 1, title: 'BB Lower' }});
+                    const lower = chart.addLineSeries({{ color: 'rgba(255, 165, 0, 0.5)', lineWidth: 1, title: 'BB Lower' }});
                     lower.setData(JSON.parse(bbData.lower));
                     
                     // Middle
                     if (bbData.mid) {{
-                        const mid = chart.addSeries(LineSeries, {{ 
+                        const mid = chart.addLineSeries({{ 
                             color: 'rgba(255, 165, 0, 0.8)', // Orangeish
                             lineWidth: 1, 
                             title: 'BB Mid' 
@@ -273,14 +279,13 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
                         mid.setData(JSON.parse(bbData.mid));
                     }}
                 }}
-
-                // 5. Parabolic SAR (Pane 0)
-                const psarJson = {json.dumps(psar_data if psar_data else 'null')};
                 
-                if (psarJson && psarJson !== 'null' && psarJson !== null) {{
+                // Parabolic SAR
+                const psarJson = {json.dumps(psar_data if psar_data else 'null')};
+                if (psarJson && psarJson !== 'null') {{
                     const rawData = typeof psarJson === 'string' ? JSON.parse(psarJson) : psarJson;
                     if (rawData && rawData.length > 0) {{
-                        const psarSeries = chart.addSeries(LineSeries, {{
+                        const psarSeries = chart.addLineSeries({{
                             color: '#BA68C8', 
                             lineWidth: 2,
                             lineStyle: 1, // Dotted
@@ -290,77 +295,72 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
                         psarSeries.setData(rawData);
                     }}
                 }}
-
-                // 6. Markers (AI)
+                
+                // Markers
                 const aiMarkers = {markers_json};
                 if (aiMarkers.length > 0) {{
-                   if (typeof candleSeries.setMarkers === 'function') {{
-                       candleSeries.setMarkers(aiMarkers);
-                   }}
+                    candlestickSeries.setMarkers(aiMarkers);
                 }}
-                
-                // 7. Price Lines (Horizontal Lines for SL/TP)
+
+                // Price Lines
                 const priceLines = {price_lines_json};
                 if (priceLines && priceLines.length > 0) {{
                     priceLines.forEach(pl => {{
-                        candleSeries.createPriceLine({{
+                        candlestickSeries.createPriceLine({{
                             price: pl.price,
                             color: pl.color,
                             lineWidth: 1,
-                            lineStyle: pl.lineStyle || LineStyle.Dashed,
+                            lineStyle: pl.lineStyle || 2, // Dashed
                             axisLabelVisible: true,
                             title: pl.title,
                         }});
                     }});
                 }}
 
-                // 8. RSI Pane (Pane 1 - New!)
+                // --- 2. RSI Sub-Pane (Bottom 20%) ---
                 const rsiJson = {json.dumps(rsi_data if rsi_data else 'null')};
                 if (rsiJson && rsiJson !== 'null') {{
                     const rsiData = typeof rsiJson === 'string' ? JSON.parse(rsiJson) : rsiJson;
-                    
                     if (rsiData && rsiData.length > 0) {{
-                        // Separate Pane for RSI
-                        const rsiSeries = chart.addSeries(LineSeries, {{
-                            color: '#e91e63',
+                        // Separate Pane for RSI - Using a new PriceScaleId
+                        const rsiSeries = chart.addLineSeries({{
+                            color: '#fbbf24',
                             lineWidth: 2,
+                            priceScaleId: 'rsi', // Separate Scale ID
                             title: 'RSI',
-                            pane: 1, // New Pane
                         }});
+                        
+                        // Configure RSI Scale to sit at bottom
+                        chart.priceScale('rsi').applyOptions({{
+                            autoScale: false,
+                            scaleMargins: {{
+                                top: 0.8, // Top 80% used by main chart
+                                bottom: 0,
+                            }},
+                        }});
+                        
                         rsiSeries.setData(rsiData);
                         
-                        // RSI PriceLines (70/30)
+                        // Reference Lines (70/30) - Manually via createPriceLine on the series
                         rsiSeries.createPriceLine({{
-                            price: 70,
-                            color: '#ef5350',
-                            lineWidth: 1,
-                            lineStyle: LineStyle.Dotted,
-                            axisLabelVisible: false,
-                            title: '',
+                            price: 70, color: '#ef5350', lineWidth: 1, lineStyle: 2, axisLabelVisible: false
                         }});
                         rsiSeries.createPriceLine({{
-                            price: 30,
-                            color: '#26a69a',
-                            lineWidth: 1,
-                            lineStyle: LineStyle.Dotted,
-                            axisLabelVisible: false,
-                            title: '',
+                            price: 30, color: '#26a69a', lineWidth: 1, lineStyle: 2, axisLabelVisible: false
                         }});
                     }}
                 }}
-
-                // Fit content
+                
+                // Fit Content
                 chart.timeScale().fitContent();
-
-                // Resize Observer
-                new ResizeObserver(entries => {{
-                    if (entries.length === 0 || entries[0].target !== container) {{ return; }}
-                    const newRect = entries[0].contentRect;
-                    chart.applyOptions({{ height: newRect.height, width: newRect.width }});
-                }}).observe(container);
+                
+                // Auto Resize
+                window.addEventListener('resize', () => {{
+                    chart.applyOptions({{ width: container.clientWidth }});
+                }});
 
             }} catch (e) {{
-                document.getElementById('debug').innerHTML = "Chart Error: " + e.message + "<br><pre>" + e.stack + "</pre>";
+                document.getElementById('debug').innerHTML = "Chart Error: " + e.message;
                 console.error(e);
             }}
         </script>
