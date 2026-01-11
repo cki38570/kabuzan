@@ -18,6 +18,62 @@ except Exception as e:
 import streamlit as st
 
 @st.cache_data(ttl=900)
+def get_cached_card_info(ticker_code):
+    """
+    Lightweight fetch for watchlist items.
+    Avoids accessing the full 'info' property which is slow.
+    """
+    if not str(ticker_code).endswith('.T'):
+        ticker_code = f"{ticker_code}.T"
+        
+    if not YFINANCE_AVAILABLE:
+        # returns mock data if yfinance is not available
+        return {
+            'current_price': 1000, 'change_percent': 0.0, 'name': ticker_code
+        }
+        
+    try:
+        t = yf.Ticker(str(ticker_code))
+        
+        # Method 1: fast_info (Newer yfinance)
+        try:
+            cur_price = t.fast_info['last_price']
+            prev_close = t.fast_info['previous_close']
+            
+            change = cur_price - prev_close
+            pct = (change / prev_close) * 100
+            
+            return {
+                'current_price': cur_price,
+                'change_percent': pct,
+                # Name often requires full info, maybe fetch once or use cached map?
+                # For speed, we return ticker if name unavailable or rely on previously saved name
+                'name': ticker_code 
+            }
+        except:
+             pass
+             
+        # Method 2: minimal history
+        hist = t.history(period="2d")
+        if len(hist) >= 1:
+            cur_price = hist['Close'].iloc[-1]
+            prev_close = hist['Close'].iloc[-2] if len(hist) > 1 else cur_price
+            
+            change = cur_price - prev_close
+            pct = (change / prev_close) * 100
+             
+            return {
+                'current_price': cur_price,
+                'change_percent': pct,
+                'name': ticker_code
+            }
+            
+    except Exception as e:
+        print(f"Fast fetch failed for {ticker_code}: {e}")
+        
+    return None
+
+@st.cache_data(ttl=900)
 def get_stock_data(ticker_code, period="1y", interval="1d"):
     """
     Fetch stock data from yfinance.
@@ -27,7 +83,7 @@ def get_stock_data(ticker_code, period="1y", interval="1d"):
     """
     if not str(ticker_code).endswith('.T'):
         ticker_code = f"{ticker_code}.T"
-    
+        
     if YFINANCE_AVAILABLE:
         max_retries = 3
         for attempt in range(max_retries):
@@ -192,6 +248,3 @@ def get_market_sentiment():
             return "Neutral"
     except Exception:
         return "Neutral"
-
-# Trigger deployment refresh 
-
