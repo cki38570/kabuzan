@@ -169,7 +169,9 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
                         return response.text, 0.0, None
                 except Exception as e:
                     err_msg = str(e)
-                    if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg:
+                    is_last_attempt = (attempt == max_retries - 1)
+                    
+                    if ("429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg) and not is_last_attempt:
                         delay = base_delay * (2 ** attempt)
                         print(f"Rate limit hit (429). Retrying {model_name} in {delay}s... (Attempt {attempt+1}/{max_retries})")
                         time.sleep(delay)
@@ -407,7 +409,9 @@ def analyze_news_impact(portfolio_items, news_data_map):
                         return response.text
                 except Exception as e:
                     err_msg = str(e)
-                    if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg:
+                    is_last_attempt = (attempt == max_retries - 1)
+                    
+                    if ("429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg) and not is_last_attempt:
                         delay = base_delay * (2 ** attempt)
                         print(f"Rate limit hit (429). Retrying {model_name} in {delay}s... (Attempt {attempt+1}/{max_retries})")
                         time.sleep(delay)
