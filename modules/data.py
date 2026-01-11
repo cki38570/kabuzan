@@ -44,8 +44,8 @@ def get_cached_card_info(ticker_code):
             pct = (change / prev_close) * 100
             
             return {
-                'current_price': cur_price,
-                'change_percent': pct,
+                'current_price': float(cur_price),
+                'change_percent': float(pct),
                 # Name often requires full info, maybe fetch once or use cached map?
                 # For speed, we return ticker if name unavailable or rely on previously saved name
                 'name': ticker_code 
@@ -63,8 +63,8 @@ def get_cached_card_info(ticker_code):
             pct = (change / prev_close) * 100
              
             return {
-                'current_price': cur_price,
-                'change_percent': pct,
+                'current_price': float(cur_price),
+                'change_percent': float(pct),
                 'name': ticker_code
             }
             
@@ -122,9 +122,9 @@ def get_stock_data(ticker_code, period="1y", interval="1d"):
                     industry = info.get('industry', '不明')
                     
                     return df, {
-                        'current_price': current_price,
-                        'change': change,
-                        'change_percent': change_percent,
+                        'current_price': float(current_price) if current_price is not None else 0.0,
+                        'change': float(change) if change is not None else 0.0,
+                        'change_percent': float(change_percent) if change_percent is not None else 0.0,
                         'name': info.get('longName', ticker_code),
                         'sector': sector,
                         'industry': industry,

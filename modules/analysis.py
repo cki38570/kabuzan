@@ -240,12 +240,12 @@ def calculate_trading_strategy(df, settings=None):
         'stop_loss': int(stop_loss),
         'entry_price': entry_price,
         'strategy_msg': strategy_msg,
-        'risk_reward': rr_ratio,
+        'risk_reward': float(rr_ratio),
         'sl_source': sl_source,
         'is_high_risk': is_high_risk,
-        'atr_value': val_atr,
-        'volume_spike': volume_spike_data['is_spike'],
-        'volume_ratio': volume_spike_data['ratio']
+        'atr_value': float(val_atr),
+        'volume_spike': bool(volume_spike_data['is_spike']),
+        'volume_ratio': float(volume_spike_data['ratio'])
     }
 
 def detect_volume_spike(df, window=20, threshold=2.0):

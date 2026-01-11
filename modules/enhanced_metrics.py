@@ -136,6 +136,11 @@ def calculate_advanced_metrics(df, current_price):
         
         metrics['trend_strength'] = abs(plus_di.iloc[-1] - minus_di.iloc[-1])
     
+    # Convert numpy types to native python types
+    for k, v in metrics.items():
+        if isinstance(v, (np.integer, np.floating)):
+            metrics[k] = v.item()
+            
     return metrics
 
 def format_metrics_display(metrics):
