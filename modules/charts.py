@@ -176,7 +176,7 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
 
     # --- 2. HTML/JS Construction ---
     # Using Lightweight Charts v4.1+ (API compliant)
-    html_template = f\"\"\"
+    html_template = f"""
     <!DOCTYPE html>
     <html>
     <head>
@@ -374,6 +374,6 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
         </script>
     </body>
     </html>
-    \"\"\"
+    """
     
     return html_template
