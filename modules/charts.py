@@ -66,6 +66,7 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
     })
 
     # Helper to clean data for JSON (NaN -> None/null)
+    # Helper to clean data for JSON (NaN -> None/null, numpy -> native)
     def clean_data(df_subset):
         # Convert to dict records
         records = df_subset.to_dict('records')
@@ -74,8 +75,12 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
         for row in records:
             cleaned_row = {}
             for k, v in row.items():
-                if isinstance(v, float) and (np.isnan(v) or pd.isna(v)):
+                if isinstance(v, (float, np.floating)) and (np.isnan(v) or pd.isna(v)):
                     cleaned_row[k] = None
+                elif isinstance(v, (np.integer, int)):
+                    cleaned_row[k] = int(v)
+                elif isinstance(v, (np.floating, float)):
+                    cleaned_row[k] = float(v)
                 else:
                     cleaned_row[k] = v
             cleaned_records.append(cleaned_row)
@@ -135,7 +140,12 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
     markers = []
     if strategic_data:
         # Last Date
-        last_time = chart_df['time'].iloc[-1]
+        last_time_val = chart_df['time'].iloc[-1]
+        # Cast to native python type if it's numpy
+        if isinstance(last_time_val, (np.integer, int)):
+             last_time = int(last_time_val)
+        else:
+             last_time = last_time_val
         
         # Entry
         if 'entry_price' in strategic_data and strategic_data['entry_price']:
