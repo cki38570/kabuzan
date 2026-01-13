@@ -245,10 +245,16 @@ def render_home(params):
                     df, info = dm.get_market_data(ticker_input)
                     indicators, df, *_ = dm.get_technical_indicators(df, interval="1d")
                     
+                    # Ensure df is a DataFrame
+                    if not isinstance(df, pd.DataFrame):
+                        df = pd.DataFrame()
+
                     # Prepare weekly indicators for AI analysis
                     df_weekly, _ = dm.get_market_data(ticker_input, interval="1wk")
-                    if not df_weekly.empty:
+                    if isinstance(df_weekly, pd.DataFrame) and not df_weekly.empty:
                         weekly_indicators, df_weekly, *_ = dm.get_technical_indicators(df_weekly, interval="1wk")
+                        if not isinstance(df_weekly, pd.DataFrame):
+                            df_weekly = pd.DataFrame()
                     else:
                         weekly_indicators = {}
                 
@@ -265,7 +271,7 @@ def render_home(params):
                 macro_context = dm.get_macro_context()
                 transcript_data = dm.defeatbeta.get_transcripts(ticker_input) if dm.defeatbeta else pd.DataFrame()
                 
-                if df is not None and not df.empty:
+                if isinstance(df, pd.DataFrame) and not df.empty:
                     st.session_state.analysis_cache[ticker_input] = {
                         'df': df, 'info': info, 'indicators': indicators, 
                         'weekly_indicators': weekly_indicators, 'news_data': news_data,
