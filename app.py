@@ -199,7 +199,7 @@ market_badge_color = "#00ff00" if market_trend == "Bull" else "#ff4b4b" if marke
 # --- Page Views ---
 
 def render_home(params):
-    st.title("🏠 ホーム / AI分析")
+    st.title("🏠 ホーム / AI分析 (v2)")
     dm = get_data_manager() # Initialize dm early to avoid scope errors
     
     # 1. Ticker Input
