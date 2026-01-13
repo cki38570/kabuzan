@@ -278,7 +278,7 @@ class DataManager:
         }
 
         if df.empty or len(df) < 10:
-            return results
+            return results, df
             
         try:
             # Ensure columns are properly named and lowercase for pandas_ta if needed, 
@@ -289,7 +289,7 @@ class DataManager:
             required = ['Open', 'High', 'Low', 'Close']
             if not all(col in calc_df.columns for col in required):
                 print(f"Missing columns for technicals: {list(calc_df.columns)}")
-                return results
+                return results, calc_df
 
             # 1. RSI (14)
             calc_df.ta.rsi(length=14, append=True)
