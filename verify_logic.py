@@ -50,7 +50,7 @@ def verify_logic_integrity():
     # 2. Test Technical Calculation Flow Setup
     print("\n[2] Testing Technical Integration Setup")
     # Even if pandas_ta is mocked, we check if the code handles the dataframe correctly
-    techs, _ = dm.get_technical_indicators(mock_hist)
+    techs, _, *_ = dm.get_technical_indicators(mock_hist)
     # Result will be largely empty because pandas_ta is mocked and doesn't add cols
     # But it shouldn't crash.
     print(f"Technicals result keys: {list(techs.keys())}")

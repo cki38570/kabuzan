@@ -243,12 +243,12 @@ def render_home(params):
                 # Fetch New Data
                 with st.spinner('AIが市場データを分析中...'):
                     df, info = dm.get_market_data(ticker_input)
-                    indicators, df = dm.get_technical_indicators(df, interval="1d")
+                    indicators, df, *_ = dm.get_technical_indicators(df, interval="1d")
                     
                     # Prepare weekly indicators for AI analysis
                     df_weekly, _ = dm.get_market_data(ticker_input, interval="1wk")
                     if not df_weekly.empty:
-                        weekly_indicators, df_weekly = dm.get_technical_indicators(df_weekly, interval="1wk")
+                        weekly_indicators, df_weekly, *_ = dm.get_technical_indicators(df_weekly, interval="1wk")
                     else:
                         weekly_indicators = {}
                 
@@ -433,7 +433,7 @@ def render_home(params):
                              df_1h, _ = dm.get_market_data(ticker_input, period="1mo", interval="1h")
                              if not df_1h.empty:
                                  # Calculate indicators for 1h
-                                  _, chart_df = dm.get_technical_indicators(df_1h, interval="1h")
+                                  _, chart_df, *_ = dm.get_technical_indicators(df_1h, interval="1h")
                              else:
                                  chart_df = pd.DataFrame()
                      
