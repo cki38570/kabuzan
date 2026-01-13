@@ -154,7 +154,7 @@ class DataManager:
         cached_data = cache.get(cache_key)
         if cached_data:
             df, meta, timestamp = cached_data
-            if (datetime.datetime.now() - timestamp).total_seconds() < 300: # 5 min cache for price
+            if isinstance(df, pd.DataFrame) and (datetime.datetime.now() - timestamp).total_seconds() < 300: # 5 min cache for price
                 return df, meta
                 
         try:
@@ -277,8 +277,8 @@ class DataManager:
             'sma_short': 0.0, 'sma_mid': 0.0, 'sma_long': 0.0, 'atr': 0.0, 'trend_desc': "Insufficient Data"
         }
 
-        if df.empty or len(df) < 10:
-            return results, df
+        if not isinstance(df, pd.DataFrame) or df.empty or len(df) < 10:
+            return results, (df if isinstance(df, pd.DataFrame) else pd.DataFrame())
             
         try:
             # Ensure columns are properly named and lowercase for pandas_ta if needed, 
@@ -367,7 +367,7 @@ class DataManager:
             
         except Exception as e:
             print(f"Error calculating technicals: {e}")
-            return results, df
+            return results, (df if isinstance(df, pd.DataFrame) else pd.DataFrame())
 
     def get_financial_data(self, ticker_code: str) -> Dict[str, Any]:
         """
