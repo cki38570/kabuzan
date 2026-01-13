@@ -141,59 +141,48 @@ def create_lightweight_chart(df, ticker_name, strategic_data=None, interval="1d"
     if strategic_data:
         # Last Date
         last_time_val = chart_df['time'].iloc[-1]
+        last_time = int(last_time_val) if is_intraday else str(last_time_val)
         
-        if is_intraday:
-             # Intraday uses unix timestamp (int)
-             last_time = int(last_time_val)
-        else:
-             # Daily/Weekly uses YYYY-MM-DD string
-             last_time = str(last_time_val)
+        # Long Scenario markers
+        if 'long' in strategic_data:
+            l = strategic_data['long']
+            if l.get('entry_price'):
+                markers.append({'time': last_time, 'position': 'belowBar', 'color': '#00ffbd', 'shape': 'arrowUp', 'text': 'L:ENTRY'})
+            if l.get('target_price'):
+                markers.append({'time': last_time, 'position': 'aboveBar', 'color': '#FFD700', 'shape': 'arrowDown', 'text': 'L:TP'})
         
-        # Entry
-        if 'entry_price' in strategic_data and strategic_data['entry_price']:
-            markers.append({
-                'time': last_time, 'position': 'inBar', 'color': '#00ffbd', 'shape': 'arrowUp', 'text': 'ENTRY'
-            })
-        
-        # Profit Take (Target)
-        if 'sell_limit' in strategic_data and strategic_data['sell_limit']:
-            markers.append({
-                'time': last_time, 'position': 'aboveBar', 'color': '#FFD700', 'shape': 'arrowDown', 'text': 'TP'
-            })
-
-        # Stop Loss
-        if 'stop_loss' in strategic_data and strategic_data['stop_loss']:
-             markers.append({
-                'time': last_time, 'position': 'belowBar', 'color': '#ff4b4b', 'shape': 'arrowUp', 'text': 'SL'
-            })
-            
+        # Short Scenario markers
+        if 'short' in strategic_data:
+            s = strategic_data['short']
+            if s.get('entry_price'):
+                markers.append({'time': last_time, 'position': 'aboveBar', 'color': '#ff4b4b', 'shape': 'arrowDown', 'text': 'S:ENTRY'})
+            if s.get('target_price'):
+                markers.append({'time': last_time, 'position': 'belowBar', 'color': '#00E676', 'shape': 'arrowUp', 'text': 'S:TP'})
             
     markers_json = json.dumps(markers)
     
     # Price Lines Data (Japanese Labels)
     price_lines = []
     if strategic_data:
-        if 'stop_loss' in strategic_data and strategic_data['stop_loss']:
-            price_lines.append({
-                'price': float(strategic_data['stop_loss']), 
-                'color': '#ff4b4b', 
-                'title': '損切', # Japanese
-                'lineStyle': 2 # Dashed
-            })
-        if 'sell_limit' in strategic_data and strategic_data['sell_limit']:
-             price_lines.append({
-                'price': float(strategic_data['sell_limit']), 
-                'color': '#FFD700', 
-                'title': '利確', # Japanese
-                'lineStyle': 2 # Dashed
-            })
-        if 'entry_price' in strategic_data and strategic_data['entry_price']:
-             price_lines.append({
-                'price': float(strategic_data['entry_price']), 
-                'color': '#00ffbd', 
-                'title': 'エントリー', # Japanese
-                'lineStyle': 2 # Dashed
-            })
+        # Long lines
+        if 'long' in strategic_data:
+            l = strategic_data['long']
+            if l.get('entry_price'):
+                price_lines.append({'price': float(l['entry_price']), 'color': '#00ffbd', 'title': '買エントリー', 'lineStyle': 2})
+            if l.get('target_price'):
+                price_lines.append({'price': float(l['target_price']), 'color': '#FFD700', 'title': '買利確', 'lineStyle': 2})
+            if l.get('stop_loss'):
+                price_lines.append({'price': float(l['stop_loss']), 'color': '#ff4b4b', 'title': '買損切', 'lineStyle': 2})
+        
+        # Short lines
+        if 'short' in strategic_data:
+            s = strategic_data['short']
+            if s.get('entry_price'):
+                price_lines.append({'price': float(s['entry_price']), 'color': '#ff4b4b', 'title': '売エントリー', 'lineStyle': 3})
+            if s.get('target_price'):
+                price_lines.append({'price': float(s['target_price']), 'color': '#00E676', 'title': '売利確', 'lineStyle': 3})
+            if s.get('stop_loss'):
+                price_lines.append({'price': float(s['stop_loss']), 'color': '#ff9da7', 'title': '売損切', 'lineStyle': 3})
     
     price_lines_json = json.dumps(price_lines)
 

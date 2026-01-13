@@ -74,7 +74,7 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     # Stage 1: 専門家別分析 (Specialized Insights)
     
     ## 1. テクニカル分析担当 (Technical Specialist)
-    - 指標の具体的な数値（RSI, 移動平均乖離率, ボリンジャーバンドの位置, ATR）に基づき、論理的にトレンドを定義せよ。
+    - 指標の具体的な数値（RSI, 移動平均乖離率, ボリンジャーバンドの位置, ATR）に加え、**チャートの全体的な形状（ダブルボトム/トップ、三尊、フラッグ、レンジ等）**に基づき、トレンドを論理的に定義せよ。
     - **厳守**: 単に「上昇傾向」とするのではなく、「RSIが{indicators.get('rsi')}であり過熱圏に近づいているため、一時的な押し目が必要」といった具体的な根拠を示せ。
     
     ## 2. 需給・市場心理担当 (Supply/Demand Expert)
@@ -83,64 +83,43 @@ def generate_gemini_analysis(ticker, price_info, indicators, credit_data, strate
     
     ## 3. ファンダメンタル・材料担当 (Fundamental/News Analyst)
     - PBR/PERの見地、直近ニュース、決算説明会の内容から、中長期的な価値を評価せよ。
-    - 決算説明会の書き起こしデータ（Transcript）がある場合は、経営陣のトーンや具体的な成長戦略に必ず言及すること。
 
     # Stage 2: 深層自己反省 (Bull/Bear Deep Reflection)
-    テクニカル・需給・ファンダすべての情報を統合し、以下の2名に**徹底的な論理バトル**を行わせてください。
-    1. **強気派 (Bull)**: 200〜300文字で、具体的な指標数値を根拠に、なぜ今「買い」なのかを論証せよ。
-    2. **弱気派 (Bear)**: 200〜300文字で、潜在的リスクやテクニカルの弱点、マクロ懸念を根拠に、なぜ今「見送り/売り」なのかを反論せよ。
-    **条件**: 「期待できる」といった抽象的な表現を禁じ、「SMA25が下向きである」「信用買残が過去平均より30%多い」といった定量的根拠を必ず含めること。
+    テクニカル・需給・ファンダすべての情報を統合し、以下の2つの立場から**徹底的な論理バトル**を行ってください。
+    1. **買い戦略支持派 (Long Case)**: 200〜300文字で、具体的な数値を根拠に、なぜ今「買い」が有利なのかを論証せよ。
+    2. **空売り戦略支持派 (Short Case)**: 200〜300文字で、リスクやテクニカルの弱点を根拠に、なぜ今「空売り」が有利なのかを論証せよ。
 
     # Stage 3: 最終投資判断 (Final Directive)
-    以下の計算された戦略データを参考にしつつも、AI独自のリスク評価を加えて最終的なアクションプランを決定してください。
-    - 計算された戦略目安: {strategic_data}
+    以下の計算された「買い」と「売り」それぞれの戦略データを評価し、最終的なアクションプランを決定してください。
+    - システム計算済データ: {strategic_data}
 
     # Input Data
     - 銘柄: {ticker}
     - 現在値: ¥{price_info.get('current_price') or 0:,.1f} ({price_info.get('change_percent') or 0:+.2f}%)
     - 日足テクニカル: RSI:{indicators.get('rsi')}, MACD:{indicators.get('macd_status')}, BB:{indicators.get('bb_status')}
     - 週足テクニカル: {_format_indicators_for_prompt(weekly_indicators, "週足")}
-    - 市場環境: 日経平均 ¥{macro_data.get('n225', {}).get('price', 'N/A')}, ドル円 ¥{macro_data.get('usdjpy', {}).get('price', 'N/A')}
-    - 相対比較: {relative_strength.get('status', 'N/A')} ({relative_strength.get('desc', 'N/A')})
-    - ファンダメンタルズ: {_format_fundamentals_for_prompt(credit_data)}
-    - 需給 (信用残): {_format_credit_for_prompt(credit_df)}
-    - ニュース: {_format_news_for_prompt(news_data)}
-    - 決算説明会 (Transcript): {_format_transcripts_for_prompt(transcript_data)}
-    - 過去のバックテスト成績: {_format_backtest_for_prompt(backtest_results)}
-
-    ## 重要事項
-    - 上記のデータに「N/A」や「データ不足」が含まれている場合でも、取得できている他のデータ（チャート、相対比較、市場環境など）から合理的に推論し、分析を中断せずに行ってください。
-    - 特に戦略データが不足している場合は、テクニカル価格（現在値や移動平均）から標準的な支持線・抵抗線をAIが算定してください。
+    - 検出パターン: {patterns}
+    - 信用残: {_format_credit_for_prompt(credit_df)}
+    - マクロ環境: ドル円 ¥{macro_data.get('usdjpy', {}).get('price', 'N/A')}
 
     # Output Format (Strict JSON)
-    # 重要: 各テキストフィールド（sector_analysis, technical_detail, macro_sentiment_detail, bull_view, bear_view, final_reasoning）は、
-    # 決して一言で終わらせず、背景・根拠・展望を含めて200〜300文字程度で非常に詳細に論理を展開してください。
-    # 確信度 (confidence_score) は0-100で、データの鮮度やシグナルの合致度から算定せよ。
-    ```json
+    以下の構造のJSONのみを **```json ... ```** の形式で出力してください。テキストフィールドは必ず200-300文字で詳細に記述すること。
     {{
-        "status": "【BUY ENTRY / SELL ENTRY / NEUTRAL】",
-        "total_score": 0-100,
-        "confidence_score": 0-100,
-        "headline": "結論を一言で",
-        "sector_analysis": "セクター内での立ち位置やバリュエーション評価（詳細かつ論理的に）",
-        "technical_detail": "日足・週足のマルチタイムフレーム分析に基づく具体的かつ網羅的な分析結果",
-        "macro_sentiment_detail": "需給とマクロ（ドル円等）の相関および市場心理の深掘り分析",
-        "bull_view": "強気派の論理的根拠（200-300文字、定量的数値を3つ以上含めること）",
-        "bear_view": "弱気派の論理的根拠（200-300文字、定量的数値を3つ以上含めること）",
-        "memory_feedback": "過去の分析との答え合わせ結果と今回の修正点（あれば）",
-        "final_reasoning": "全専門家の意見を統合した最終根拠（250-300文字程度で極めて詳細に記述）",
-        "transcript_score": 1-5,
-        "transcript_reason": "決算説明会や定性的材料に基づく自信度の根拠（100文字程度）",
-        "backtest_feedback": "精度向上したバックテスト結果に基づく戦略の妥当性評価",
-        "action_plan": {{
-            "recommended_action": "具体的アクション",
-            "buy_limit": 数値,
-            "sell_limit": 数値,
-            "stop_loss": 数値,
-            "rationale": "価格設定の具体的・論理的根拠（支持線・抵抗線の具体的数値や戦略計算値を参照）"
-        }}
+      "status": "STRONG BUY / BUY / NEUTRAL / SELL / STRONG SELL",
+      "total_score": 0,
+      "confidence_score": 0,
+      "headline": "タイトル",
+      "sector_analysis": "詳細な分析",
+      "technical_detail": "チャート形状を含む詳細分析",
+      "macro_sentiment_detail": "詳細な分析",
+      "bull_view": "買い側の詳細主張",
+      "bear_view": "売り側の詳細主張",
+      "action_plan": {{
+        "long": {{ "entry": 0, "target": 0, "stop": 0, "action": "行動指針", "rationale": "根拠" }},
+        "short": {{ "entry": 0, "target": 0, "stop": 0, "action": "行動指針", "rationale": "根拠" }}
+      }},
+      "final_reasoning": "最終結論の詳細（250文字以上）"
     }}
-    ```
     """
     
     # Stable Model Candidates (Updated per user request)
@@ -215,11 +194,20 @@ def _create_mock_report(strategic_data, enhanced_metrics, indicators, credit_dat
         "bear_view": "短期的な移動平均線が下向きであり、地合いの悪化が継続するリスクがある。",
         "final_reasoning": f"AI分析エラー({error_info})のため、暫定的な判定を表示しています。",
         "action_plan": {
-            "recommended_action": "様子見",
-            "buy_limit": strategic_data.get('entry_price', 0),
-            "sell_limit": strategic_data.get('target_price', 0),
-            "stop_loss": strategic_data.get('stop_loss', 0),
-            "rationale": f"AI分析エラー: {error_info}"
+            "long": {
+                "entry": strategic_data.get('long', {}).get('entry_price', 0),
+                "target": strategic_data.get('long', {}).get('target_price', 0),
+                "stop": strategic_data.get('long', {}).get('stop_loss', 0),
+                "action": "様子見（買い時を待つ）",
+                "rationale": "AI分析エラーにより暫定価格を表示。"
+            },
+            "short": {
+                "entry": strategic_data.get('short', {}).get('entry_price', 0),
+                "target": strategic_data.get('short', {}).get('target_price', 0),
+                "stop": strategic_data.get('short', {}).get('stop_loss', 0),
+                "action": "様子見（売り時を待つ）",
+                "rationale": "AI分析エラーにより暫定価格を表示。"
+            }
         }
     }
 

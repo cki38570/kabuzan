@@ -114,8 +114,8 @@ def calculate_indicators(df, params=None, interval="1d", **kwargs):
 
 def calculate_trading_strategy(df, settings=None):
     """
-    Calculate trading strategy levels (Entry, TP, SL) and trend status.
-    Uses robust data checking to proceed even if some indicators (like long-term SMA) are missing.
+    Calculate trading strategy levels (Long and Short) and trend status.
+    Uses robust data checking to proceed even if some indicators are missing.
     """
     if df is None or df.empty:
         return {}
@@ -140,21 +140,17 @@ def calculate_trading_strategy(df, settings=None):
     bb_low = get_val('BB_Lower', 'BBL_20_2.0')
     atr = get_val('ATR', 'ATRr_14')
     
-    # Data Check: We need at least Price and SMA25 for basic trend analysis
     if pd.isna(sma25):
-        # Fallback if almost no technicals are available
         return {
             'trend_desc': "データ不足",
             'strategy_msg': "十分な価格データがありません",
-            'action_msg': "分析に必要なデータ期間が不足しています（上場直後など）。",
-            'target_price': 0, 'stop_loss': 0, 'entry_price': 0
+            'long': {'target_price': 0, 'stop_loss': 0, 'entry_price': 0},
+            'short': {'target_price': 0, 'stop_loss': 0, 'entry_price': 0}
         }
     
     # --- 1. Trend Analysis ---
     trend_score = 0
     trend_desc = ""
-    
-    # Robust comparison logic (treating None as non-match)
     is_perfect_up = (sma5 is not None and sma75 is not None) and (sma5 > sma25 > sma75)
     is_perfect_down = (sma5 is not None and sma75 is not None) and (sma5 < sma25 < sma75)
     
@@ -172,62 +168,31 @@ def calculate_trading_strategy(df, settings=None):
             trend_desc = "📉 下落基調"
             trend_score -= 1
             
-    # --- 2. Strategy Levels ---
-    # Find support
+    # --- 2. Strategy Levels (Long) ---
     support_candidates = []
     if sma25 and sma25 < price: support_candidates.append(sma25)
     if sma75 and sma75 < price: support_candidates.append(sma75)
     if bb_low and bb_low < price: support_candidates.append(bb_low)
+    support_level = max(support_candidates) if support_candidates else price * 0.97
     
-    support_level = max(support_candidates) if support_candidates else price * 0.95
-    
-    # Resistance
     resistance_level = bb_up if (bb_up and not pd.isna(bb_up)) else price * 1.05
     
-    # --- Dynamic Stop Loss ---
-    buy_zone_min = support_level
-    buy_zone_max = support_level * 1.015
-    entry_price = int((buy_zone_min + buy_zone_max) / 2)
+    # Long Entry
+    long_entry = int(support_level * 1.005)
+    long_tp = int(resistance_level)
     
-    # ATR Stop Loss
-    multiplier = 2.0
-    val_atr = atr if (atr and not pd.isna(atr)) else price * 0.02 # fallback ATR of 2%
-    atr_stop_loss = entry_price - (multiplier * val_atr)
+    val_atr = atr if (atr and not pd.isna(atr)) else price * 0.02
+    long_sl = int(long_entry - (2.0 * val_atr))
     
-    # Guardrail
-    sl_limit_pct = float(settings.get('stop_loss_limit', -5.0))
-    limit_stop_loss = entry_price * (1 + (sl_limit_pct / 100))
+    # --- 3. Strategy Levels (Short) ---
+    res_candidates = []
+    if sma25 and sma25 > price: res_candidates.append(sma25)
+    if bb_up and bb_up > price: res_candidates.append(bb_up)
+    res_level = min(res_candidates) if res_candidates else price * 1.03
     
-    # Selection
-    stop_loss = atr_stop_loss
-    sl_source = "ATR"
-    is_high_risk = False
-    
-    if atr_stop_loss < limit_stop_loss:
-        stop_loss = limit_stop_loss
-        sl_source = "Fixed Limit (-5%)"
-        is_high_risk = True
-    
-    target_price = resistance_level
-    
-    risk = entry_price - stop_loss
-    reward = target_price - entry_price
-    rr_ratio = reward / risk if risk > 0 else 0
-    
-    strategy_msg = ""
-    action_msg = ""
-    if trend_score >= 1:
-        strategy_msg = "🐂 押し目買い戦略"
-        action_msg = f"上昇トレンド継続中。**¥{entry_price:,}円付近**でエントリーを検討してください。"
-    elif trend_score <= -1:
-        strategy_msg = "🐻 戻り売り/様子見"
-        action_msg = "下落トレンド中。無理なエントリーは控え、底打ちシグナルを待つべきです。"
-    else:
-        strategy_msg = "⚖️ レンジ戦略"
-        action_msg = f"方向感が乏しい展開。**¥{entry_price:,}円付近**まで待ってからエントリーを検討。"
-    
-    if is_high_risk:
-        action_msg += f"\n\n⚠️ **リスク警告**: ボラティリティが非常に高いため、通常の損切り設定({sl_limit_pct}%)を優先しました。リスク許容度に注意してください。"
+    short_entry = int(res_level * 0.995)
+    short_tp = int(bb_low if (bb_low and not pd.isna(bb_low)) else price * 0.95)
+    short_sl = int(short_entry + (2.0 * val_atr))
 
     # --- Volume Spike ---
     volume_spike_data = detect_volume_spike(df)
@@ -235,18 +200,22 @@ def calculate_trading_strategy(df, settings=None):
     return {
         'trend_desc': trend_desc,
         'trend_score': trend_score,
-        'action_msg': action_msg,
-        'target_price': int(target_price),
-        'stop_loss': int(stop_loss),
-        'entry_price': entry_price,
-        'strategy_msg': strategy_msg,
-        'risk_reward': float(rr_ratio),
-        'sl_source': sl_source,
-        'is_high_risk': is_high_risk,
-        'atr_value': float(val_atr),
+        'long': {
+            'entry_price': long_entry,
+            'target_price': long_tp,
+            'stop_loss': long_sl,
+            'label': "買いシナリオ"
+        },
+        'short': {
+            'entry_price': short_entry,
+            'target_price': short_tp,
+            'stop_loss': short_sl,
+            'label': "空売りシナリオ"
+        },
         'volume_spike': bool(volume_spike_data['is_spike']),
         'volume_ratio': float(volume_spike_data['ratio'])
     }
+
 
 def detect_volume_spike(df, window=20, threshold=2.0):
     """

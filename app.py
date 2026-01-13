@@ -459,7 +459,7 @@ def render_home(params):
                                      <li><span style="color: #FFFF00;">■</span> <strong>SMA短期 (5日)</strong> / <span style="color: #FF00FF;">■</span> <strong>SMA中期 (25日)</strong> / <span style="color: #00E676;">■</span> <strong>SMA長期 (75日)</strong></li>
                                      <li><span style="color: rgba(255, 165, 0, 0.8);">■</span> <strong>ボリンジャーバンド (±2σ)</strong>: 統計的な価格変動範囲。</li>
                                      <li><span style="color: #BA68C8;">●</span> <strong>パラボリックSAR</strong>: トレンド転換点を示唆するドット。</li>
-                                     <li><span style="color: #00ffbd;">▲</span> <strong>ENTRY / TP / SL</strong>: AIが算出・推奨する戦略的価格レベル。</li>
+                                     <li><span style="color: #00ffbd;">実線/破線</span> 🟢 <strong>買い戦略</strong> / 🔴 <strong>売り戦略</strong>: AIが算出した各シナリオのエントリー・目標・損切ライン。</li>
                                  </ul>
                              </div>
                              """, unsafe_allow_html=True)
@@ -524,34 +524,41 @@ def render_home(params):
                     if action_plan:
                         st.markdown("#### 🎯 戦略アクションプラン")
                         
-                        # Use a 3-column minimalist layout with theme colors
-                        c_entry, c_target, c_stop = st.columns(3)
-                        
-                        def price_card(label, price, color, subtext=""):
-                            # Handle None case safely
-                            display_price = 0
-                            if price is not None:
-                                try:
-                                    display_price = float(price)
-                                except:
-                                    display_price = 0
-                                    
-                            return f"""
-                            <div style="background: {color}15; border-left: 5px solid {color}; padding: 12px; border-radius: 8px; border: 1px solid {color}33;">
-                                <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 3px;">{label}</div>
-                                <div style="font-size: 1.4rem; font-weight: 800; color: {color}; line-height: 1;">¥{display_price:,.0f}</div>
-                                <div style="font-size: 0.7rem; color: #64748b; margin-top: 5px;">{subtext}</div>
-                            </div>
-                            """
+                        def price_card_group(label, scenario_data, theme_color, bg_icon):
+                            st.markdown(f"**{bg_icon} {label}**")
+                            c_entry, c_target, c_stop = st.columns(3)
+                            
+                            def price_card(l, p, color, subtext=""):
+                                display_price = 0
+                                if p is not None:
+                                    try: display_price = float(p)
+                                    except: display_price = 0
+                                return f"""
+                                <div style="background: {color}15; border-left: 5px solid {color}; padding: 12px; border-radius: 8px; border: 1px solid {color}33;">
+                                    <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 3px;">{l}</div>
+                                    <div style="font-size: 1.4rem; font-weight: 800; color: {color}; line-height: 1;">¥{display_price:,.0f}</div>
+                                    <div style="font-size: 0.7rem; color: #64748b; margin-top: 5px;">{subtext}</div>
+                                </div>
+                                """
+                            
+                            with c_entry:
+                                st.markdown(price_card("エントリー", scenario_data.get('entry', 0), theme_color, "目安価格"), unsafe_allow_html=True)
+                            with c_target:
+                                st.markdown(price_card("利確目標", scenario_data.get('target', 0), "#fbbf24", "ターゲット"), unsafe_allow_html=True)
+                            with c_stop:
+                                st.markdown(price_card("損切り", scenario_data.get('stop', 0), "#f43f5e", "撤退ライン"), unsafe_allow_html=True)
+                            
+                            st.caption(f"💡 **指針**: {scenario_data.get('action', 'N/A')} - _{scenario_data.get('rationale', '')}_")
 
-                        with c_entry:
-                            st.markdown(price_card("エントリー目安", action_plan.get('buy_limit', 0), "#10b981", "想定買付価格"), unsafe_allow_html=True)
-                        with c_target:
-                            st.markdown(price_card("利確ターゲット", action_plan.get('sell_limit', 0), "#fbbf24", "目標利益"), unsafe_allow_html=True)
-                        with c_stop:
-                            st.markdown(price_card("損切りライン", action_plan.get('stop_loss', 0), "#f43f5e", "リスク許容限界"), unsafe_allow_html=True)
+                        # Display Long Scenario
+                        if 'long' in action_plan:
+                            price_card_group("買いシナリオ (Long)", action_plan['long'], "#10b981", "🟢")
                         
-                        st.info(f"💡 **推奨アクション**: {action_plan.get('recommended_action', 'N/A')}\n\n_{action_plan.get('rationale', '')}_")
+                        st.divider()
+                        
+                        # Display Short Scenario
+                        if 'short' in action_plan:
+                            price_card_group("空売りシナリオ (Short)", action_plan['short'], "#f43f5e", "🔴")
 
                     # 3. AI Reasoning (Expert Committee Results)
                     st.divider()
