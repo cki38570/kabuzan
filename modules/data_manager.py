@@ -169,19 +169,30 @@ class DataManager:
             
             try:
                 df = ticker.history(period=period, interval=interval)
+                if df.empty:
+                    print(f"yfinance returned empty DataFrame for {ticker_code}")
             except Exception as e:
-                 print(f"yfinance history fetch failed: {e}")
+                 print(f"yfinance history fetch failed for {ticker_code}: {e}")
                  df = pd.DataFrame()
 
             if df.empty:
+                print(f"Cannot fetch data for {ticker_code} - both FMP and yfinance failed or returned empty data")
                 return pd.DataFrame(), {}
-                
+            
+            # Initialize info to avoid NameError
+            info = {}
+            sector = '不明'
+            industry = '不明'
+            
             try:
                 info = ticker.info
                 current_price = info.get('currentPrice') or info.get('regularMarketPrice') or df['Close'].iloc[-1]
                 name = info.get('longName', ticker_code)
+                sector = info.get('sector', '不明')
+                industry = info.get('industry', '不明')
             except Exception as e:
                 # Rate Limited handling: Use data we have if possible
+                print(f"Failed to get ticker info for {ticker_code}: {e}")
                 if not df.empty:
                     current_price = df['Close'].iloc[-1]
                     name = f"{ticker_code} (Price Only)"
@@ -196,16 +207,17 @@ class DataManager:
                 change = 0.0
                 change_percent = 0.0
                 
-            # Store in internal info cache for subsequent financial data calls
-            self._info_cache[ticker_code] = info
+            # Store in internal info cache for subsequent financial data calls (only if we got valid info)
+            if info:
+                self._info_cache[ticker_code] = info
             
             meta = {
                 'current_price': current_price,
                 'change': change,
                 'change_percent': change_percent,
                 'name': name,
-                'sector': info.get('sector', '不明'),
-                'industry': info.get('industry', '不明'),
+                'sector': sector,
+                'industry': industry,
                 'source': 'yfinance',
                 'status': 'fresh'
             }
