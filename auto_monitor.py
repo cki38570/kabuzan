@@ -5,7 +5,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 try:
-    from modules.notifications import send_daily_report
+    from modules.notifications import send_daily_report, process_morning_notifications
     from modules.line import send_line_message
     from modules.storage import storage
 except ImportError as e:
@@ -31,8 +31,16 @@ def main():
         import streamlit as st
         # --- MOCK STREAMLIT UI FUNCTIONS FOR HEADLESS MODE ---
         if not hasattr(st, 'session_state'):
-            st.session_state = {}
-        st.session_state['notify_line'] = True 
+            class MockSessionState(dict):
+                def __getattr__(self, key):
+                    try:
+                        return self[key]
+                    except KeyError:
+                        raise AttributeError(key)
+                def __setattr__(self, key, value):
+                    self[key] = value
+            st.session_state = MockSessionState()
+        st.session_state.notify_line = True 
         
         class MockSpinner:
             def __init__(self, text): self.text = text
